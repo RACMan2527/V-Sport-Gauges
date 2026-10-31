@@ -10,9 +10,23 @@
     android:paddingBottom="1dp"
     android:background="@drawable/bg_engine_load_frame">
 
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/loadBarLeftGuide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.10" />
+
+    <androidx.constraintlayout.widget.Guideline
+        android:id="@+id/loadBarRightGuide"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        app:layout_constraintGuide_percent="0.90" />
+
     <TextView
         android:id="@+id/loadBarTitle"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:text="PID 0104"
         android:textColor="#FFFFFF"
@@ -20,18 +34,37 @@
         android:letterSpacing="0.12"
         android:fontFamily="sans-serif-condensed"
         android:includeFontPadding="false"
+        android:gravity="center"
+        android:maxLines="1"
+        android:ellipsize="end"
         app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toStartOf="@id/loadBarLeftGuide"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
 
     <com.aatorque.stats.EngineLoadBarView
         android:id="@+id/engineLoadGauge"
         android:layout_width="0dp"
-        android:layout_height="21dp"
-        android:layout_marginStart="10dp"
-        android:layout_marginBottom="4dp"
-        app:layout_constraintStart_toEndOf="@id/loadBarTitle"
+        android:layout_height="23dp"
+        app:layout_constraintStart_toStartOf="@id/loadBarLeftGuide"
+        app:layout_constraintEnd_toStartOf="@id/loadBarRightGuide"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent" />
+
+    <TextView
+        android:id="@+id/engineLoadValue"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="--"
+        android:textColor="#FFFFFF"
+        android:textSize="22sp"
+        android:fontFamily="sans-serif-condensed"
+        android:includeFontPadding="false"
+        android:gravity="center"
+        android:maxLines="1"
+        app:layout_constraintStart_toEndOf="@id/loadBarRightGuide"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintBottom_toBottomOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>
