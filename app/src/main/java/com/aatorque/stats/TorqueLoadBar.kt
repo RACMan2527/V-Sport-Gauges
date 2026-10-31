@@ -14,7 +14,6 @@ import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.TextView
 import androidx.fragment.app.Fragment
-import java.util.Locale
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -225,10 +224,6 @@ class EngineLoadBarView @JvmOverloads constructor(
     }
 
     private fun formatTick(value: Float): String {
-        return if (value.isFinite() && value == value.roundToInt().toFloat()) {
-            value.roundToInt().toString()
-        } else {
-            String.format(Locale.US, "%.1f", value)
-        }
+        return if (value.isFinite()) value.roundToInt().toString() else "--"
     }
 }
