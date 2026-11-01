@@ -302,7 +302,7 @@
                     android:layout_height="32dp"
                     android:layout="@layout/fragment_load_bar"
                     android:elevation="3dp"
-                    android:translationY="-8dp"
+                    android:translationY="-6dp"
                     android:visibility="@{!showChart ? View.VISIBLE : View.GONE}"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
