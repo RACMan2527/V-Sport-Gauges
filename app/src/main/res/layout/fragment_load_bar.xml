@@ -46,7 +46,7 @@
         android:id="@+id/engineLoadGauge"
         android:layout_width="0dp"
         android:layout_height="23dp"
-        android:translationY="-3dp"
+        android:translationY="-1dp"
         app:layout_constraintStart_toStartOf="@id/loadBarLeftGuide"
         app:layout_constraintEnd_toStartOf="@id/loadBarRightGuide"
         app:layout_constraintTop_toTopOf="parent"
