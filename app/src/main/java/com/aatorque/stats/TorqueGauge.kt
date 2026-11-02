@@ -5,7 +5,6 @@ import android.content.res.Configuration
 import android.content.res.Resources.NotFoundException
 import android.graphics.Color
 import android.graphics.Typeface
-import android.util.Base64
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -215,7 +214,6 @@ class TorqueGauge : Fragment() {
         binding.visible = data.pid != null
 
 
-        data.notifyUpdate = this::onUpdate
         val iconDrawableName = data.getDrawableName() ?: "ic_none"
         val iconText = if (data.display.showLabel) data.display.label else ""
 
@@ -255,18 +253,34 @@ class TorqueGauge : Fragment() {
         turnRaysEnabled(data.display.highVisActive)
         turnWholeNumbers(data.display.wholeNumbers)
         allTimePeakEnabled = data.display.allTimePeakActive
-        allTimePeakKey = makeAllTimePeakKey(data.display)
+        allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let(AllTimePeakStore::key)
         mAllTime.visibility = View.INVISIBLE
         if (allTimePeakEnabled) {
-            val savedPeak = requireContext().getSharedPreferences("all_time_peaks", Context.MODE_PRIVATE)
-                .getString(allTimePeakKey, null)?.toDoubleOrNull()
-            if (savedPeak != null && savedPeak.isFinite()) {
+            val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
+                ?.let { AllTimePeakStore.get(requireContext(), it) }
+            if (savedPeak != null) {
                 mAllTime.setSpeedAt(savedPeak.toFloat())
                 mAllTime.visibility = View.VISIBLE
             }
         }
 
         alarmObserver.bind(viewLifecycleOwner, data.currentAlarm)
+        // Register last: TorqueData invokes this callback immediately and may already hold a reading.
+        data.notifyUpdate = this::onUpdate
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!::binding.isInitialized || !allTimePeakEnabled) return
+        val key = allTimePeakKey ?: return
+        val peak = requireContext().getSharedPreferences("all_time_peaks", Context.MODE_PRIVATE)
+            .getString(key, null)?.toDoubleOrNull()
+        if (peak != null && peak.isFinite()) {
+            mAllTime.setSpeedAt(peak.toFloat())
+            mAllTime.visibility = View.VISIBLE
+        } else {
+            mAllTime.visibility = View.INVISIBLE
+        }
     }
 
     private fun setMinMax(minspeed: Int, maxspeed: Int) {
@@ -290,29 +304,17 @@ class TorqueGauge : Fragment() {
         }
     }
 
-    private fun makeAllTimePeakKey(display: com.aatorque.datastore.Display): String {
-        val identity = listOf(
-            display.pid,
-            display.unit,
-            display.enableScript.toString(),
-            if (display.enableScript) display.customScript else ""
-        ).joinToString("|")
-        val encoded = Base64.encodeToString(
-            identity.toByteArray(Charsets.UTF_8),
-            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
-        )
-        return "peak_$encoded"
-    }
-
     private fun onUpdate(data: TorqueData) {
         val fVal = data.lastData.toFloat()
         if (data.lastData.isFinite()) {
             val key = allTimePeakKey
             if (key != null) {
-                val prefs = requireContext().getSharedPreferences("all_time_peaks", Context.MODE_PRIVATE)
-                val previous = prefs.getString(key, null)?.toDoubleOrNull()
-                if (previous == null || !previous.isFinite() || data.lastData > previous) {
-                    prefs.edit().putString(key, data.lastData.toString()).apply()
+                val previous = data.display.pid.takeIf { it.isNotBlank() }
+                    ?.let { AllTimePeakStore.get(requireContext(), it) }
+                if (previous == null || data.lastData > previous) {
+                    data.display.pid.takeIf { it.isNotBlank() }?.let {
+                        AllTimePeakStore.set(requireContext(), it, data.lastData)
+                    }
                     if (allTimePeakEnabled) {
                         mAllTime.setSpeedAt(data.lastData.toFloat())
                         mAllTime.visibility = View.VISIBLE
