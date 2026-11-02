@@ -257,7 +257,7 @@ class TorqueGauge : Fragment() {
         mAllTime.visibility = View.INVISIBLE
         if (allTimePeakEnabled) {
             val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
-                ?.let { AllTimePeakStore.get(requireContext(), it) }
+                ?.let { AllTimePeakStore.get(requireContext(), data.display) }
             if (savedPeak != null) {
                 mAllTime.setSpeedAt(savedPeak.toFloat())
                 mAllTime.visibility = View.VISIBLE
