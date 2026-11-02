@@ -150,6 +150,7 @@
                 app:layout_constraintTop_toBottomOf="@+id/textTitle"
                 app:speedTextTypeface="@{font}"
                 app:sv_speedTextSize="36dp"
+                app:sv_textSize="14sp"
                 app:sv_textColor="@android:color/white"
                 app:sv_unit=""
                 app:sv_unitSpeedInterval="5dp"
