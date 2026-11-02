@@ -5,6 +5,7 @@ import android.content.res.Configuration
 import android.content.res.Resources.NotFoundException
 import android.graphics.Color
 import android.graphics.Typeface
+import android.util.Base64
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -43,6 +44,12 @@ class TorqueGauge : Fragment() {
         get() {
             return binding.dialMax
         }
+    private val mAllTime: Speedometer
+        get() {
+            return binding.dialAllTime
+        }
+    private var allTimePeakEnabled = false
+    private var allTimePeakKey: String? = null
     lateinit var settingsViewModel: SettingsViewModel
 
     private var rayOn = false
@@ -84,6 +91,10 @@ class TorqueGauge : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         mMax.indicator = TriangleIndicator(requireContext())
         mMax.indicator.color = requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedNeedleColor)).getColor(0, Color.RED)
+        mAllTime.indicator = TriangleIndicator(requireContext())
+        mAllTime.indicator.color = Color.WHITE
+        mAllTime.clearSections()
+        mAllTime.addSections(Section(0f, 1f, android.R.color.transparent))
         mMax.clearSections()
         mMax.addSections(
             Section(
@@ -235,6 +246,7 @@ class TorqueGauge : Fragment() {
         setMinMax(data.display.minValue, data.display.maxValue)
         mClock.setSpeedAt(mClock.minSpeed)
         mMax.setSpeedAt(mMax.minSpeed)
+        mAllTime.setSpeedAt(mAllTime.minSpeed)
         mRayClock.setSpeedAt(mRayClock.minSpeed)
         binding.limitValue = "-"
         turnTickEnabled(data.display.ticksActive)
@@ -242,6 +254,17 @@ class TorqueGauge : Fragment() {
         turnMinMaxTextViewsEnabled(data.display.maxValuesActive)
         turnRaysEnabled(data.display.highVisActive)
         turnWholeNumbers(data.display.wholeNumbers)
+        allTimePeakEnabled = data.display.allTimePeakActive
+        allTimePeakKey = makeAllTimePeakKey(data.display)
+        mAllTime.visibility = View.INVISIBLE
+        if (allTimePeakEnabled) {
+            val savedPeak = requireContext().getSharedPreferences("all_time_peaks", Context.MODE_PRIVATE)
+                .getString(allTimePeakKey, null)?.toDoubleOrNull()
+            if (savedPeak != null && savedPeak.isFinite()) {
+                mAllTime.setSpeedAt(savedPeak.toFloat())
+                mAllTime.visibility = View.VISIBLE
+            }
+        }
 
         alarmObserver.bind(viewLifecycleOwner, data.currentAlarm)
     }
@@ -267,8 +290,35 @@ class TorqueGauge : Fragment() {
         }
     }
 
+    private fun makeAllTimePeakKey(display: com.aatorque.datastore.Display): String {
+        val identity = listOf(
+            display.pid,
+            display.unit,
+            display.enableScript.toString(),
+            if (display.enableScript) display.customScript else ""
+        ).joinToString("|")
+        val encoded = Base64.encodeToString(
+            identity.toByteArray(Charsets.UTF_8),
+            Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING
+        )
+        return "peak_$encoded"
+    }
+
     private fun onUpdate(data: TorqueData) {
         val fVal = data.lastData.toFloat()
+        if (allTimePeakEnabled && data.lastData.isFinite()) {
+            val key = allTimePeakKey
+            if (key != null) {
+                val prefs = requireContext().getSharedPreferences("all_time_peaks", Context.MODE_PRIVATE)
+                val previous = prefs.getString(key, null)?.toDoubleOrNull()
+                val peak = maxOf(previous?.takeIf { it.isFinite() } ?: Double.NEGATIVE_INFINITY, data.lastData)
+                if (peak.isFinite()) {
+                    prefs.edit().putString(key, peak.toString()).apply()
+                    mAllTime.setSpeedAt(peak.toFloat())
+                    mAllTime.visibility = View.VISIBLE
+                }
+            }
+        }
         mClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         mRayClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         if (data.display.maxMarksActive == MaxControl.MAX && data.maxValue.isFinite()) {
