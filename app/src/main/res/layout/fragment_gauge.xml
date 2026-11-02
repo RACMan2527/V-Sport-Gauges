@@ -205,6 +205,21 @@
                 app:sv_withIndicatorLight="false"
                 app:sv_withTremble="false" />
 
+            <TextView
+                android:id="@+id/textAllTimePeak"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
+                android:elevation="12dp"
+                android:gravity="center"
+                android:textColor="@android:color/white"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:layout_constraintBottom_toBottomOf="@+id/dial"
+                app:layout_constraintEnd_toEndOf="@+id/dial"
+                app:layout_constraintStart_toStartOf="@+id/dial" />
+
             <com.github.anastr.speedviewlib.RaySpeedometer
                 android:id="@+id/ray"
                 android:layout_width="0dp"
