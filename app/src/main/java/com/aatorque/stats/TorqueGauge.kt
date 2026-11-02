@@ -253,7 +253,7 @@ class TorqueGauge : Fragment() {
         turnRaysEnabled(data.display.highVisActive)
         turnWholeNumbers(data.display.wholeNumbers)
         allTimePeakEnabled = data.display.allTimePeakActive
-        allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let(AllTimePeakStore::key)
+        allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
         mAllTime.visibility = View.INVISIBLE
         if (allTimePeakEnabled) {
             val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
