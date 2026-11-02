@@ -1,7 +1,6 @@
 package com.aatorque.prefs
 
 import android.content.ComponentName
-import android.app.AlertDialog
 import android.content.ServiceConnection
 import android.graphics.Color
 import android.os.Bundle
@@ -57,7 +56,6 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
     lateinit var maxMarksActivePref: ListPreference
     lateinit var allTimePeakActivePref: CheckBoxPreference
     lateinit var allTimePeakValuePref: EditTextPreference
-    lateinit var allTimePeakResetPref: Preference
     lateinit var highVisActivePref: CheckBoxPreference
     lateinit var colorPref: ColorPreference
 
@@ -115,7 +113,6 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         maxMarksActivePref = findPreference("maxMarksActive")!!
         allTimePeakActivePref = findPreference("allTimePeakActive")!!
         allTimePeakValuePref = findPreference("allTimePeakValue")!!
-        allTimePeakResetPref = findPreference("allTimePeakReset")!!
         highVisActivePref = findPreference("highVisActive")!!
         colorPref = findPreference("chartColor")!!
         findPreference<Preference>("indicatorColor")!!.extras.putCharSequence("prefix", prefix)
@@ -162,23 +159,6 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 true
             }
         }
-        allTimePeakResetPref.setOnPreferenceClickListener {
-            val selectedPid = pidPref.value ?: display.pid
-            if (selectedPid.isNotBlank()) {
-                AlertDialog.Builder(requireContext())
-                    .setTitle("Reset all-time peak?")
-                    .setMessage("This clears the saved peak for $selectedPid. The next valid reading will establish a new peak.")
-                    .setNegativeButton(android.R.string.cancel, null)
-                    .setPositiveButton("Reset") { _, _ ->
-                        AllTimePeakStore.reset(requireContext(), selectedPid)
-                        allTimePeakValuePref.text = ""
-                        allTimePeakValuePref.summary = "No peak recorded for this PID"
-                    }
-                    .show()
-            }
-            true
-        }
-
         pidPref.setOnPreferenceChangeListener { _, newValue ->
             if (newValue == "") {
                 enableItems(false)
@@ -262,7 +242,6 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
             else AllTimePeakStore.get(requireContext(), pid)
         } else null
         allTimePeakValuePref.isEnabled = pid.isNotBlank()
-        allTimePeakResetPref.isEnabled = pid.isNotBlank()
         allTimePeakValuePref.text = savedPeak?.toString() ?: ""
         allTimePeakValuePref.summary = if (savedPeak != null) {
             "Saved peak: $savedPeak ${unitPref.text ?: ""}".trim()
