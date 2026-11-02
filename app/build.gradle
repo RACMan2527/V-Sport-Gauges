@@ -37,6 +37,22 @@ android {
     applicationVariants.configureEach {
         buildConfigField "String", "RELEASE_URL", "\"https://api.github.com/repos/${ghOwner}/${ghPackage}/releases/latest\""
     }
+    def releaseSigningConfigured = System.getenv("ANDROID_KEYSTORE_PATH") &&
+            System.getenv("ANDROID_KEYSTORE_PASSWORD") &&
+            System.getenv("ANDROID_KEY_ALIAS") &&
+            System.getenv("ANDROID_KEY_PASSWORD")
+
+    if (releaseSigningConfigured) {
+        signingConfigs {
+            release {
+                storeFile file(System.getenv("ANDROID_KEYSTORE_PATH"))
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         debug {
             // Use the production application identity for the installable debug build.
@@ -44,7 +60,19 @@ android {
         release {
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
-            signingConfig signingConfigs.debug
+            if (releaseSigningConfigured) {
+                signingConfig signingConfigs.release
+            }
+        }
+    }
+
+    tasks.configureEach { task ->
+        if (task.name == "assembleRelease") {
+            doFirst {
+                if (!releaseSigningConfigured) {
+                    throw new GradleException("Release signing secrets are missing. Configure the four ANDROID_* GitHub Actions secrets before building a release APK.")
+                }
+            }
         }
     }
     buildFeatures {
