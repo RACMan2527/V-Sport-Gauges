@@ -31,7 +31,7 @@ android {
             useSupportLibrary true
         }
         buildConfigField "boolean", "SIMULATE_METRICS", "false"
-        resValue "string", "app_version", "${defaultConfig.versionName}"
+        resValue "string", "app_version", "${versionMajor}.${versionMinor}.${versionPatch}"
         resourceConfigurations += ['en', 'cs', 'de', 'el', 'es', 'fr', 'fr-rCA', 'it', 'nl', 'pl', 'pt', 'pt-rBR', 'ru', 'sl', 'uk', 'zh-rHK']
     }
     applicationVariants.configureEach {
