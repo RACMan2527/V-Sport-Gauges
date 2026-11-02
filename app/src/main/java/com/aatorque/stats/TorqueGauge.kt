@@ -6,6 +6,8 @@ import android.content.res.Resources.NotFoundException
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -47,6 +49,8 @@ class TorqueGauge : Fragment() {
         get() {
             return binding.dialAllTime
         }
+    private val peakLabelHandler = Handler(Looper.getMainLooper())
+    private var hidePeakLabelRunnable: Runnable? = null
     private var allTimePeakEnabled = false
     private var allTimePeakKey: String? = null
     lateinit var settingsViewModel: SettingsViewModel
@@ -254,21 +258,41 @@ class TorqueGauge : Fragment() {
         turnMinMaxTextViewsEnabled(data.display.maxValuesActive)
         turnRaysEnabled(data.display.highVisActive)
         turnWholeNumbers(data.display.wholeNumbers)
+        hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
+        hidePeakLabelRunnable = null
+        binding.textAllTimePeak.visibility = View.GONE
         allTimePeakEnabled = data.display.allTimePeakActive
         allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
         mAllTime.visibility = View.INVISIBLE
         if (allTimePeakEnabled) {
             val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
                 ?.let { AllTimePeakStore.get(requireContext(), data.display) }
-            if (savedPeak != null) {
+            if (savedPeak != null && savedPeak.isFinite()) {
                 mAllTime.setSpeedAt(savedPeak.toFloat())
                 mAllTime.visibility = View.VISIBLE
+                val formatter = if (data.display.wholeNumbers) TorqueData.intPlaces else TorqueData.twoPlaces
+                binding.textAllTimePeak.text = "PEAK: ${formatter.format(savedPeak)}"
+                binding.textAllTimePeak.visibility = View.VISIBLE
+                val hideLabel = Runnable {
+                    if (::binding.isInitialized) {
+                        binding.textAllTimePeak.visibility = View.GONE
+                    }
+                    hidePeakLabelRunnable = null
+                }
+                hidePeakLabelRunnable = hideLabel
+                peakLabelHandler.postDelayed(hideLabel, 3_000L)
             }
         }
 
         alarmObserver.bind(viewLifecycleOwner, data.currentAlarm)
         // Register last: TorqueData invokes this callback immediately and may already hold a reading.
         data.notifyUpdate = this::onUpdate
+    }
+
+    override fun onDestroyView() {
+        hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
+        hidePeakLabelRunnable = null
+        super.onDestroyView()
     }
 
     override fun onResume() {
