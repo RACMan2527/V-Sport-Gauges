@@ -306,7 +306,7 @@ class TorqueGauge : Fragment() {
 
     private fun onUpdate(data: TorqueData) {
         val fVal = data.lastData.toFloat()
-        if (data.lastData.isFinite()) {
+        if (data.hasReceivedReading && data.lastData.isFinite()) {
             val key = allTimePeakKey
             if (key != null) {
                 val previous = data.display.pid.takeIf { it.isNotBlank() }
