@@ -147,5 +147,18 @@
             android:title="Show all-time peak marker"
             android:summary="Display a white triangle at this gauge's highest recorded reading"
             android:persistent="false" />
+        <EditTextPreference
+            android:key="allTimePeakValue"
+            android:title="All-time peak value"
+            android:summary="View or set the saved peak for this PID"
+            android:dependency="pidList"
+            android:inputType="numberDecimal|numberSigned"
+            android:persistent="false" />
+        <Preference
+            android:key="allTimePeakReset"
+            android:title="Reset all-time peak"
+            android:summary="Clear the saved peak for this PID"
+            android:dependency="pidList"
+            android:persistent="false" />
     </PreferenceCategory>
 </PreferenceScreen>
