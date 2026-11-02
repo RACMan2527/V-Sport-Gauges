@@ -31,16 +31,16 @@ jobs:
             ~/.gradle/wrapper
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/*.gradle.kts', 'gradle/wrapper/gradle-wrapper.properties') }}
 
-      - name: Build installable APK
+      - name: Build installable release APK
         run: |
           echo "" >> ./local.properties
-          ./gradlew assembleDebug
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/outputs/apk/debug/v-sport-gauges-3.2.1.apk
+          ./gradlew assembleRelease
+          cp app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/v-sport-gauges-3.2.1.apk
 
-      - name: Upload installable APK
+      - name: Upload installable release APK
         uses: actions/upload-artifact@v4
         with:
           name: v-sport-gauges-3.2.1-apk
-          path: app/build/outputs/apk/debug/v-sport-gauges-3.2.1.apk
+          path: app/build/outputs/apk/release/v-sport-gauges-3.2.1.apk
           if-no-files-found: error
           retention-days: 14
