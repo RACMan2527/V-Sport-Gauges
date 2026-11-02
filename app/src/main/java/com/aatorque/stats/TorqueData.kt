@@ -38,6 +38,7 @@ class TorqueData(var display: Display) {
     private var expression: Expression? = null
     var lastDataStr: String = "-"
     var refreshTimer: ScheduledFuture<*>? = null
+    var lastPidUpdateTime: Long = Long.MIN_VALUE
     var hasReceivedNonZero = false
     var hasReceivedReading = false
     var allowInitialZeroUpdates = false
@@ -54,11 +55,9 @@ class TorqueData(var display: Display) {
             val converted = convertValue(value)
             field = converted.first
             lastDataStr = converted.second
-            if (field > maxValue) {
-                maxValue = field
-            }
-            if (field < minValue) {
-                minValue = field
+            if (field.isFinite() && converted.second != "Error") {
+                if (field > maxValue) maxValue = field
+                if (field < minValue) minValue = field
             }
             updateAlarm(field)
         }
