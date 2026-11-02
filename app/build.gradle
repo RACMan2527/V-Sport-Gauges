@@ -38,10 +38,10 @@ android {
     }
     buildTypes {
         debug {
-            // Install side-by-side with production V-Sport Gauges.
-            applicationIdSuffix ".test"
-            versionNameSuffix ".test"
-            resValue "string", "app_name", "V-Sport Gauges TEST"
+            // Unique package so this feature build coexists with the master TEST APK.
+            applicationIdSuffix ".peaktest"
+            versionNameSuffix ".peaktest"
+            resValue "string", "app_name", "V-Sport Gauges PEAK TEST"
             resValue "string", "app_version",
                     "${defaultConfig.versionName}${versionNameSuffix}"
             // This test build must read live OBD data, not simulated metrics.
