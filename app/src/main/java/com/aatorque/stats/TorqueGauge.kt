@@ -242,6 +242,8 @@ class TorqueGauge : Fragment() {
 
         binding.icon = drawable
         setMinMax(data.display.minValue, data.display.maxValue)
+        // Apply the new gauge range before restoring saved values, or setSpeedAt() may clamp them to the previous range.
+        binding.executePendingBindings()
         mClock.setSpeedAt(mClock.minSpeed)
         mMax.setSpeedAt(mMax.minSpeed)
         mAllTime.setSpeedAt(mAllTime.minSpeed)
