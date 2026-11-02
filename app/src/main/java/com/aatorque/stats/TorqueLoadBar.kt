@@ -201,7 +201,8 @@ class EngineLoadBarView @JvmOverloads constructor(
         // Draw ticks after the active fill so the tick marks sit visibly on top
         // of the red portion, as well as on the unfilled track.
         val tickTop = h * 0.12f
-        val tickBottom = h * 0.76f
+        // Major ticks stop at the bar midpoint, clear of the labels below.
+        val tickBottom = h * 0.50f
         val labelY = minOf(h - 2f * density, h * 0.94f)
         // Four short minor ticks divide each interval between the six primary ticks.
         val minorTickTop = h * 0.28f
