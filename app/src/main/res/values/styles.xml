@@ -222,7 +222,7 @@
         <item name="sv_indicatorColor">@color/aqua</item>
         <item name="themedStopWatchBackground">@drawable/dial_background_audi4</item>
         <item name="themedNeedleColor">@color/red</item>
-        <item name="sv_tickPadding">5dp</item>
+        <item name="sv_tickPadding">1dp</item>
         <item name="sv_tickRotation">false</item>
     </style>
 

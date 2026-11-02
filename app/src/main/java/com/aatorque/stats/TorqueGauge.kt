@@ -6,6 +6,8 @@ import android.content.res.Resources.NotFoundException
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -43,6 +45,14 @@ class TorqueGauge : Fragment() {
         get() {
             return binding.dialMax
         }
+    private val mAllTime: Speedometer
+        get() {
+            return binding.dialAllTime
+        }
+    private val peakLabelHandler = Handler(Looper.getMainLooper())
+    private var hidePeakLabelRunnable: Runnable? = null
+    private var allTimePeakEnabled = false
+    private var allTimePeakKey: String? = null
     lateinit var settingsViewModel: SettingsViewModel
 
     private var rayOn = false
@@ -84,6 +94,10 @@ class TorqueGauge : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         mMax.indicator = TriangleIndicator(requireContext())
         mMax.indicator.color = requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedNeedleColor)).getColor(0, Color.RED)
+        mAllTime.indicator = TriangleIndicator(requireContext())
+        mAllTime.indicator.color = Color.WHITE
+        mAllTime.clearSections()
+        mAllTime.addSections(Section(0f, 1f, android.R.color.transparent))
         mMax.clearSections()
         mMax.addSections(
             Section(
@@ -204,7 +218,6 @@ class TorqueGauge : Fragment() {
         binding.visible = data.pid != null
 
 
-        data.notifyUpdate = this::onUpdate
         val iconDrawableName = data.getDrawableName() ?: "ic_none"
         val iconText = if (data.display.showLabel) data.display.label else ""
 
@@ -233,8 +246,11 @@ class TorqueGauge : Fragment() {
 
         binding.icon = drawable
         setMinMax(data.display.minValue, data.display.maxValue)
+        // Apply the new gauge range before restoring saved values, or setSpeedAt() may clamp them to the previous range.
+        binding.executePendingBindings()
         mClock.setSpeedAt(mClock.minSpeed)
         mMax.setSpeedAt(mMax.minSpeed)
+        mAllTime.setSpeedAt(mAllTime.minSpeed)
         mRayClock.setSpeedAt(mRayClock.minSpeed)
         binding.limitValue = "-"
         turnTickEnabled(data.display.ticksActive)
@@ -242,8 +258,55 @@ class TorqueGauge : Fragment() {
         turnMinMaxTextViewsEnabled(data.display.maxValuesActive)
         turnRaysEnabled(data.display.highVisActive)
         turnWholeNumbers(data.display.wholeNumbers)
+        hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
+        hidePeakLabelRunnable = null
+        binding.textAllTimePeak.visibility = View.GONE
+        allTimePeakEnabled = data.display.allTimePeakActive
+        allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
+        mAllTime.visibility = View.INVISIBLE
+        if (allTimePeakEnabled) {
+            val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
+                ?.let { AllTimePeakStore.get(requireContext(), data.display) }
+            if (savedPeak != null && savedPeak.isFinite()) {
+                mAllTime.setSpeedAt(savedPeak.toFloat())
+                mAllTime.visibility = View.VISIBLE
+                val formatter = if (data.display.wholeNumbers) TorqueData.intPlaces else TorqueData.twoPlaces
+                binding.textAllTimePeak.text = "PEAK: ${formatter.format(savedPeak)}"
+                binding.textAllTimePeak.visibility = View.VISIBLE
+                val hideLabel = Runnable {
+                    if (::binding.isInitialized) {
+                        binding.textAllTimePeak.visibility = View.GONE
+                    }
+                    hidePeakLabelRunnable = null
+                }
+                hidePeakLabelRunnable = hideLabel
+                peakLabelHandler.postDelayed(hideLabel, 3_000L)
+            }
+        }
 
         alarmObserver.bind(viewLifecycleOwner, data.currentAlarm)
+        // Register last: TorqueData invokes this callback immediately and may already hold a reading.
+        data.notifyUpdate = this::onUpdate
+    }
+
+    override fun onDestroyView() {
+        hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
+        hidePeakLabelRunnable = null
+        super.onDestroyView()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (!::binding.isInitialized || !allTimePeakEnabled) return
+        val key = allTimePeakKey ?: return
+        val peak = requireContext().getSharedPreferences("all_time_peaks", Context.MODE_PRIVATE)
+            .getString(key, null)?.toDoubleOrNull()
+        if (peak != null && peak.isFinite()) {
+            mAllTime.setSpeedAt(peak.toFloat())
+            mAllTime.visibility = View.VISIBLE
+        } else {
+            mAllTime.visibility = View.INVISIBLE
+        }
     }
 
     private fun setMinMax(minspeed: Int, maxspeed: Int) {
@@ -269,6 +332,22 @@ class TorqueGauge : Fragment() {
 
     private fun onUpdate(data: TorqueData) {
         val fVal = data.lastData.toFloat()
+        if (data.hasReceivedReading && data.lastData.isFinite()) {
+            val key = allTimePeakKey
+            if (key != null) {
+                val previous = data.display.pid.takeIf { it.isNotBlank() }
+                    ?.let { AllTimePeakStore.get(requireContext(), it) }
+                if (previous == null || data.lastData > previous) {
+                    data.display.pid.takeIf { it.isNotBlank() }?.let {
+                        AllTimePeakStore.set(requireContext(), it, data.lastData)
+                    }
+                    if (allTimePeakEnabled) {
+                        mAllTime.setSpeedAt(data.lastData.toFloat())
+                        mAllTime.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
         mClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         mRayClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         if (data.display.maxMarksActive == MaxControl.MAX && data.maxValue.isFinite()) {

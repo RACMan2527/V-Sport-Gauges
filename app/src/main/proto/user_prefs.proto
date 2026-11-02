@@ -49,6 +49,7 @@ message Display {
   repeated Coloring alarms = 26;
   optional double horizontalMinValue = 27;
   optional double horizontalMaxValue = 28;
+  bool allTimePeakActive = 29;
 }
 
 message Screen {

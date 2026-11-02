@@ -18,6 +18,7 @@ import com.aatorque.datastore.Display
 import com.aatorque.datastore.MaxControl
 import com.aatorque.datastore.Screen
 import com.aatorque.stats.R
+import com.aatorque.stats.AllTimePeakStore
 import com.aatorque.stats.TorqueServiceWrapper
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -53,6 +54,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
     lateinit var ticksActivePref: CheckBoxPreference
     lateinit var maxValuesActivePref: ListPreference
     lateinit var maxMarksActivePref: ListPreference
+    lateinit var allTimePeakActivePref: CheckBoxPreference
+    lateinit var allTimePeakValuePref: EditTextPreference
     lateinit var highVisActivePref: CheckBoxPreference
     lateinit var colorPref: ColorPreference
 
@@ -108,6 +111,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         ticksActivePref = findPreference("ticksActive")!!
         maxValuesActivePref = findPreference("maxValuesActive")!!
         maxMarksActivePref = findPreference("maxMarksActive")!!
+        allTimePeakActivePref = findPreference("allTimePeakActive")!!
+        allTimePeakValuePref = findPreference("allTimePeakValue")!!
         highVisActivePref = findPreference("highVisActive")!!
         colorPref = findPreference("chartColor")!!
         findPreference<Preference>("indicatorColor")!!.extras.putCharSequence("prefix", prefix)
@@ -138,9 +143,26 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         maxValuesActivePref.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
         maxMarksActivePref.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
 
+        allTimePeakValuePref.setOnBindEditTextListener {
+            it.inputType = InputType.TYPE_CLASS_NUMBER or
+                InputType.TYPE_NUMBER_FLAG_DECIMAL or InputType.TYPE_NUMBER_FLAG_SIGNED
+        }
+        allTimePeakValuePref.setOnPreferenceChangeListener { _, newValue ->
+            val entered = (newValue as? String)?.trim()?.toDoubleOrNull()
+            val selectedPid = pidPref.value ?: display.pid
+            if (entered == null || !entered.isFinite() || selectedPid.isBlank()) {
+                android.widget.Toast.makeText(requireContext(), "Enter a valid finite number", android.widget.Toast.LENGTH_SHORT).show()
+                false
+            } else {
+                AllTimePeakStore.set(requireContext(), selectedPid, entered)
+                allTimePeakValuePref.summary = "Saved peak: $entered ${unitPref.text ?: ""}".trim()
+                true
+            }
+        }
         pidPref.setOnPreferenceChangeListener { _, newValue ->
             if (newValue == "") {
                 enableItems(false)
+                refreshAllTimePeakPreference("")
             } else {
                 val pidOnly = (newValue as String).substring("torque_".length)
                 torqueService!!.pids!!.firstOrNull {
@@ -158,6 +180,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                     unitPref.text = entryVal.second[2]
                 }
                 enableItems(true)
+                refreshAllTimePeakPreference(newValue as String)
             }
             return@setOnPreferenceChangeListener true
         }
@@ -190,6 +213,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 ticksActivePref.isChecked = display.ticksActive
                 maxValuesActivePref.value = display.maxValuesActive.number.toString()
                 maxMarksActivePref.value = display.maxMarksActive.number.toString()
+                allTimePeakActivePref.isChecked = display.allTimePeakActive
+                refreshAllTimePeakPreference(display.pid, display)
                 highVisActivePref.isChecked = display.highVisActive
                 colorPref.colorValue = display.chartColor.let {
                     if (!isClock) {
@@ -210,6 +235,20 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         }
     }
 
+
+    private fun refreshAllTimePeakPreference(pid: String, legacyDisplay: Display? = null) {
+        val savedPeak = if (pid.isNotBlank()) {
+            if (legacyDisplay?.pid == pid) AllTimePeakStore.get(requireContext(), legacyDisplay)
+            else AllTimePeakStore.get(requireContext(), pid)
+        } else null
+        allTimePeakValuePref.isEnabled = pid.isNotBlank()
+        allTimePeakValuePref.text = savedPeak?.toString() ?: ""
+        allTimePeakValuePref.summary = if (savedPeak != null) {
+            "Saved peak: $savedPeak ${unitPref.text ?: ""}".trim()
+        } else {
+            "No peak recorded for this PID"
+        }
+    }
 
     fun enableItems(enabled: Boolean) {
         unitPref.isEnabled = enabled
@@ -272,6 +311,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
             MaxControl.forNumber(maxValuesActivePref.value.toInt())
         ).setHighVisActive(
             highVisActivePref.isChecked
+        ).setAllTimePeakActive(
+            allTimePeakActivePref.isChecked
         ).setChartColor(
             colorPref.colorValue
         )
