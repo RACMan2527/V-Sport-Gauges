@@ -154,11 +154,5 @@
             android:dependency="pidList"
             android:inputType="numberDecimal|numberSigned"
             android:persistent="false" />
-        <Preference
-            android:key="allTimePeakReset"
-            android:title="Reset all-time peak"
-            android:summary="Clear the saved peak for this PID"
-            android:dependency="pidList"
-            android:persistent="false" />
     </PreferenceCategory>
 </PreferenceScreen>
