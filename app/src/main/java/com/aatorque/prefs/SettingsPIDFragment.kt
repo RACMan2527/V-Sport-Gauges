@@ -234,7 +234,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 maxValuesActivePref.value = display.maxValuesActive.number.toString()
                 maxMarksActivePref.value = display.maxMarksActive.number.toString()
                 allTimePeakActivePref.isChecked = display.allTimePeakActive
-                refreshAllTimePeakPreference(display.pid)
+                refreshAllTimePeakPreference(display.pid, display)
                 highVisActivePref.isChecked = display.highVisActive
                 colorPref.colorValue = display.chartColor.let {
                     if (!isClock) {
@@ -256,8 +256,11 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
     }
 
 
-    private fun refreshAllTimePeakPreference(pid: String) {
-        val savedPeak = if (pid.isNotBlank()) AllTimePeakStore.get(requireContext(), pid) else null
+    private fun refreshAllTimePeakPreference(pid: String, legacyDisplay: Display? = null) {
+        val savedPeak = if (pid.isNotBlank()) {
+            if (legacyDisplay?.pid == pid) AllTimePeakStore.get(requireContext(), legacyDisplay)
+            else AllTimePeakStore.get(requireContext(), pid)
+        } else null
         allTimePeakValuePref.isEnabled = pid.isNotBlank()
         allTimePeakResetPref.isEnabled = pid.isNotBlank()
         allTimePeakValuePref.text = savedPeak?.toString() ?: ""
