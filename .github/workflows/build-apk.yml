@@ -5,6 +5,7 @@ on:
     branches:
       - feature/engine-load-progressive-bar
       - feature/sample-screening-all-time-peak
+      - master
   workflow_dispatch:
 
 jobs:
