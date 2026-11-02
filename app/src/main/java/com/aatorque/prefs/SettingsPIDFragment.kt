@@ -53,6 +53,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
     lateinit var ticksActivePref: CheckBoxPreference
     lateinit var maxValuesActivePref: ListPreference
     lateinit var maxMarksActivePref: ListPreference
+    lateinit var allTimePeakActivePref: CheckBoxPreference
     lateinit var highVisActivePref: CheckBoxPreference
     lateinit var colorPref: ColorPreference
 
@@ -108,6 +109,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         ticksActivePref = findPreference("ticksActive")!!
         maxValuesActivePref = findPreference("maxValuesActive")!!
         maxMarksActivePref = findPreference("maxMarksActive")!!
+        allTimePeakActivePref = findPreference("allTimePeakActive")!!
         highVisActivePref = findPreference("highVisActive")!!
         colorPref = findPreference("chartColor")!!
         findPreference<Preference>("indicatorColor")!!.extras.putCharSequence("prefix", prefix)
@@ -190,6 +192,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 ticksActivePref.isChecked = display.ticksActive
                 maxValuesActivePref.value = display.maxValuesActive.number.toString()
                 maxMarksActivePref.value = display.maxMarksActive.number.toString()
+                allTimePeakActivePref.isChecked = display.allTimePeakActive
                 highVisActivePref.isChecked = display.highVisActive
                 colorPref.colorValue = display.chartColor.let {
                     if (!isClock) {
@@ -272,6 +275,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
             MaxControl.forNumber(maxValuesActivePref.value.toInt())
         ).setHighVisActive(
             highVisActivePref.isChecked
+        ).setAllTimePeakActive(
+            allTimePeakActivePref.isChecked
         ).setChartColor(
             colorPref.colorValue
         )
