@@ -38,7 +38,6 @@ class TorqueData(var display: Display) {
     private var expression: Expression? = null
     var lastDataStr: String = "-"
     var refreshTimer: ScheduledFuture<*>? = null
-    var lastPidUpdateTime: Long = Long.MIN_VALUE
     var hasReceivedNonZero = false
     var hasReceivedReading = false
     var allowInitialZeroUpdates = false
