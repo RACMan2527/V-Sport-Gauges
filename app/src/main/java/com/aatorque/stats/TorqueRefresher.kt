@@ -22,9 +22,9 @@ class TorqueRefresher {
     private var conWatcher = MutableStateFlow(ConnectStatus.CONNECTING_TORQUE)
     val connectStatus = conWatcher.asSharedFlow()
     val cache = mutableMapOf<Int, HashMap<Int, TorqueData>>()
-    private var scheduledRefreshInterval: Long? = null
-
     companion object {
+        const val SAMPLE_INTERVAL = 200L
+
         @Volatile
         var REFRESH_INTERVAL = 300L
     }
@@ -47,19 +47,11 @@ class TorqueRefresher {
 
     suspend fun makeExecutors(service: TorqueService) {
         var foundValid = false
-        val refreshInterval = REFRESH_INTERVAL.coerceAtLeast(1L)
 
-        // A changed preference must also change already-created PID schedules.
-        // Cancel the old timers so sampling and the bar animation use one interval.
-        if (scheduledRefreshInterval != null && scheduledRefreshInterval != refreshInterval) {
-            data.values.forEach { torqueData ->
-                torqueData.stopRefreshing()
-            }
-        }
-        scheduledRefreshInterval = refreshInterval
-
+        // PID acquisition remains fixed at 200 ms. REFRESH_INTERVAL is the
+        // user-controlled gauge animation duration, not the sampling period.
         data.values.forEachIndexed { index, torqueData ->
-            val refreshOffset = (refreshInterval / data.size) * index
+            val refreshOffset = (SAMPLE_INTERVAL / data.size) * index
             if (torqueData.pid != null) {
                 foundValid = true
                 if (torqueData.refreshTimer == null) {
@@ -71,7 +63,7 @@ class TorqueRefresher {
                         } catch (e: Exception) {
                             Timber.e("Refresh failed in pos $index", e)
                         }
-                    }, refreshOffset, refreshInterval, TimeUnit.MILLISECONDS)
+                    }, refreshOffset, SAMPLE_INTERVAL, TimeUnit.MILLISECONDS)
                 }
             } else {
                 Timber.i("No reason to schedule item in position $index")
@@ -95,7 +87,9 @@ class TorqueRefresher {
                 Timber.e("Torque returned invalid data for ${torqueData.pid}")
                 return@runIfConnected
             }
-            torqueData.lastData = value
+            if (!torqueData.updateReading(value)) {
+                return@runIfConnected
+            }
             torqueData.hasReceivedReading = true
             Timber.d("Got valid $value from torque for ${torqueData.display.label}")
             if (value != 0.0) {
