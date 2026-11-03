@@ -61,7 +61,8 @@ class TorqueData(var display: Display) {
         }
 
         val converted = convertValue(value)
-        if (!converted.first.isFinite() || converted.second == "Error") {
+        if (!converted.first.isFinite() || !converted.first.toFloat().isFinite() ||
+            converted.second == "Error") {
             Timber.w("Rejected invalid converted PID reading $value for ${display.label}")
             return false
         }
