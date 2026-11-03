@@ -25,7 +25,6 @@ class TorqueRefresher {
     private var scheduledRefreshInterval: Long? = null
 
     companion object {
-        const val SAMPLE_INTERVAL = 200L
         @Volatile
         var REFRESH_INTERVAL = 300L
     }
@@ -48,10 +47,10 @@ class TorqueRefresher {
 
     suspend fun makeExecutors(service: TorqueService) {
         var foundValid = false
-        val refreshInterval = SAMPLE_INTERVAL
+        val refreshInterval = REFRESH_INTERVAL.coerceAtLeast(1L)
 
-        // PID acquisition uses a fixed 200 ms target. The preference controls
-        // gauge animation duration independently.
+        // A changed preference must also change already-created PID schedules.
+        // Cancel the old timers so sampling and the bar animation use one interval.
         if (scheduledRefreshInterval != null && scheduledRefreshInterval != refreshInterval) {
             data.values.forEach { torqueData ->
                 torqueData.stopRefreshing()
@@ -90,24 +89,13 @@ class TorqueRefresher {
 
     fun doRefresh(service: TorqueService, torqueData: TorqueData) {
         service.runIfConnected { ts ->
-            val pid = torqueData.pid ?: return@runIfConnected
-            val updateTime = try {
-                ts.getPIDUpdateTime(arrayOf(pid)).firstOrNull() ?: return@runIfConnected
-            } catch (e: Exception) {
-                return@runIfConnected
-            }
-            if (updateTime <= 0L || updateTime == torqueData.lastPidUpdateTime) {
-                return@runIfConnected
-            }
             val value = try {
-                ts.getPIDValuesAsDouble(arrayOf(pid)).firstOrNull() ?: return@runIfConnected
-            } catch (e: Exception) {
+                ts.getPIDValuesAsDouble(arrayOf(torqueData.pid!!))[0]
+            } catch (e: ArrayIndexOutOfBoundsException) {
+                Timber.e("Torque returned invalid data for ${torqueData.pid}")
                 return@runIfConnected
             }
-            if (!value.isFinite()) return@runIfConnected
-            torqueData.lastPidUpdateTime = updateTime
             torqueData.lastData = value
-            if (torqueData.lastDataStr == "Error") return@runIfConnected
             torqueData.hasReceivedReading = true
             Timber.d("Got valid $value from torque for ${torqueData.display.label}")
             if (value != 0.0) {
