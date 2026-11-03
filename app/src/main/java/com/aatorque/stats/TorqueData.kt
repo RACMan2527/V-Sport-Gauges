@@ -50,16 +50,29 @@ class TorqueData(var display: Display) {
         }
 
     var lastData: Double = 0.0
-        set(value) {
-            val converted = convertValue(value)
-            field = converted.first
-            lastDataStr = converted.second
-            if (field.isFinite() && converted.second != "Error") {
-                if (field > maxValue) maxValue = field
-                if (field < minValue) minValue = field
-            }
-            updateAlarm(field)
+        private set
+
+    // Accept only finite raw and converted readings. Rejected samples leave the
+    // last valid display value, min/max, and alarm state unchanged.
+    fun updateReading(value: Double): Boolean {
+        if (!value.isFinite()) {
+            Timber.w("Rejected non-finite PID reading $value for ${display.label}")
+            return false
         }
+
+        val converted = convertValue(value)
+        if (!converted.first.isFinite() || converted.second == "Error") {
+            Timber.w("Rejected invalid converted PID reading $value for ${display.label}")
+            return false
+        }
+
+        lastData = converted.first
+        lastDataStr = converted.second
+        if (lastData > maxValue) maxValue = lastData
+        if (lastData < minValue) minValue = lastData
+        updateAlarm(lastData)
+        return true
+    }
 
     private fun updateAlarm(field: Double) {
         if (!hasReceivedNonZero) {
