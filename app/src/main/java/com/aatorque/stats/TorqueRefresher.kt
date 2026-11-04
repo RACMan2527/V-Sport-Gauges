@@ -35,6 +35,9 @@ class TorqueRefresher {
     private val calibrationRequested = AtomicBoolean(false)
     val calibrationResults = MutableStateFlow<PidCalibrationSummary?>(null)
     @Volatile private var pollingEnabled = false
+    @Volatile private var calibrationPolling = false
+    @Volatile private var calibrationGeneration = 0
+    val calibrationLiveMs = MutableStateFlow<Long?>(null)
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
@@ -68,12 +71,19 @@ class TorqueRefresher {
         const val KEY_MANUAL_OVERRIDE = "manual_override"
         const val KEY_RESULTS_DISMISSED = "calibration_results_dismissed"
         const val KEY_ACTIVE_PID_COUNT = "active_pid_count"
+        const val KEY_QUALIFIED_PID_COUNT = "qualified_pid_count"
+        const val KEY_EXCLUDED_PID_COUNT = "excluded_pid_count"
 
         @Volatile
         var SAMPLE_INTERVAL = DEFAULT_SAMPLE_INTERVAL
 
         @Volatile
         var REFRESH_INTERVAL = 300L
+    }
+
+    fun onDashboardChanged() {
+        calibrationGeneration++
+        calibrationLiveMs.value = null
     }
 
     fun populateQuery(pos: Int, screen: Int, query: Display): TorqueData {
@@ -99,7 +109,8 @@ class TorqueRefresher {
         // SAMPLE_INTERVAL is the persisted/calibrated PID polling period.
         // REFRESH_INTERVAL is the separate user-controlled gauge animation duration.
         data.values.forEachIndexed { index, torqueData ->
-            val refreshOffset = (SAMPLE_INTERVAL / data.size) * index
+            val period = if (calibrationPolling && PidPollingCalibration.isQualifiedEcuPid(torqueData.pid ?: "")) 100L else SAMPLE_INTERVAL
+            val refreshOffset = (period / data.size) * index
             if (torqueData.pid != null) {
                 foundValid = true
                 if (torqueData.refreshTimer == null) {
@@ -111,7 +122,7 @@ class TorqueRefresher {
                         } catch (e: Exception) {
                             Timber.e("Refresh failed in pos $index", e)
                         }
-                    }, refreshOffset, SAMPLE_INTERVAL, TimeUnit.MILLISECONDS)
+                    }, refreshOffset, period, TimeUnit.MILLISECONDS)
                 }
             } else {
                 Timber.i("No reason to schedule item in position $index")
@@ -134,51 +145,71 @@ class TorqueRefresher {
         if (prefs.getBoolean(KEY_CALIBRATED, false) ||
             prefs.getBoolean(KEY_MANUAL_OVERRIDE, false) ||
             !calibrationRequested.compareAndSet(false, true)) return
-
         val activePids = data.values.mapNotNull { it.pid }.distinct()
         if (activePids.isEmpty()) {
             calibrationRequested.set(false)
             return
         }
-
+        val generation = calibrationGeneration
         service.addConnectCallback { torque ->
             Thread({
-                var dashboardChangedDuringCalibration = false
+                fun active(): Boolean = pollingEnabled && generation == calibrationGeneration &&
+                    data.values.mapNotNull { it.pid }.distinct().sorted() == activePids.sorted()
                 try {
-                    Timber.i("Starting first-run PID polling calibration for ${activePids.size} active PIDs")
-                    val result = PidPollingCalibration.run(torque, activePids)
-                    val currentPids = data.values.mapNotNull { it.pid }.distinct()
-                    if (currentPids.sorted() != activePids.sorted()) {
-                        dashboardChangedDuringCalibration = true
-                        Timber.i("Discarding PID polling calibration because the active dashboard changed during measurement")
-                    } else if (result == null) {
-                        Timber.w("PID polling calibration did not produce enough fresh ECU samples; it will retry on a later dashboard start")
-                    } else {
+                    // Binding to Torque is not equivalent to a live ECU connection.
+                    // Wait for ECU and an advancing timestamp before the five-second delay.
+                    val qualified = activePids.filter(PidPollingCalibration::isQualifiedEcuPid)
+                    var lastTimestamp = 0L
+                    while (active()) {
+                        if (runCatching { torque.isConnectedToECU }.getOrDefault(false) && qualified.isNotEmpty()) {
+                            val times = runCatching { torque.getPIDUpdateTime(qualified.toTypedArray()) }.getOrNull()
+                            val latest = times?.maxOrNull() ?: 0L
+                            if (latest > 0L && lastTimestamp > 0L && latest > lastTimestamp) break
+                            lastTimestamp = latest
+                        } else lastTimestamp = 0L
+                        Thread.sleep(200L)
+                    }
+                    if (!active()) return@Thread
+                    val readyAt = System.currentTimeMillis()
+                    while (active() && System.currentTimeMillis() - readyAt < 5_000L) {
+                        if (!runCatching { torque.isConnectedToECU }.getOrDefault(false)) return@Thread
+                        Thread.sleep(100L)
+                    }
+                    if (!active()) return@Thread
+                    calibrationPolling = true
+                    data.values.forEach { it.stopRefreshing() }
+                    runBlocking { makeExecutors(service) }
+                    calibrationLiveMs.value = 100L
+                    val result = PidPollingCalibration.run(torque, activePids,
+                        { active() },
+                        { interval -> if (active()) calibrationLiveMs.value = interval })
+                    if (active() && result != null) {
                         PidPollingCalibration.save(context, result)
                         SAMPLE_INTERVAL = result.recommendedIntervalMs
-                        val prefsAfterCalibration = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-                        if (!prefsAfterCalibration.getBoolean(KEY_RESULTS_DISMISSED, false)) {
+                        if (!context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                                .getBoolean(KEY_RESULTS_DISMISSED, false)) {
                             calibrationResults.value = PidCalibrationSummary(
-                                measuredIntervalMs = result.measuredIntervalMs,
-                                recommendedIntervalMs = result.recommendedIntervalMs,
-                                readSpeed = result.readSpeed.toFloat(),
-                                adapterErrors = result.adapterErrors,
-                                sampleCount = result.sampleCount,
-                                activePidCount = result.activePidCount
-                            )
+                                result.measuredIntervalMs, result.recommendedIntervalMs,
+                                result.readSpeed.toFloat(), result.adapterErrors,
+                                result.sampleCount, result.activePidCount)
                         }
-                        Timber.i("PID polling calibration: measured=${result.measuredIntervalMs}ms, recommended=${result.recommendedIntervalMs}ms, readSpeed=${result.readSpeed}, adapterErrors=${result.adapterErrors}")
-
-                        if (pollingEnabled) {
-                            data.values.forEach { it.stopRefreshing() }
-                            runBlocking { makeExecutors(service) }
-                        }
+                        Timber.i("PID calibration complete: ${result.recommendedIntervalMs}ms; qualified=${result.qualifiedPidCount}; excluded=${result.excludedPidCount}")
+                    } else if (active()) {
+                        Timber.w("PID calibration failed: no qualifying fresh ECU timestamps")
                     }
+                } catch (e: InterruptedException) {
+                    Thread.currentThread().interrupt()
                 } catch (e: Exception) {
-                    Timber.e(e, "PID polling calibration failed")
+                    Timber.e(e, "PID calibration failed")
                 } finally {
+                    calibrationLiveMs.value = null
+                    calibrationPolling = false
+                    if (pollingEnabled) {
+                        data.values.forEach { it.stopRefreshing() }
+                        runBlocking { makeExecutors(service) }
+                    }
                     calibrationRequested.set(false)
-                    if (dashboardChangedDuringCalibration && pollingEnabled) {
+                    if (pollingEnabled && generation != calibrationGeneration) {
                         startCalibrationIfNeeded(service)
                     }
                 }
@@ -219,6 +250,8 @@ class TorqueRefresher {
 
     fun stopExecutors() {
         pollingEnabled = false
+        calibrationGeneration++
+        calibrationLiveMs.value = null
         Timber.i("Telling Torque refreshers to stop")
         for (td in data.values) {
             td.stopRefreshing()
