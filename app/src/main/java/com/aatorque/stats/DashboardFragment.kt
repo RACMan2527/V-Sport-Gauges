@@ -21,10 +21,15 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.os.Handler
+import android.os.Looper
+import android.widget.LinearLayout
+import android.widget.SeekBar
 import android.widget.ImageButton
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
+import androidx.appcompat.app.AlertDialog
 import androidx.core.view.InputDeviceCompat
 import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.ViewModelProvider
@@ -64,6 +69,7 @@ open class DashboardFragment : AlbumArt() {
     var gaugeViews = arrayOfNulls<FragmentContainerView>(3)
 
     private var screensAnimating = false
+    private val logoLongPressHandler = Handler(Looper.getMainLooper())
     private var dashboardTitle: String = ""
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
@@ -154,6 +160,7 @@ open class DashboardFragment : AlbumArt() {
                     }
                     return@collect
                 }
+                TorqueRefresher.REFRESH_INTERVAL = (if (it.refreshIntervalMs == 0) 300 else it.refreshIntervalMs).toLong()
                 val screenIndex = abs(it.currentScreen) % it.screensCount
                 val screens = it.screensList[screenIndex]
                 val showChartChanged = binding.showChart != it.showChart
@@ -296,6 +303,7 @@ open class DashboardFragment : AlbumArt() {
         mBtnNext.setOnClickListener { setScreen(1) }
         mBtnPrev.setOnClickListener  { setScreen(-1) }
         binding.chartBtn.setOnClickListener { toggleShowChart(binding.showChart != true)  }
+        configureRefreshIntervalLongPress()
         mTitleElement = binding.textTitle
         mWrapper = binding.includeWrap
         mConStatus = binding.conStatus
@@ -369,6 +377,73 @@ open class DashboardFragment : AlbumArt() {
     }
 
 
+    private fun configureRefreshIntervalLongPress() {
+        val badge = binding.cadillacVSeriesBadge
+        val longPressAction = Runnable { showRefreshIntervalSlider() }
+        badge.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    logoLongPressHandler.removeCallbacks(longPressAction)
+                    logoLongPressHandler.postDelayed(longPressAction, 3_000L)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> logoLongPressHandler.removeCallbacks(longPressAction)
+            }
+            true
+        }
+    }
+
+    private fun showRefreshIntervalSlider() {
+        if (!isAdded) return
+        val initialValue = TorqueRefresher.REFRESH_INTERVAL.toInt().coerceIn(50, 500)
+        val content = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            val padding = (24 * resources.displayMetrics.density).toInt()
+            setPadding(padding, padding / 2, padding, 0)
+        }
+        val valueLabel = TextView(requireContext()).apply {
+            text = "Gauge refresh: $initialValue ms"
+            textSize = 18f
+        }
+        val slider = SeekBar(requireContext()).apply {
+            max = 450
+            progress = initialValue - 50
+        }
+        content.addView(valueLabel)
+        content.addView(slider)
+        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                val value = 50 + progress
+                valueLabel.text = "Gauge refresh: $value ms"
+                TorqueRefresher.REFRESH_INTERVAL = value.toLong()
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+        val dialog = AlertDialog.Builder(requireContext())
+            .setTitle("Gauge Refresh Interval")
+            .setView(content)
+            .setPositiveButton("Save", null)
+            .setNegativeButton("Cancel", null)
+            .create()
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val value = 50 + slider.progress
+                lifecycleScope.launch {
+                    requireContext().dataStore.updateData { current ->
+                        current.toBuilder().setRefreshIntervalMs(value).build()
+                    }
+                }
+                TorqueRefresher.REFRESH_INTERVAL = value.toLong()
+                dialog.dismiss()
+            }
+            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
+                TorqueRefresher.REFRESH_INTERVAL = initialValue.toLong()
+                dialog.dismiss()
+            }
+        }
+        dialog.setOnCancelListener { TorqueRefresher.REFRESH_INTERVAL = initialValue.toLong() }
+        dialog.show()
+    }
     private fun setupConfiguredBar(screenIndex: Int, settings: UserPreference) {
         // The horizontal bar uses the same persisted Display configuration as
         // a round gauge. Only its renderer is different.
