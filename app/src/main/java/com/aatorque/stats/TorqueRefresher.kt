@@ -21,6 +21,7 @@ class TorqueRefresher {
     val data = HashMap<Int, TorqueData>()
     private val executor = ScheduledThreadPoolExecutor(7)
     val handler = Handler(Looper.getMainLooper())
+    @Volatile private var pollingEnabled = false
     private var activeService: TorqueService? = null
     private var conWatcher = MutableStateFlow(ConnectStatus.CONNECTING_TORQUE)
     val connectStatus = conWatcher.asSharedFlow()
@@ -82,7 +83,7 @@ class TorqueRefresher {
         activeService = service
         var foundValid = false
 
-        // SAMPLE_INTERVAL is the persisted/calibrated PID polling period.
+        // SAMPLE_INTERVAL is the persisted manual PID polling period.
         // REFRESH_INTERVAL is the separate user-controlled gauge animation duration.
         data.values.forEachIndexed { index, torqueData ->
             val period = SAMPLE_INTERVAL
