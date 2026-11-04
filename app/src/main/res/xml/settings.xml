@@ -73,29 +73,15 @@
     </PreferenceCategory>
 
     <PreferenceCategory android:title="PID polling">
-        <EditTextPreference
+        <SeekBarPreference
             android:key="pidPollingIntervalMs"
             android:title="PID polling interval (ms)"
-            android:summary="Automatically calibrated on first connection. You can edit this value."
-            android:inputType="number"
-            android:persistent="false" />
-        <Preference
-            android:key="pidPollingCalibrationInfo"
-            android:title="Last calibration results"
-            android:summary="No calibration completed yet" />
-        <Preference
-            android:key="recalibratePidPolling"
-            android:title="Run calibration again"
-            android:summary="Recalibrate on the next dashboard start and replace the automatic interval." />
-    </PreferenceCategory>
-
-    <PreferenceCategory android:title="Development / testing">
-        <CheckBoxPreference
-            android:key="simulateEcuData"
-            android:title="Simulate ECU data"
-            android:summary="Show simulated gauge readings when the app is not connected to an ECU. Values are not live vehicle data."
-            android:defaultValue="false"
-            android:persistent="false" />
+            android:summary="Lower values request PID readings more frequently"
+            android:defaultValue="200"
+            android:min="50"
+            android:max="500"
+            android:persistent="false"
+            app:showSeekBarValue="true" />
     </PreferenceCategory>
 
     <PreferenceCategory android:title="Horizontal bar">
