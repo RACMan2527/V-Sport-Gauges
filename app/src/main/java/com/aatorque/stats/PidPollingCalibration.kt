@@ -16,7 +16,8 @@ internal object PidPollingCalibration {
         val measuredIntervalMs: Long,
         val readSpeed: Double,
         val adapterErrors: Int,
-        val sampleCount: Int
+        val sampleCount: Int,
+        val activePidCount: Int
     )
 
     fun run(service: ITorqueService, pids: List<String>): Result? {
@@ -83,7 +84,8 @@ internal object PidPollingCalibration {
             measuredIntervalMs = measured,
             readSpeed = readSpeed,
             adapterErrors = errors,
-            sampleCount = intervals.values.sumOf { it.size }
+            sampleCount = intervals.values.sumOf { it.size },
+            activePidCount = pids.size
         )
     }
 
