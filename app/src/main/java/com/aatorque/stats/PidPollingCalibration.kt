@@ -18,6 +18,7 @@ internal object PidPollingCalibration {
         val adapterErrors: Int,
         val sampleCount: Int,
         val activePidCount: Int,
+        val ecuSampleCount: Int,
         val qualifiedPidCount: Int,
         val excludedPidCount: Int
     )
@@ -91,6 +92,7 @@ internal object PidPollingCalibration {
             adapterErrors = errors,
             sampleCount = intervals.values.sumOf { it.size },
             activePidCount = pids.size,
+            ecuSampleCount = qualifying.values.sumOf { it.size },
             qualifiedPidCount = qualifying.size,
             excludedPidCount = pids.size - qualifying.size
         )
@@ -124,6 +126,7 @@ internal object PidPollingCalibration {
             .putFloat(TorqueRefresher.KEY_READ_SPEED, result.readSpeed.toFloat())
             .putInt(TorqueRefresher.KEY_ADAPTER_ERRORS, result.adapterErrors)
             .putInt(TorqueRefresher.KEY_SAMPLE_COUNT, result.sampleCount)
+            .putInt(TorqueRefresher.KEY_ECU_SAMPLE_COUNT, result.ecuSampleCount)
             .putInt(TorqueRefresher.KEY_ACTIVE_PID_COUNT, result.activePidCount)
             .putInt(TorqueRefresher.KEY_QUALIFIED_PID_COUNT, result.qualifiedPidCount)
             .putInt(TorqueRefresher.KEY_EXCLUDED_PID_COUNT, result.excludedPidCount)
