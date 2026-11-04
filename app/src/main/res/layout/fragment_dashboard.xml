@@ -119,14 +119,24 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginStart="30dp"
-                android:format12Hour="h:mm a"
-                android:format24Hour="HH:mm"
+                android:format12Hour="h:mm"
+                android:format24Hour="H:mm"
                 android:textColor="@android:color/white"
                 android:textSize="24sp"
                 android:visibility="@{status == 0 ? View.VISIBLE : View.GONE}"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="@id/textTitle"
                  />
+
+            <com.aatorque.stats.TravelDirectionView
+                android:id="@+id/dashboardDirection"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@android:color/white"
+                android:textSize="24sp"
+                android:visibility="@{status == 0 ? View.VISIBLE : View.GONE}"
+                app:layout_constraintStart_toEndOf="@id/dashboardClock"
+                app:layout_constraintTop_toTopOf="@id/dashboardClock" />
 
             <ImageView
                 android:id="@+id/cadillacVSeriesBadge"
