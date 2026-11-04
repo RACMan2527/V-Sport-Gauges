@@ -272,8 +272,9 @@ open class DashboardFragment : AlbumArt() {
                     binding.calibrationMeasured = "${result.measuredIntervalMs} ms"
                     binding.calibrationRecommended = "${result.recommendedIntervalMs} ms"
                     binding.calibrationReadSpeed = if (result.readSpeed > 0f) String.format("%.1f", result.readSpeed) else "N/A"
-                    binding.calibrationPids = result.activePidCount.toString()
-                    binding.calibrationSamples = result.sampleCount.toString()
+                    binding.calibrationPids = result.qualifiedPidCount.toString()
+                    binding.calibrationExcluded = result.excludedPidCount.toString()
+                    binding.calibrationSamples = result.ecuSampleCount.toString()
                     binding.calibrationErrors = if (result.adapterErrors >= 0) result.adapterErrors.toString() else "N/A"
                     binding.calibrationResultsVisible = true
                     binding.title = "Calibration Results"
