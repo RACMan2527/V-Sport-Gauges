@@ -104,6 +104,7 @@ open class DashboardFragment : AlbumArt() {
         super.onCreate(savedInstanceState)
         settingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
         val context = requireContext()
+        torqueRefresher.initialize(context)
         torqueService.startTorque(context)
         val registerWithView = { call: suspend (Flow<UserPreference>) -> Unit ->
             lifecycleScope.launch {
