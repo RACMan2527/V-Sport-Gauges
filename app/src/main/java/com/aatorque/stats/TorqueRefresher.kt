@@ -14,6 +14,15 @@ import timber.log.Timber
 import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 
+data class PidCalibrationSummary(
+    val measuredIntervalMs: Long,
+    val recommendedIntervalMs: Long,
+    val readSpeed: Float,
+    val adapterErrors: Int,
+    val sampleCount: Int,
+    val activePidCount: Int
+)
+
 enum class ConnectStatus {
     CONNECTING_TORQUE, CONNECTING_ECU, CONNECTED, SETUP_GAUGE
 }
@@ -24,14 +33,24 @@ class TorqueRefresher {
     val handler = Handler(Looper.getMainLooper())
     private var appContext: Context? = null
     private val calibrationRequested = AtomicBoolean(false)
+    val calibrationResults = MutableStateFlow<PidCalibrationSummary?>(null)
     @Volatile private var pollingEnabled = false
 
     fun initialize(context: Context) {
         appContext = context.applicationContext
-        SAMPLE_INTERVAL = context.applicationContext
-            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getLong(KEY_INTERVAL_MS, DEFAULT_SAMPLE_INTERVAL)
-            .coerceIn(50L, 1_000L)
+        val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        SAMPLE_INTERVAL = prefs.getLong(KEY_INTERVAL_MS, DEFAULT_SAMPLE_INTERVAL).coerceIn(50L, 1_000L)
+        if (prefs.getBoolean(KEY_CALIBRATED, false) &&
+            !prefs.getBoolean(KEY_RESULTS_DISMISSED, false)) {
+            calibrationResults.value = PidCalibrationSummary(
+                measuredIntervalMs = prefs.getLong(KEY_MEASURED_INTERVAL_MS, 0L),
+                recommendedIntervalMs = SAMPLE_INTERVAL,
+                readSpeed = prefs.getFloat(KEY_READ_SPEED, 0f),
+                adapterErrors = prefs.getInt(KEY_ADAPTER_ERRORS, -1),
+                sampleCount = prefs.getInt(KEY_SAMPLE_COUNT, 0),
+                activePidCount = prefs.getInt(KEY_ACTIVE_PID_COUNT, 0)
+            )
+        }
     }
     private var conWatcher = MutableStateFlow(ConnectStatus.CONNECTING_TORQUE)
     val connectStatus = conWatcher.asSharedFlow()
@@ -47,6 +66,8 @@ class TorqueRefresher {
         const val KEY_CALIBRATED_AT = "calibrated_at"
         const val KEY_CALIBRATED = "calibrated"
         const val KEY_MANUAL_OVERRIDE = "manual_override"
+        const val KEY_RESULTS_DISMISSED = "calibration_results_dismissed"
+        const val KEY_ACTIVE_PID_COUNT = "active_pid_count"
 
         @Volatile
         var SAMPLE_INTERVAL = DEFAULT_SAMPLE_INTERVAL
@@ -135,6 +156,17 @@ class TorqueRefresher {
                     } else {
                         PidPollingCalibration.save(context, result)
                         SAMPLE_INTERVAL = result.recommendedIntervalMs
+                        val prefsAfterCalibration = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                        if (!prefsAfterCalibration.getBoolean(KEY_RESULTS_DISMISSED, false)) {
+                            calibrationResults.value = PidCalibrationSummary(
+                                measuredIntervalMs = result.measuredIntervalMs,
+                                recommendedIntervalMs = result.recommendedIntervalMs,
+                                readSpeed = result.readSpeed.toFloat(),
+                                adapterErrors = result.adapterErrors,
+                                sampleCount = result.sampleCount,
+                                activePidCount = result.activePidCount
+                            )
+                        }
                         Timber.i("PID polling calibration: measured=${result.measuredIntervalMs}ms, recommended=${result.recommendedIntervalMs}ms, readSpeed=${result.readSpeed}, adapterErrors=${result.adapterErrors}")
 
                         if (pollingEnabled) {
