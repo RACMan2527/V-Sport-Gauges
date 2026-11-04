@@ -15,6 +15,7 @@ import android.media.MediaMetadata
 import android.os.Build
 import android.os.Bundle
 import android.view.GestureDetector
+import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MotionEvent
@@ -321,6 +322,8 @@ open class DashboardFragment : AlbumArt() {
                         KeyEvent.KEYCODE_DPAD_CENTER -> toggleShowChart(binding.showChart != true)
                         KeyEvent.KEYCODE_DPAD_LEFT -> handleRotaryStep(-1)
                         KeyEvent.KEYCODE_DPAD_RIGHT -> handleRotaryStep(1)
+                        KeyEvent.KEYCODE_DPAD_UP -> handleRotaryStep(-1)
+                        KeyEvent.KEYCODE_DPAD_DOWN -> handleRotaryStep(1)
                         281 -> handleRotaryStep(1) // KEYCODE_ROTARY_VOLUME
                     }
                 }
@@ -538,7 +541,8 @@ open class DashboardFragment : AlbumArt() {
     fun configureRotaryInput() {
         rootView.setOnGenericMotionListener { _, ev ->
             if (ev.action == MotionEvent.ACTION_SCROLL &&
-                ev.isFromSource(InputDeviceCompat.SOURCE_MOUSE)
+                (ev.isFromSource(InputDeviceCompat.SOURCE_MOUSE) ||
+                    ev.isFromSource(InputDevice.SOURCE_ROTARY_ENCODER))
             ) {
                 val delta = ev.getAxisValue(MotionEvent.AXIS_VSCROLL)
                 handleRotaryStep(if (delta < 0) 1 else -1)
