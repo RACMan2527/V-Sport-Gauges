@@ -51,6 +51,7 @@ class TorqueGauge : Fragment() {
         }
     private val peakLabelHandler = Handler(Looper.getMainLooper())
     private var hidePeakLabelRunnable: Runnable? = null
+    private var keepNewPeakVisible = false
     private var allTimePeakEnabled = false
     private var allTimePeakKey: String? = null
     lateinit var settingsViewModel: SettingsViewModel
@@ -261,6 +262,7 @@ class TorqueGauge : Fragment() {
         hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
         hidePeakLabelRunnable = null
         binding.textAllTimePeak.visibility = View.GONE
+        keepNewPeakVisible = false
         allTimePeakEnabled = data.display.allTimePeakActive
         allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
         mAllTime.visibility = View.INVISIBLE
@@ -279,11 +281,12 @@ class TorqueGauge : Fragment() {
         data.notifyUpdate = this::onUpdate
     }
 
-    private fun showAllTimePeakLabel(value: Double, wholeNumbers: Boolean) {
+    private fun showAllTimePeakLabel(value: Double, wholeNumbers: Boolean, persistent: Boolean = false) {
         hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
         val formatter = if (wholeNumbers) TorqueData.intPlaces else TorqueData.twoPlaces
         binding.textAllTimePeak.text = "PEAK: ${formatter.format(value)}"
         binding.textAllTimePeak.visibility = View.VISIBLE
+        if (persistent) return
         val hideLabel = Runnable {
             if (::binding.isInitialized) {
                 binding.textAllTimePeak.visibility = View.GONE
@@ -297,6 +300,7 @@ class TorqueGauge : Fragment() {
     override fun onDestroyView() {
         hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
         hidePeakLabelRunnable = null
+        keepNewPeakVisible = false
         super.onDestroyView()
     }
 
@@ -349,7 +353,8 @@ class TorqueGauge : Fragment() {
                     if (allTimePeakEnabled) {
                         mAllTime.setSpeedAt(data.lastData.toFloat())
                         mAllTime.visibility = View.VISIBLE
-                        showAllTimePeakLabel(data.lastData, data.display.wholeNumbers)
+                        keepNewPeakVisible = true
+                        showAllTimePeakLabel(data.lastData, data.display.wholeNumbers, persistent = true)
                     }
                 }
             }
