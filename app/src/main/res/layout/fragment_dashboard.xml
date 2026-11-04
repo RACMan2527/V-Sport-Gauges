@@ -63,6 +63,14 @@
         <variable
             name="minMaxBelow"
             type="Boolean" />
+
+        <variable name="calibrationResultsVisible" type="Boolean" />
+        <variable name="calibrationMeasured" type="String" />
+        <variable name="calibrationRecommended" type="String" />
+        <variable name="calibrationReadSpeed" type="String" />
+        <variable name="calibrationPids" type="String" />
+        <variable name="calibrationSamples" type="String" />
+        <variable name="calibrationErrors" type="String" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -205,6 +213,7 @@
 
         <RelativeLayout
             android:id="@+id/include_wrap"
+            android:visibility="@{calibrationResultsVisible ? View.GONE : View.VISIBLE}"
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:elevation="1dp"
@@ -428,5 +437,167 @@
         </RelativeLayout>
 
 
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:id="@+id/calibrationResultsPanel"
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="@{calibrationResultsVisible ? View.VISIBLE : View.GONE}"
+            android:background="#E6101010"
+            android:elevation="5dp"
+            android:paddingStart="28dp"
+            android:paddingEnd="28dp"
+            app:layout_constraintTop_toBottomOf="@id/headers_wrap"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <LinearLayout
+                android:id="@+id/calibrationPrimaryTiles"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:weightSum="2"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toTopOf="@id/calibrationMetrics"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintVertical_bias="0.42">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="12dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="18dp"
+                    android:background="@color/transparentBlack">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="MEASURED ECU UPDATE"
+                        android:textAlignment="center"
+                        android:textColor="#BFC4C8"
+                        android:textSize="17sp"
+                        android:letterSpacing="0.08" />
+
+                    <TextView
+                        android:id="@+id/calibrationMeasuredValue"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@{calibrationMeasured}"
+                        android:textAlignment="center"
+                        android:textColor="@android:color/white"
+                        android:textSize="38sp"
+                        android:textStyle="bold"
+                        android:paddingTop="5dp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="12dp"
+                    android:orientation="vertical"
+                    android:gravity="center"
+                    android:padding="18dp"
+                    android:background="@color/transparentBlack">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="RECOMMENDED POLLING"
+                        android:textAlignment="center"
+                        android:textColor="#BFC4C8"
+                        android:textSize="17sp"
+                        android:letterSpacing="0.08" />
+
+                    <TextView
+                        android:id="@+id/calibrationRecommendedValue"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="@{calibrationRecommended}"
+                        android:textAlignment="center"
+                        android:textColor="@android:color/white"
+                        android:textSize="38sp"
+                        android:textStyle="bold"
+                        android:paddingTop="5dp" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="+10% HEADROOM"
+                        android:textAlignment="center"
+                        android:textColor="#D84A4A"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/calibrationMetrics"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center"
+                android:weightSum="4"
+                android:paddingTop="12dp"
+                android:paddingBottom="12dp"
+                app:layout_constraintBottom_toBottomOf="parent"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintEnd_toEndOf="parent">
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="PID READ SPEED" android:textColor="#AEB4B9" android:textSize="12sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@{calibrationReadSpeed}" android:textColor="@android:color/white" android:textSize="21sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="ACTIVE PIDs" android:textColor="#AEB4B9" android:textSize="12sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@{calibrationPids}" android:textColor="@android:color/white" android:textSize="21sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="FRESH SAMPLES" android:textColor="#AEB4B9" android:textSize="12sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@{calibrationSamples}" android:textColor="@android:color/white" android:textSize="21sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="ADAPTER ERRORS" android:textColor="#AEB4B9" android:textSize="12sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@{calibrationErrors}" android:textColor="@android:color/white" android:textSize="21sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </androidx.constraintlayout.widget.ConstraintLayout>
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
