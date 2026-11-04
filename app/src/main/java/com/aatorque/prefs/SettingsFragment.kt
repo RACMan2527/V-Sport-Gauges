@@ -374,13 +374,13 @@ class SettingsFragment : PreferenceFragmentCompat() {
             val excluded = pollingPrefs.getInt(TorqueRefresher.KEY_EXCLUDED_PID_COUNT, 0)
             val readSpeed = pollingPrefs.getFloat(TorqueRefresher.KEY_READ_SPEED, 0f)
             val errors = pollingPrefs.getInt(TorqueRefresher.KEY_ADAPTER_ERRORS, -1)
-            val samples = pollingPrefs.getInt(TorqueRefresher.KEY_SAMPLE_COUNT, 0)
+            val samples = pollingPrefs.getInt(TorqueRefresher.KEY_ECU_SAMPLE_COUNT, 0)
             val calibratedAt = pollingPrefs.getLong(TorqueRefresher.KEY_CALIBRATED_AT, 0L)
             val whenText = if (calibratedAt > 0L) {
                 java.text.DateFormat.getDateTimeInstance().format(java.util.Date(calibratedAt))
             } else "unknown"
             pollingCalibrationInfoPref.summary =
-                "Measured: ${measured} ms | Recommended: $recommended ms | ECU PIDs: $qualified | Excluded: $excluded | Read speed: ${"%.1f".format(readSpeed)} PIDs/s | Adapter errors: ${if (errors >= 0) errors else "unavailable"} | Samples: $samples | $whenText"
+                "Measured: ${measured} ms | Recommended: $recommended ms | ECU PIDs: $qualified | Excluded: $excluded | Read speed: ${"%.1f".format(readSpeed)} PIDs/s | Adapter errors: ${if (errors >= 0) errors else "unavailable"} | ECU samples: $samples | $whenText"
         }
         updatePollingCalibrationSummary()
 
