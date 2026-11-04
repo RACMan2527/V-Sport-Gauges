@@ -298,7 +298,6 @@ class TorqueGauge : Fragment() {
     override fun onDestroyView() {
         hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
         hidePeakLabelRunnable = null
-        keepNewPeakVisible = false
         super.onDestroyView()
     }
 
