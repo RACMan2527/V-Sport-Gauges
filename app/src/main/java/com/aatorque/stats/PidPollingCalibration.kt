@@ -17,19 +17,22 @@ internal object PidPollingCalibration {
         val readSpeed: Double,
         val adapterErrors: Int,
         val sampleCount: Int,
-        val activePidCount: Int
+        val activePidCount: Int,
+        val qualifiedPidCount: Int,
+        val excludedPidCount: Int
     )
 
-    fun run(service: ITorqueService, pids: List<String>): Result? {
+    fun run(service: ITorqueService, pids: List<String>, isActive: () -> Boolean, onInterval: (Long) -> Unit): Result? {
         if (pids.isEmpty()) return null
 
         val intervals = pids.associateWith { mutableListOf<Long>() }
         val previous = HashMap<String, Long>()
         val startErrors = runCatching { service.dataErrorCount }.getOrDefault(-1)
         val startedAt = System.currentTimeMillis()
-        val durationMs = 8_000L
+        val durationMs = 15_000L
 
         while (System.currentTimeMillis() - startedAt < durationMs) {
+            if (!isActive() || !runCatching { service.isConnectedToECU }.getOrDefault(false)) return null
             val timestamps = try {
                 service.getPIDUpdateTime(pids.toTypedArray())
             } catch (e: Exception) {
@@ -47,6 +50,7 @@ internal object PidPollingCalibration {
                 val prior = previous[pid]
                 if (current > 0L && prior != null && current > prior) {
                     intervals[pid]?.add(current - prior)
+                    if (isQualifiedEcuPid(pid)) onInterval(current - prior)
                 }
                 if (current > 0L) previous[pid] = current
             }
@@ -59,21 +63,22 @@ internal object PidPollingCalibration {
             }
         }
 
-        // Require at least four fresh intervals for every active PID. A PID that
-        // did not update enough during calibration must not be silently ignored.
-        if (intervals.values.any { it.size < 4 }) {
-            Timber.w("PID polling calibration did not receive enough fresh updates for every active PID")
+        // Only known direct ECU requests determine the global polling period.
+        // Unknown and calculated PIDs remain monitored but cannot slow ECU polling.
+        val qualifying = intervals.filter { (pid, samples) ->
+            isQualifiedEcuPid(pid) && samples.size >= 4
+        }
+        if (qualifying.isEmpty()) {
+            Timber.w("Calibration: no verified ECU PID supplied four fresh intervals. Samples: ${intervals.mapValues { it.value.size }}")
             return null
         }
-
-        val perPidP75 = intervals.values.map { samples ->
+        val perPidP75 = qualifying.values.map { samples ->
             val sorted = samples.sorted()
             val index = ceil((sorted.size - 1) * 0.75).toInt().coerceIn(0, sorted.lastIndex)
             sorted[index]
         }
         val measured = perPidP75.maxOrNull() ?: return null
         if (measured <= 0L) return null
-
         val recommended = ceil(measured * 1.10).toLong().coerceIn(50L, 1_000L)
         val readSpeed = runCatching { service.pidReadSpeed }.getOrDefault(0.0)
         val endErrors = runCatching { service.dataErrorCount }.getOrDefault(startErrors)
@@ -85,8 +90,17 @@ internal object PidPollingCalibration {
             readSpeed = readSpeed,
             adapterErrors = errors,
             sampleCount = intervals.values.sumOf { it.size },
-            activePidCount = pids.size
+            activePidCount = pids.size,
+            qualifiedPidCount = qualifying.size,
+            excludedPidCount = pids.size - qualifying.size
         )
+    }
+
+    // Conservative verified direct-ECU identifiers. Do not infer ECU origin from
+    // a Torque display name or from a custom virtual PID's timestamp.
+    fun isQualifiedEcuPid(pid: String): Boolean {
+        val id = pid.removePrefix("torque_").uppercase()
+        return id == "0104" || id == "22115C"
     }
 
     fun save(context: Context, result: Result) {
@@ -98,6 +112,8 @@ internal object PidPollingCalibration {
             .putInt(TorqueRefresher.KEY_ADAPTER_ERRORS, result.adapterErrors)
             .putInt(TorqueRefresher.KEY_SAMPLE_COUNT, result.sampleCount)
             .putInt(TorqueRefresher.KEY_ACTIVE_PID_COUNT, result.activePidCount)
+            .putInt(TorqueRefresher.KEY_QUALIFIED_PID_COUNT, result.qualifiedPidCount)
+            .putInt(TorqueRefresher.KEY_EXCLUDED_PID_COUNT, result.excludedPidCount)
             .putLong(TorqueRefresher.KEY_CALIBRATED_AT, System.currentTimeMillis())
             .putBoolean(TorqueRefresher.KEY_CALIBRATED, true)
             .apply()
