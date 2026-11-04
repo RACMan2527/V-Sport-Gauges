@@ -20,7 +20,10 @@ data class PidCalibrationSummary(
     val readSpeed: Float,
     val adapterErrors: Int,
     val sampleCount: Int,
-    val activePidCount: Int
+    val activePidCount: Int,
+    val qualifiedPidCount: Int,
+    val excludedPidCount: Int,
+    val ecuSampleCount: Int
 )
 
 enum class ConnectStatus {
@@ -51,7 +54,10 @@ class TorqueRefresher {
                 readSpeed = prefs.getFloat(KEY_READ_SPEED, 0f),
                 adapterErrors = prefs.getInt(KEY_ADAPTER_ERRORS, -1),
                 sampleCount = prefs.getInt(KEY_SAMPLE_COUNT, 0),
-                activePidCount = prefs.getInt(KEY_ACTIVE_PID_COUNT, 0)
+                activePidCount = prefs.getInt(KEY_ACTIVE_PID_COUNT, 0),
+                qualifiedPidCount = prefs.getInt(KEY_QUALIFIED_PID_COUNT, 0),
+                excludedPidCount = prefs.getInt(KEY_EXCLUDED_PID_COUNT, 0),
+                ecuSampleCount = prefs.getInt(KEY_ECU_SAMPLE_COUNT, 0)
             )
         }
     }
@@ -66,6 +72,7 @@ class TorqueRefresher {
         const val KEY_READ_SPEED = "read_speed"
         const val KEY_ADAPTER_ERRORS = "adapter_errors"
         const val KEY_SAMPLE_COUNT = "sample_count"
+        const val KEY_ECU_SAMPLE_COUNT = "ecu_sample_count"
         const val KEY_CALIBRATED_AT = "calibrated_at"
         const val KEY_CALIBRATED = "calibrated"
         const val KEY_MANUAL_OVERRIDE = "manual_override"
@@ -192,7 +199,9 @@ class TorqueRefresher {
                             calibrationResults.value = PidCalibrationSummary(
                                 result.measuredIntervalMs, result.recommendedIntervalMs,
                                 result.readSpeed.toFloat(), result.adapterErrors,
-                                result.sampleCount, result.activePidCount)
+                                result.sampleCount, result.activePidCount,
+                                result.qualifiedPidCount, result.excludedPidCount,
+                                result.ecuSampleCount)
                         }
                         Timber.i("PID calibration complete: ${result.recommendedIntervalMs}ms; qualified=${result.qualifiedPidCount}; excluded=${result.excludedPidCount}")
                     } else if (active()) {
