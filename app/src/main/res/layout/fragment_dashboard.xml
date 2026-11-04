@@ -135,6 +135,17 @@
                 app:layout_constraintTop_toTopOf="@id/textTitle"
                  />
 
+            <TextView
+                android:id="@+id/calibrationLive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:textColor="@android:color/white"
+                android:textSize="18sp"
+                android:visibility="gone"
+                app:layout_constraintStart_toEndOf="@id/dashboardClock"
+                app:layout_constraintTop_toTopOf="@id/textTitle" />
+
             <ImageView
                 android:id="@+id/cadillacVSeriesBadge"
                 android:layout_width="120dp"
