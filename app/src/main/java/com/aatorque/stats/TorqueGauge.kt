@@ -270,23 +270,28 @@ class TorqueGauge : Fragment() {
             if (savedPeak != null && savedPeak.isFinite()) {
                 mAllTime.setSpeedAt(savedPeak.toFloat())
                 mAllTime.visibility = View.VISIBLE
-                val formatter = if (data.display.wholeNumbers) TorqueData.intPlaces else TorqueData.twoPlaces
-                binding.textAllTimePeak.text = "PEAK: ${formatter.format(savedPeak)}"
-                binding.textAllTimePeak.visibility = View.VISIBLE
-                val hideLabel = Runnable {
-                    if (::binding.isInitialized) {
-                        binding.textAllTimePeak.visibility = View.GONE
-                    }
-                    hidePeakLabelRunnable = null
-                }
-                hidePeakLabelRunnable = hideLabel
-                peakLabelHandler.postDelayed(hideLabel, 3_000L)
+                showAllTimePeakLabel(savedPeak, data.display.wholeNumbers)
             }
         }
 
         alarmObserver.bind(viewLifecycleOwner, data.currentAlarm)
         // Register last: TorqueData invokes this callback immediately and may already hold a reading.
         data.notifyUpdate = this::onUpdate
+    }
+
+    private fun showAllTimePeakLabel(value: Double, wholeNumbers: Boolean) {
+        hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
+        val formatter = if (wholeNumbers) TorqueData.intPlaces else TorqueData.twoPlaces
+        binding.textAllTimePeak.text = "PEAK: ${formatter.format(value)}"
+        binding.textAllTimePeak.visibility = View.VISIBLE
+        val hideLabel = Runnable {
+            if (::binding.isInitialized) {
+                binding.textAllTimePeak.visibility = View.GONE
+            }
+            hidePeakLabelRunnable = null
+        }
+        hidePeakLabelRunnable = hideLabel
+        peakLabelHandler.postDelayed(hideLabel, 3_000L)
     }
 
     override fun onDestroyView() {
@@ -344,6 +349,7 @@ class TorqueGauge : Fragment() {
                     if (allTimePeakEnabled) {
                         mAllTime.setSpeedAt(data.lastData.toFloat())
                         mAllTime.visibility = View.VISIBLE
+                        showAllTimePeakLabel(data.lastData, data.display.wholeNumbers)
                     }
                 }
             }
