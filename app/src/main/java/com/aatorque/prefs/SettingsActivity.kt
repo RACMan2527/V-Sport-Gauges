@@ -94,6 +94,11 @@ class SettingsActivity : AppCompatActivity(),
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+        // Request GPS permission on the phone, never from the Android Auto projection.
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
+            != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 4102)
+        }
         supportActionBar!!.setDisplayUseLogoEnabled(true)
         if (savedInstanceState == null) {
             supportFragmentManager
