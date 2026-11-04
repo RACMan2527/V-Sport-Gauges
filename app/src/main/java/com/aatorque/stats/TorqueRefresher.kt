@@ -122,10 +122,15 @@ class TorqueRefresher {
 
         service.addConnectCallback { torque ->
             Thread({
+                var dashboardChangedDuringCalibration = false
                 try {
                     Timber.i("Starting first-run PID polling calibration for ${activePids.size} active PIDs")
                     val result = PidPollingCalibration.run(torque, activePids)
-                    if (result == null) {
+                    val currentPids = data.values.mapNotNull { it.pid }.distinct()
+                    if (currentPids.sorted() != activePids.sorted()) {
+                        dashboardChangedDuringCalibration = true
+                        Timber.i("Discarding PID polling calibration because the active dashboard changed during measurement")
+                    } else if (result == null) {
                         Timber.w("PID polling calibration did not produce enough fresh ECU samples; it will retry on a later dashboard start")
                     } else {
                         PidPollingCalibration.save(context, result)
@@ -141,6 +146,9 @@ class TorqueRefresher {
                     Timber.e(e, "PID polling calibration failed")
                 } finally {
                     calibrationRequested.set(false)
+                    if (dashboardChangedDuringCalibration && pollingEnabled) {
+                        startCalibrationIfNeeded(service)
+                    }
                 }
             }, "pid-polling-calibration").start()
         }
