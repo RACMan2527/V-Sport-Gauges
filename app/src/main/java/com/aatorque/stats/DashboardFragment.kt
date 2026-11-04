@@ -63,6 +63,7 @@ open class DashboardFragment : AlbumArt() {
     var gaugeViews = arrayOfNulls<FragmentContainerView>(3)
 
     private var screensAnimating = false
+    private var dashboardTitle: String = ""
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
     lateinit var torqueChart: TorqueChart
@@ -155,7 +156,8 @@ open class DashboardFragment : AlbumArt() {
                 val screenIndex = abs(it.currentScreen) % it.screensCount
                 val screens = it.screensList[screenIndex]
                 val showChartChanged = binding.showChart != it.showChart
-            binding.title = screens.title
+                dashboardTitle = screens.title
+                binding.title = if (binding.calibrationResultsVisible == true) "Calibration Results" else screens.title
             binding.showBtns = false
             settingsViewModel.chartVisible.value = it.showChart
                 settingsViewModel.minMaxBelow.value = it.minMaxBelow
@@ -239,6 +241,23 @@ open class DashboardFragment : AlbumArt() {
                 this@DashboardFragment::updateScale
             )
         }
+        registerWithView {
+            torqueRefresher.calibrationResults.collect { result ->
+                if (result != null) {
+                    binding.calibrationMeasured = "${result.measuredIntervalMs} ms"
+                    binding.calibrationRecommended = "${result.recommendedIntervalMs} ms"
+                    binding.calibrationReadSpeed = if (result.readSpeed > 0f) String.format("%.1f", result.readSpeed) else "N/A"
+                    binding.calibrationPids = result.activePidCount.toString()
+                    binding.calibrationSamples = result.sampleCount.toString()
+                    binding.calibrationErrors = if (result.adapterErrors >= 0) result.adapterErrors.toString() else "N/A"
+                    binding.calibrationResultsVisible = true
+                    binding.title = "Calibration Results"
+                } else {
+                    binding.calibrationResultsVisible = false
+                    binding.title = dashboardTitle
+                }
+            }
+        }
         registerWithView{
             torqueRefresher.connectStatus.collect {
                 binding.status = when (it) {
@@ -298,8 +317,11 @@ open class DashboardFragment : AlbumArt() {
         LocalBroadcastManager.getInstance(requireContext())
             .registerReceiver(object : BroadcastReceiver() {
                 override fun onReceive(p0: Context?, intent: Intent?) {
-                    if (intent?.getIntExtra("KEY_CODE", 0) == KeyEvent.KEYCODE_DPAD_CENTER) {
-                        toggleShowChart(binding.showChart != true)
+                    when (intent?.getIntExtra("KEY_CODE", 0)) {
+                        KeyEvent.KEYCODE_DPAD_CENTER -> toggleShowChart(binding.showChart != true)
+                        KeyEvent.KEYCODE_DPAD_LEFT -> handleRotaryStep(-1)
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> handleRotaryStep(1)
+                        281 -> handleRotaryStep(1) // KEYCODE_ROTARY_VOLUME
                     }
                 }
             }, filter)
@@ -496,13 +518,30 @@ open class DashboardFragment : AlbumArt() {
         binding.backgroundResource = resource
     }
 
+    private fun handleRotaryStep(direction: Int) {
+        if (binding.calibrationResultsVisible == true) {
+            dismissCalibrationResults()
+        } else {
+            setScreen(direction)
+        }
+    }
+
+    private fun dismissCalibrationResults() {
+        if (binding.calibrationResultsVisible != true) return
+        requireContext().getSharedPreferences(TorqueRefresher.PREFS_NAME, android.content.Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(TorqueRefresher.KEY_RESULTS_DISMISSED, true)
+            .apply()
+        torqueRefresher.calibrationResults.value = null
+    }
+
     fun configureRotaryInput() {
         rootView.setOnGenericMotionListener { _, ev ->
             if (ev.action == MotionEvent.ACTION_SCROLL &&
                 ev.isFromSource(InputDeviceCompat.SOURCE_MOUSE)
             ) {
                 val delta = ev.getAxisValue(MotionEvent.AXIS_VSCROLL)
-                setScreen(if (delta < 0) 1 else -1)
+                handleRotaryStep(if (delta < 0) 1 else -1)
                 true
             } else {
                 false
