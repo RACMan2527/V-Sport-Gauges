@@ -9,27 +9,30 @@ import android.content.IntentFilter
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
+import android.graphics.drawable.GradientDrawable
 import android.graphics.RenderEffect
 import android.graphics.Shader
 import android.media.MediaMetadata
 import android.os.Build
 import android.os.Bundle
 import android.view.GestureDetector
+import android.view.Gravity
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewGroup
 import android.os.Handler
 import android.os.Looper
+import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.ImageButton
 import android.widget.RelativeLayout
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
-import androidx.appcompat.app.AlertDialog
 import androidx.core.view.InputDeviceCompat
 import androidx.fragment.app.FragmentContainerView
 import androidx.lifecycle.ViewModelProvider
@@ -70,6 +73,8 @@ open class DashboardFragment : AlbumArt() {
 
     private var screensAnimating = false
     private val logoLongPressHandler = Handler(Looper.getMainLooper())
+    private var refreshIntervalOverlay: View? = null
+    private var refreshIntervalInitialValue = 300
     private var dashboardTitle: String = ""
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
@@ -393,23 +398,113 @@ open class DashboardFragment : AlbumArt() {
     }
 
     private fun showRefreshIntervalSlider() {
-        if (!isAdded) return
+        if (!isAdded || refreshIntervalOverlay != null) return
+
+        val context = requireContext()
         val initialValue = TorqueRefresher.REFRESH_INTERVAL.toInt().coerceIn(50, 500)
-        val content = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            val padding = (24 * resources.displayMetrics.density).toInt()
-            setPadding(padding, padding / 2, padding, 0)
+        refreshIntervalInitialValue = initialValue
+        val density = resources.displayMetrics.density
+        fun dp(value: Int): Int = (value * density).toInt()
+
+        val overlay = FrameLayout(context).apply {
+            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            isClickable = true
+            isFocusable = true
+            contentDescription = "Gauge refresh interval controls"
+            setOnClickListener { dismissRefreshIntervalOverlay(restore = true) }
         }
-        val valueLabel = TextView(requireContext()).apply {
+
+        val panel = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(28), dp(22), dp(28), dp(20))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(34, 34, 34))
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), Color.LTGRAY)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { }
+        }
+
+        val title = TextView(context).apply {
+            text = "Gauge Refresh Interval"
+            textSize = 21f
+            setTextColor(Color.WHITE)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }
+        val valueLabel = TextView(context).apply {
             text = "Gauge refresh: $initialValue ms"
             textSize = 18f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
         }
-        val slider = SeekBar(requireContext()).apply {
+        val slider = SeekBar(context).apply {
             max = 450
             progress = initialValue - 50
+            contentDescription = "Gauge refresh interval, 50 to 500 milliseconds"
         }
-        content.addView(valueLabel)
-        content.addView(slider)
+
+        panel.addView(title, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = dp(12) })
+        panel.addView(valueLabel, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = dp(8) })
+        panel.addView(slider, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ).apply { bottomMargin = dp(18) })
+
+        val buttonRow = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        val cancelButton = TextView(context).apply {
+            text = "CANCEL"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.DKGRAY)
+                cornerRadius = dp(6).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { dismissRefreshIntervalOverlay(restore = true) }
+        }
+        val saveButton = TextView(context).apply {
+            text = "SAVE"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(40, 95, 145))
+                cornerRadius = dp(6).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                val value = 50 + slider.progress
+                TorqueRefresher.REFRESH_INTERVAL = value.toLong()
+                val appContext = context.applicationContext
+                lifecycleScope.launch {
+                    appContext.dataStore.updateData { current ->
+                        current.toBuilder().setRefreshIntervalMs(value).build()
+                    }
+                }
+                dismissRefreshIntervalOverlay(restore = false)
+            }
+        }
+        buttonRow.addView(cancelButton, LinearLayout.LayoutParams(0, dp(48), 1f).apply {
+            marginEnd = dp(10)
+        })
+        buttonRow.addView(saveButton, LinearLayout.LayoutParams(0, dp(48), 1f))
+        panel.addView(buttonRow, LinearLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+        ))
+
         slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val value = 50 + progress
@@ -419,30 +514,30 @@ open class DashboardFragment : AlbumArt() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
-        val dialog = AlertDialog.Builder(requireContext())
-            .setTitle("Gauge Refresh Interval")
-            .setView(content)
-            .setPositiveButton("Save", null)
-            .setNegativeButton("Cancel", null)
-            .create()
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val value = 50 + slider.progress
-                lifecycleScope.launch {
-                    requireContext().dataStore.updateData { current ->
-                        current.toBuilder().setRefreshIntervalMs(value).build()
-                    }
-                }
-                TorqueRefresher.REFRESH_INTERVAL = value.toLong()
-                dialog.dismiss()
-            }
-            dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener {
-                TorqueRefresher.REFRESH_INTERVAL = initialValue.toLong()
-                dialog.dismiss()
-            }
+
+        val panelWidth = minOf(dp(520), resources.displayMetrics.widthPixels - dp(40))
+        overlay.addView(panel, FrameLayout.LayoutParams(
+            panelWidth, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER
+        ))
+        val overlayParams = ConstraintLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT
+        ).apply {
+            startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
         }
-        dialog.setOnCancelListener { TorqueRefresher.REFRESH_INTERVAL = initialValue.toLong() }
-        dialog.show()
+        mLayoutDashboard.addView(overlay, overlayParams)
+        refreshIntervalOverlay = overlay
+    }
+
+    private fun dismissRefreshIntervalOverlay(restore: Boolean) {
+        val overlay = refreshIntervalOverlay ?: return
+        if (restore) {
+            TorqueRefresher.REFRESH_INTERVAL = refreshIntervalInitialValue.toLong()
+        }
+        (overlay.parent as? ViewGroup)?.removeView(overlay)
+        refreshIntervalOverlay = null
     }
     private fun setupConfiguredBar(screenIndex: Int, settings: UserPreference) {
         // The horizontal bar uses the same persisted Display configuration as
@@ -548,6 +643,8 @@ open class DashboardFragment : AlbumArt() {
 
     override fun onPause() {
         Timber.d("onPause")
+        logoLongPressHandler.removeCallbacksAndMessages(null)
+        dismissRefreshIntervalOverlay(restore = true)
         super.onPause()
         torqueRefresher.stopExecutors()
     }
