@@ -63,8 +63,8 @@ internal object PidPollingCalibration {
             }
         }
 
-        // Only known direct ECU requests determine the global polling period.
-        // Unknown and calculated PIDs remain monitored but cannot slow ECU polling.
+        // Qualify diagnostic request identifiers dynamically for this dashboard.
+        // Virtual/calculated identifiers are measured but excluded from the recommendation.
         val qualifying = intervals.filter { (pid, samples) ->
             isQualifiedEcuPid(pid) && samples.size >= 4
         }
@@ -96,11 +96,24 @@ internal object PidPollingCalibration {
         )
     }
 
-    // Conservative verified direct-ECU identifiers. Do not infer ECU origin from
-    // a Torque display name or from a custom virtual PID's timestamp.
+    /**
+     * Torque's identifier begins with the actual diagnostic request (see
+     * ITorqueService.listAllPIDs). Standard OBD modes 01/02/09 and GM
+     * enhanced modes 21/22/23 represent ECU requests, not calculated
+     * Torque trip/virtual sensors. Do not restrict this to named PIDs.
+     *
+     * An optional Torque display suffix is separated from the command
+     * with a non-hex character. No ECU support is assumed from this
+     * classification alone: fresh timestamps are still required.
+     */
     fun isQualifiedEcuPid(pid: String): Boolean {
-        val id = pid.removePrefix("torque_").uppercase()
-        return id == "0104" || id == "22115C"
+        val identifier = pid.removePrefix("torque_").uppercase()
+        val command = identifier.takeWhile { it in '0'..'9' || it in 'A'..'F' }
+        if (command.length != 4 && command.length != 6) return false
+        return when (command.take(2)) {
+            "01", "02", "09", "21", "22", "23" -> true
+            else -> false
+        }
     }
 
     fun save(context: Context, result: Result) {
