@@ -51,7 +51,6 @@ class TorqueGauge : Fragment() {
         }
     private val peakLabelHandler = Handler(Looper.getMainLooper())
     private var hidePeakLabelRunnable: Runnable? = null
-    private var keepNewPeakVisible = false
     private var allTimePeakEnabled = false
     private var allTimePeakKey: String? = null
     lateinit var settingsViewModel: SettingsViewModel
@@ -262,7 +261,6 @@ class TorqueGauge : Fragment() {
         hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
         hidePeakLabelRunnable = null
         binding.textAllTimePeak.visibility = View.GONE
-        keepNewPeakVisible = false
         allTimePeakEnabled = data.display.allTimePeakActive
         allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
         mAllTime.visibility = View.INVISIBLE
@@ -353,7 +351,6 @@ class TorqueGauge : Fragment() {
                     if (allTimePeakEnabled) {
                         mAllTime.setSpeedAt(data.lastData.toFloat())
                         mAllTime.visibility = View.VISIBLE
-                        keepNewPeakVisible = true
                         showAllTimePeakLabel(data.lastData, data.display.wholeNumbers, persistent = true)
                     }
                 }
