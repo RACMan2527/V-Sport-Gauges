@@ -369,6 +369,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 return
             }
             val measured = pollingPrefs.getLong(TorqueRefresher.KEY_MEASURED_INTERVAL_MS, 0L)
+            val recommended = pollingPrefs.getLong(TorqueRefresher.KEY_INTERVAL_MS, TorqueRefresher.DEFAULT_SAMPLE_INTERVAL)
+            val qualified = pollingPrefs.getInt(TorqueRefresher.KEY_QUALIFIED_PID_COUNT, 0)
+            val excluded = pollingPrefs.getInt(TorqueRefresher.KEY_EXCLUDED_PID_COUNT, 0)
             val readSpeed = pollingPrefs.getFloat(TorqueRefresher.KEY_READ_SPEED, 0f)
             val errors = pollingPrefs.getInt(TorqueRefresher.KEY_ADAPTER_ERRORS, -1)
             val samples = pollingPrefs.getInt(TorqueRefresher.KEY_SAMPLE_COUNT, 0)
@@ -377,7 +380,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 java.text.DateFormat.getDateTimeInstance().format(java.util.Date(calibratedAt))
             } else "unknown"
             pollingCalibrationInfoPref.summary =
-                "Measured: ${measured} ms | Read speed: ${"%.1f".format(readSpeed)} PIDs/s | Adapter errors: ${if (errors >= 0) errors else "unavailable"} | Samples: $samples | $whenText"
+                "Measured: ${measured} ms | Recommended: $recommended ms | ECU PIDs: $qualified | Excluded: $excluded | Read speed: ${"%.1f".format(readSpeed)} PIDs/s | Adapter errors: ${if (errors >= 0) errors else "unavailable"} | Samples: $samples | $whenText"
         }
         updatePollingCalibrationSummary()
 
