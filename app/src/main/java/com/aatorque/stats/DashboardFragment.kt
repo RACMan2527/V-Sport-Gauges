@@ -73,9 +73,10 @@ open class DashboardFragment : AlbumArt() {
     private var screensAnimating = false
     private val logoLongPressHandler = Handler(Looper.getMainLooper())
     private var refreshIntervalOverlay: View? = null
+    private var pollingIntervalOverlay: View? = null
+    private var pollingIntervalInitialValue = 200
     private var refreshIntervalInitialValue = 300
     private var dashboardTitle: String = ""
-    private var calibrationScreenIndex: Int? = null
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
     lateinit var torqueChart: TorqueChart
@@ -167,14 +168,10 @@ open class DashboardFragment : AlbumArt() {
                 }
                 TorqueRefresher.REFRESH_INTERVAL = (if (it.refreshIntervalMs == 0) 300 else it.refreshIntervalMs).toLong()
                 val screenIndex = abs(it.currentScreen) % it.screensCount
-                if (calibrationScreenIndex != null && calibrationScreenIndex != screenIndex) {
-                    torqueRefresher.onDashboardChanged()
-                }
-                calibrationScreenIndex = screenIndex
                 val screens = it.screensList[screenIndex]
                 val showChartChanged = binding.showChart != it.showChart
                 dashboardTitle = screens.title
-                binding.title = if (binding.calibrationResultsVisible == true) "Calibration Results" else screens.title
+                binding.title = screens.title
             binding.showBtns = false
             settingsViewModel.chartVisible.value = it.showChart
                 settingsViewModel.minMaxBelow.value = it.minMaxBelow
@@ -258,32 +255,6 @@ open class DashboardFragment : AlbumArt() {
                 this@DashboardFragment::updateScale
             )
         }
-        registerWithView {
-            torqueRefresher.calibrationLiveMs.collect { interval ->
-                binding.calibrationLive.visibility =
-                    if (interval == null) View.GONE else View.VISIBLE
-                binding.calibrationLive.text =
-                    if (interval == null) "" else "CAL  ${interval} ms"
-            }
-        }
-        registerWithView {
-            torqueRefresher.calibrationResults.collect { result ->
-                if (result != null) {
-                    binding.calibrationMeasured = "${result.measuredIntervalMs} ms"
-                    binding.calibrationRecommended = "${result.recommendedIntervalMs} ms"
-                    binding.calibrationReadSpeed = if (result.readSpeed > 0f) String.format("%.1f", result.readSpeed) else "N/A"
-                    binding.calibrationPids = result.qualifiedPidCount.toString()
-                    binding.calibrationExcluded = result.excludedPidCount.toString()
-                    binding.calibrationSamples = result.ecuSampleCount.toString()
-                    binding.calibrationErrors = if (result.adapterErrors >= 0) result.adapterErrors.toString() else "N/A"
-                    binding.calibrationResultsVisible = true
-                    binding.title = "Calibration Results"
-                } else {
-                    binding.calibrationResultsVisible = false
-                    binding.title = dashboardTitle
-                }
-            }
-        }
         registerWithView{
             torqueRefresher.connectStatus.collect {
                 binding.status = when (it) {
@@ -322,6 +293,7 @@ open class DashboardFragment : AlbumArt() {
         mBtnPrev.setOnClickListener  { setScreen(-1) }
         binding.chartBtn.setOnClickListener { toggleShowChart(binding.showChart != true)  }
         configureRefreshIntervalLongPress()
+        configurePollingIntervalLongPress()
         mTitleElement = binding.textTitle
         mWrapper = binding.includeWrap
         mConStatus = binding.conStatus
@@ -553,6 +525,130 @@ open class DashboardFragment : AlbumArt() {
         (overlay.parent as? ViewGroup)?.removeView(overlay)
         refreshIntervalOverlay = null
     }
+    private fun configurePollingIntervalLongPress() {
+        val clock = binding.dashboardClock
+        val longPressAction = Runnable { showPollingIntervalSlider() }
+        clock.setOnTouchListener { _, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    logoLongPressHandler.removeCallbacks(longPressAction)
+                    logoLongPressHandler.postDelayed(longPressAction, 3_000L)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                    logoLongPressHandler.removeCallbacks(longPressAction)
+            }
+            true
+        }
+    }
+
+    private fun showPollingIntervalSlider() {
+        if (!isAdded || pollingIntervalOverlay != null || refreshIntervalOverlay != null) return
+        val context = requireContext()
+        val initialValue = TorqueRefresher.SAMPLE_INTERVAL.toInt().coerceIn(50, 500)
+        pollingIntervalInitialValue = initialValue
+        val density = resources.displayMetrics.density
+        fun dp(value: Int): Int = (value * density).toInt()
+        val overlay = FrameLayout(context).apply {
+            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            elevation = dp(20).toFloat()
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { dismissPollingIntervalOverlay(restore = true) }
+        }
+        val panel = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(28), dp(22), dp(28), dp(20))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(34, 34, 34))
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(1), Color.LTGRAY)
+            }
+            isClickable = true
+            setOnClickListener { }
+        }
+        val title = TextView(context).apply {
+            text = "PID Polling Interval"
+            textSize = 21f
+            setTextColor(Color.WHITE)
+            setTypeface(typeface, android.graphics.Typeface.BOLD)
+            gravity = Gravity.CENTER
+        }
+        val valueLabel = TextView(context).apply {
+            text = "PID polling: $initialValue ms"
+            textSize = 18f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+        }
+        val slider = SeekBar(context).apply {
+            max = 450
+            progress = initialValue - 50
+            contentDescription = "PID polling interval, 50 to 500 milliseconds"
+        }
+        panel.addView(title, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(12) })
+        panel.addView(valueLabel, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) })
+        panel.addView(slider, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
+        val buttons = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        val cancel = TextView(context).apply {
+            text = "CANCEL"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.DKGRAY)
+                cornerRadius = dp(6).toFloat()
+            }
+            isClickable = true
+            setOnClickListener { dismissPollingIntervalOverlay(restore = true) }
+        }
+        val save = TextView(context).apply {
+            text = "SAVE"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(40, 95, 145))
+                cornerRadius = dp(6).toFloat()
+            }
+            isClickable = true
+            setOnClickListener { dismissPollingIntervalOverlay(restore = false) }
+        }
+        buttons.addView(cancel, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(10) })
+        buttons.addView(save, LinearLayout.LayoutParams(0, dp(48), 1f))
+        panel.addView(buttons, LinearLayout.LayoutParams(-1, -2))
+        slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+            override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                if (!fromUser) return
+                val value = 50 + progress
+                valueLabel.text = "PID polling: $value ms"
+                TorqueRefresher.setGlobalPollingInterval(context, value.toLong())
+            }
+            override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
+            override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
+        })
+        val panelWidth = minOf(dp(520), resources.displayMetrics.widthPixels - dp(40))
+        overlay.addView(panel, FrameLayout.LayoutParams(panelWidth, -2, Gravity.CENTER))
+        mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
+            startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+        })
+        pollingIntervalOverlay = overlay
+    }
+
+    private fun dismissPollingIntervalOverlay(restore: Boolean) {
+        val overlay = pollingIntervalOverlay ?: return
+        if (restore) {
+            TorqueRefresher.setGlobalPollingInterval(requireContext(), pollingIntervalInitialValue.toLong())
+        }
+        (overlay.parent as? ViewGroup)?.removeView(overlay)
+        pollingIntervalOverlay = null
+    }
+
     private fun setupConfiguredBar(screenIndex: Int, settings: UserPreference) {
         // The horizontal bar uses the same persisted Display configuration as
         // a round gauge. Only its renderer is different.
@@ -659,6 +755,7 @@ open class DashboardFragment : AlbumArt() {
         Timber.d("onPause")
         logoLongPressHandler.removeCallbacksAndMessages(null)
         dismissRefreshIntervalOverlay(restore = true)
+        dismissPollingIntervalOverlay(restore = true)
         super.onPause()
         torqueRefresher.stopExecutors()
     }
@@ -708,20 +805,7 @@ open class DashboardFragment : AlbumArt() {
     }
 
     private fun handleRotaryStep(direction: Int) {
-        if (binding.calibrationResultsVisible == true) {
-            dismissCalibrationResults()
-        } else {
-            setScreen(direction)
-        }
-    }
-
-    private fun dismissCalibrationResults() {
-        if (binding.calibrationResultsVisible != true) return
-        requireContext().getSharedPreferences(TorqueRefresher.PREFS_NAME, android.content.Context.MODE_PRIVATE)
-            .edit()
-            .putBoolean(TorqueRefresher.KEY_RESULTS_DISMISSED, true)
-            .apply()
-        torqueRefresher.calibrationResults.value = null
+        setScreen(direction)
     }
 
     fun configureRotaryInput() {
