@@ -408,6 +408,7 @@ open class DashboardFragment : AlbumArt() {
 
         val overlay = FrameLayout(context).apply {
             setBackgroundColor(Color.argb(170, 0, 0, 0))
+            elevation = dp(20).toFloat()
             isClickable = true
             isFocusable = true
             contentDescription = "Gauge refresh interval controls"
