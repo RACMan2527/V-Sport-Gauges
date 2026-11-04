@@ -44,6 +44,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
     lateinit var darkenArtPref: SeekBarPreference
     lateinit var blurArtPref: SeekBarPreference
     lateinit var refreshIntervalPref: SeekBarPreference
+    lateinit var pollingIntervalPref: EditTextPreference
+    lateinit var pollingCalibrationInfoPref: Preference
+    lateinit var recalibratePollingPref: Preference
     lateinit var barPidPref: ListPreference
     lateinit var barTitlePref: EditTextPreference
     private var barTorqueBound = false
@@ -104,6 +107,9 @@ class SettingsFragment : PreferenceFragmentCompat() {
         blurArtPref = findPreference("blurArtwork")!!
         darkenArtPref = findPreference("darkenArtwork")!!
         refreshIntervalPref = findPreference("refreshIntervalMs")!!
+        pollingIntervalPref = findPreference("pidPollingIntervalMs")!!
+        pollingCalibrationInfoPref = findPreference("pidPollingCalibrationInfo")!!
+        recalibratePollingPref = findPreference("recalibratePidPolling")!!
         barPidPref = findPreference("barPid")!!
         barTitlePref = findPreference("barTitle")!!
         barMinPref = findPreference("barMin")!!
@@ -345,6 +351,59 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 it.setRefreshIntervalMs(newValue as Int)
             }
             return@setOnPreferenceChangeListener true
+        }
+
+        val pollingPrefs = requireContext().getSharedPreferences(
+            TorqueRefresher.PREFS_NAME, android.content.Context.MODE_PRIVATE
+        )
+        val savedPollingInterval = pollingPrefs.getLong(
+            TorqueRefresher.KEY_INTERVAL_MS, TorqueRefresher.DEFAULT_SAMPLE_INTERVAL
+        ).coerceIn(50L, 1_000L)
+        pollingIntervalPref.text = savedPollingInterval.toString()
+        pollingIntervalPref.summary = "Current: $savedPollingInterval ms (valid range: 50–1000 ms)"
+
+        fun updatePollingCalibrationSummary() {
+            val calibrated = pollingPrefs.getBoolean(TorqueRefresher.KEY_CALIBRATED, false)
+            if (!calibrated) {
+                pollingCalibrationInfoPref.summary = "No successful calibration yet. Calibration runs automatically when Torque is connected."
+                return
+            }
+            val measured = pollingPrefs.getLong(TorqueRefresher.KEY_MEASURED_INTERVAL_MS, 0L)
+            val readSpeed = pollingPrefs.getFloat(TorqueRefresher.KEY_READ_SPEED, 0f)
+            val errors = pollingPrefs.getInt(TorqueRefresher.KEY_ADAPTER_ERRORS, -1)
+            val samples = pollingPrefs.getInt(TorqueRefresher.KEY_SAMPLE_COUNT, 0)
+            val calibratedAt = pollingPrefs.getLong(TorqueRefresher.KEY_CALIBRATED_AT, 0L)
+            val whenText = if (calibratedAt > 0L) {
+                java.text.DateFormat.getDateTimeInstance().format(java.util.Date(calibratedAt))
+            } else "unknown"
+            pollingCalibrationInfoPref.summary =
+                "Measured: ${measured} ms | Read speed: ${"%.1f".format(readSpeed)} PIDs/s | Adapter errors: ${if (errors >= 0) errors else "unavailable"} | Samples: $samples | $whenText"
+        }
+        updatePollingCalibrationSummary()
+
+        pollingIntervalPref.setOnBindEditTextListener {
+            it.inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        pollingIntervalPref.setOnPreferenceChangeListener { pref, newValue ->
+            val interval = (newValue as String).trim().toLongOrNull()
+                ?: return@setOnPreferenceChangeListener false
+            if (interval !in 50L..1_000L) return@setOnPreferenceChangeListener false
+            pollingPrefs.edit()
+                .putLong(TorqueRefresher.KEY_INTERVAL_MS, interval)
+                .putBoolean(TorqueRefresher.KEY_MANUAL_OVERRIDE, true)
+                .apply()
+            TorqueRefresher.SAMPLE_INTERVAL = interval
+            pref.summary = "Current: $interval ms (manual setting)"
+            true
+        }
+        recalibratePollingPref.setOnPreferenceClickListener {
+            pollingPrefs.edit()
+                .putBoolean(TorqueRefresher.KEY_CALIBRATED, false)
+                .putBoolean(TorqueRefresher.KEY_MANUAL_OVERRIDE, false)
+                .apply()
+            pollingCalibrationInfoPref.summary =
+                "Calibration will run the next time the dashboard starts and Torque is connected."
+            true
         }
         
         numScreensPref.setOnBindEditTextListener {
