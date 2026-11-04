@@ -186,6 +186,7 @@ class TorqueRefresher {
                     if (active() && result != null) {
                         PidPollingCalibration.save(context, result)
                         SAMPLE_INTERVAL = result.recommendedIntervalMs
+                        calibrationLiveMs.value = null
                         if (!context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
                                 .getBoolean(KEY_RESULTS_DISMISSED, false)) {
                             calibrationResults.value = PidCalibrationSummary(
