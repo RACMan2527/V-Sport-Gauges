@@ -97,6 +97,7 @@ internal object PidPollingCalibration {
             .putFloat(TorqueRefresher.KEY_READ_SPEED, result.readSpeed.toFloat())
             .putInt(TorqueRefresher.KEY_ADAPTER_ERRORS, result.adapterErrors)
             .putInt(TorqueRefresher.KEY_SAMPLE_COUNT, result.sampleCount)
+            .putInt(TorqueRefresher.KEY_ACTIVE_PID_COUNT, result.activePidCount)
             .putLong(TorqueRefresher.KEY_CALIBRATED_AT, System.currentTimeMillis())
             .putBoolean(TorqueRefresher.KEY_CALIBRATED, true)
             .apply()
