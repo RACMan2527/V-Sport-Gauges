@@ -34,9 +34,24 @@ class TorqueRefresher {
 
         @Volatile
         var REFRESH_INTERVAL = 300L
+
+        private val instances = java.util.Collections.newSetFromMap(
+            java.util.WeakHashMap<TorqueRefresher, Boolean>()
+        )
+
+        fun setGlobalPollingInterval(context: Context, interval: Long) {
+            val value = interval.coerceIn(50L, 500L)
+            SAMPLE_INTERVAL = value
+            context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+                .edit().putLong(KEY_INTERVAL_MS, value)
+                .putBoolean("manual_polling_initialized", true).apply()
+            val targets = synchronized(instances) { instances.toList() }
+            targets.forEach { it.reschedulePolling() }
+        }
     }
 
     fun initialize(context: Context) {
+        synchronized(instances) { instances.add(this) }
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         // Ignore any interval produced by the removed automatic calibration.
         if (!prefs.getBoolean("manual_polling_initialized", false)) {
@@ -130,20 +145,13 @@ class TorqueRefresher {
         }
     }
 
-    /** Apply a manual polling interval without losing existing TorqueData or gauge peaks. */
-    @Synchronized
-    fun setPollingInterval(context: Context, interval: Long) {
-        val value = interval.coerceIn(50L, 500L)
-        SAMPLE_INTERVAL = value
-        context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .edit().putLong(KEY_INTERVAL_MS, value).apply()
-        // Existing scheduled tasks retain their original period until rescheduled.
-        if (pollingEnabled) {
+    private fun reschedulePolling() {
+        handler.post {
+            val service = activeService ?: return@post
+            if (!pollingEnabled) return@post
             data.values.forEach { it.stopRefreshing() }
-            activeService?.let { service ->
-                handler.post { kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
-                    makeExecutors(service)
-                } }
+            kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                if (pollingEnabled) makeExecutors(service)
             }
         }
     }
