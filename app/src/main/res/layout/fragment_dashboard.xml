@@ -69,6 +69,7 @@
         <variable name="calibrationRecommended" type="String" />
         <variable name="calibrationReadSpeed" type="String" />
         <variable name="calibrationPids" type="String" />
+        <variable name="calibrationExcluded" type="String" />
         <variable name="calibrationSamples" type="String" />
         <variable name="calibrationErrors" type="String" />
     </data>
@@ -554,7 +555,7 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center"
-                android:weightSum="4"
+                android:weightSum="5"
                 android:paddingTop="12dp"
                 android:paddingBottom="12dp"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -568,7 +569,7 @@
                     android:orientation="vertical"
                     android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="PID READ SPEED" android:textColor="#AEB4B9" android:textSize="12sp" />
+                        android:text="PID SPEED" android:textColor="#AEB4B9" android:textSize="12sp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@{calibrationReadSpeed}" android:textColor="@android:color/white" android:textSize="21sp" />
                 </LinearLayout>
@@ -580,7 +581,7 @@
                     android:orientation="vertical"
                     android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="ACTIVE PIDs" android:textColor="#AEB4B9" android:textSize="12sp" />
+                        android:text="ECU PIDs" android:textColor="#AEB4B9" android:textSize="12sp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@{calibrationPids}" android:textColor="@android:color/white" android:textSize="21sp" />
                 </LinearLayout>
@@ -592,7 +593,19 @@
                     android:orientation="vertical"
                     android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="FRESH SAMPLES" android:textColor="#AEB4B9" android:textSize="12sp" />
+                        android:text="EXCLUDED" android:textColor="#AEB4B9" android:textSize="12sp" />
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="@{calibrationExcluded}" android:textColor="@android:color/white" android:textSize="21sp" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                        android:text="ECU SAMPLES" android:textColor="#AEB4B9" android:textSize="12sp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@{calibrationSamples}" android:textColor="@android:color/white" android:textSize="21sp" />
                 </LinearLayout>
@@ -604,7 +617,7 @@
                     android:orientation="vertical"
                     android:gravity="center">
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
-                        android:text="ADAPTER ERRORS" android:textColor="#AEB4B9" android:textSize="12sp" />
+                        android:text="ERRORS" android:textColor="#AEB4B9" android:textSize="12sp" />
                     <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
                         android:text="@{calibrationErrors}" android:textColor="@android:color/white" android:textSize="21sp" />
                 </LinearLayout>
