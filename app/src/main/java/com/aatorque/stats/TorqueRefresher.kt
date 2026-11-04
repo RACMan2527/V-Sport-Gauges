@@ -1,4 +1,7 @@
 package com.aatorque.stats
+
+import android.content.Context
+import java.util.concurrent.atomic.AtomicBoolean
 import android.os.Handler
 import android.os.Looper
 import com.aatorque.datastore.Display
@@ -19,11 +22,34 @@ class TorqueRefresher {
     val data = HashMap<Int, TorqueData>()
     private val executor = ScheduledThreadPoolExecutor(7)
     val handler = Handler(Looper.getMainLooper())
+    private var appContext: Context? = null
+    private val calibrationRequested = AtomicBoolean(false)
+    @Volatile private var pollingEnabled = false
+
+    fun initialize(context: Context) {
+        appContext = context.applicationContext
+        SAMPLE_INTERVAL = context.applicationContext
+            .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .getLong(KEY_INTERVAL_MS, DEFAULT_SAMPLE_INTERVAL)
+            .coerceIn(50L, 1_000L)
+    }
     private var conWatcher = MutableStateFlow(ConnectStatus.CONNECTING_TORQUE)
     val connectStatus = conWatcher.asSharedFlow()
     val cache = mutableMapOf<Int, HashMap<Int, TorqueData>>()
     companion object {
-        const val SAMPLE_INTERVAL = 200L
+        const val DEFAULT_SAMPLE_INTERVAL = 200L
+        const val PREFS_NAME = "pid_polling_settings"
+        const val KEY_INTERVAL_MS = "sample_interval_ms"
+        const val KEY_MEASURED_INTERVAL_MS = "measured_interval_ms"
+        const val KEY_READ_SPEED = "read_speed"
+        const val KEY_ADAPTER_ERRORS = "adapter_errors"
+        const val KEY_SAMPLE_COUNT = "sample_count"
+        const val KEY_CALIBRATED_AT = "calibrated_at"
+        const val KEY_CALIBRATED = "calibrated"
+        const val KEY_MANUAL_OVERRIDE = "manual_override"
+
+        @Volatile
+        var SAMPLE_INTERVAL = DEFAULT_SAMPLE_INTERVAL
 
         @Volatile
         var REFRESH_INTERVAL = 300L
@@ -46,6 +72,7 @@ class TorqueRefresher {
     }
 
     suspend fun makeExecutors(service: TorqueService) {
+        pollingEnabled = true
         var foundValid = false
 
         // PID acquisition remains fixed at 200 ms. REFRESH_INTERVAL is the
@@ -76,6 +103,46 @@ class TorqueRefresher {
                     conWatcher.emit(ConnectStatus.CONNECTING_ECU)
                 }
             }
+        }
+        startCalibrationIfNeeded(service)
+    }
+
+    private fun startCalibrationIfNeeded(service: TorqueService) {
+        val context = appContext ?: return
+        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_CALIBRATED, false) ||
+            prefs.getBoolean(KEY_MANUAL_OVERRIDE, false) ||
+            !calibrationRequested.compareAndSet(false, true)) return
+
+        val activePids = data.values.mapNotNull { it.pid }.distinct()
+        if (activePids.isEmpty()) {
+            calibrationRequested.set(false)
+            return
+        }
+
+        service.addConnectCallback { torque ->
+            Thread({
+                try {
+                    Timber.i("Starting first-run PID polling calibration for ${activePids.size} active PIDs")
+                    val result = PidPollingCalibration.run(torque, activePids)
+                    if (result == null) {
+                        Timber.w("PID polling calibration did not produce enough fresh ECU samples; it will retry on a later dashboard start")
+                    } else {
+                        PidPollingCalibration.save(context, result)
+                        SAMPLE_INTERVAL = result.recommendedIntervalMs
+                        Timber.i("PID polling calibration: measured=${result.measuredIntervalMs}ms, recommended=${result.recommendedIntervalMs}ms, readSpeed=${result.readSpeed}, adapterErrors=${result.adapterErrors}")
+
+                        if (pollingEnabled) {
+                            data.values.forEach { it.stopRefreshing() }
+                            runBlocking { makeExecutors(service) }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.e(e, "PID polling calibration failed")
+                } finally {
+                    calibrationRequested.set(false)
+                }
+            }, "pid-polling-calibration").start()
         }
     }
 
@@ -111,6 +178,7 @@ class TorqueRefresher {
     }
 
     fun stopExecutors() {
+        pollingEnabled = false
         Timber.i("Telling Torque refreshers to stop")
         for (td in data.values) {
             td.stopRefreshing()
