@@ -75,6 +75,7 @@ open class DashboardFragment : AlbumArt() {
     private var refreshIntervalOverlay: View? = null
     private var refreshIntervalInitialValue = 300
     private var dashboardTitle: String = ""
+    private var calibrationScreenIndex: Int? = null
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
     lateinit var torqueChart: TorqueChart
@@ -166,6 +167,10 @@ open class DashboardFragment : AlbumArt() {
                 }
                 TorqueRefresher.REFRESH_INTERVAL = (if (it.refreshIntervalMs == 0) 300 else it.refreshIntervalMs).toLong()
                 val screenIndex = abs(it.currentScreen) % it.screensCount
+                if (calibrationScreenIndex != null && calibrationScreenIndex != screenIndex) {
+                    torqueRefresher.onDashboardChanged()
+                }
+                calibrationScreenIndex = screenIndex
                 val screens = it.screensList[screenIndex]
                 val showChartChanged = binding.showChart != it.showChart
                 dashboardTitle = screens.title
@@ -252,6 +257,14 @@ open class DashboardFragment : AlbumArt() {
             }.distinctUntilChanged().collect(
                 this@DashboardFragment::updateScale
             )
+        }
+        registerWithView {
+            torqueRefresher.calibrationLiveMs.collect { interval ->
+                binding.calibrationLive.visibility =
+                    if (interval == null) View.GONE else View.VISIBLE
+                binding.calibrationLive.text =
+                    if (interval == null) "" else "CAL  ${interval} ms"
+            }
         }
         registerWithView {
             torqueRefresher.calibrationResults.collect { result ->
