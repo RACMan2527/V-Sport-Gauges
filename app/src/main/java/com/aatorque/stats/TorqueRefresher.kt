@@ -75,8 +75,8 @@ class TorqueRefresher {
         pollingEnabled = true
         var foundValid = false
 
-        // PID acquisition remains fixed at 200 ms. REFRESH_INTERVAL is the
-        // user-controlled gauge animation duration, not the sampling period.
+        // SAMPLE_INTERVAL is the persisted/calibrated PID polling period.
+        // REFRESH_INTERVAL is the separate user-controlled gauge animation duration.
         data.values.forEachIndexed { index, torqueData ->
             val refreshOffset = (SAMPLE_INTERVAL / data.size) * index
             if (torqueData.pid != null) {
