@@ -93,7 +93,8 @@
             android:persistent="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Horizontal bar">
+    <PreferenceCategory android:title="Horizontal bar"
+        app:isPreferenceVisible="false">
         <ListPreference
             android:key="barPid"
             android:title="Bar PID"
