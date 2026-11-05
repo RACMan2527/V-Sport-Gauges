@@ -96,6 +96,7 @@ jobs:
         run: mv app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/release/v-sport-gauges.apk
 
       - name: Create Github Release
+        if: github.repository == 'agronick/aa-torque'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.bump_version.outputs.new_tag || 'latest' }}
