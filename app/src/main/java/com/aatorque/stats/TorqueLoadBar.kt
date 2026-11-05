@@ -24,6 +24,7 @@ class TorqueLoadBar : Fragment() {
     private lateinit var valueText: TextView
     private var minimum = 0.0
     private var maximum = 100.0
+    private var useWholeNumbers = true
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -37,10 +38,13 @@ class TorqueLoadBar : Fragment() {
         return view
     }
 
-    fun setupBar(data: TorqueData, minValue: Double, maxValue: Double, title: String) {
+    fun setupBar(data: TorqueData, minValue: Double, maxValue: Double, title: String, showLabel: Boolean, wholeNumbers: Boolean, showTicks: Boolean, showPeak: Boolean) {
         minimum = minValue
         maximum = if (maxValue > minValue) maxValue else minValue + 1.0
-        titleText.text = title
+        titleText.text = if (showLabel) title else ""
+        useWholeNumbers = wholeNumbers
+        gauge.showTicks = showTicks
+        gauge.showPeak = showPeak
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
         gauge.setProgress(data.lastData.toFloat())
         gauge.setPeak(data.maxValue.toFloat())
@@ -54,7 +58,7 @@ class TorqueLoadBar : Fragment() {
     }
 
     private fun formatReading(value: Double): String {
-        return if (value.isFinite()) value.roundToInt().toString() else "--"
+        return if (!value.isFinite()) "--" else if (useWholeNumbers) value.roundToInt().toString() else String.format(java.util.Locale.US, "%.1f", value)
     }
 }
 
@@ -109,6 +113,8 @@ class EngineLoadBarView @JvmOverloads constructor(
     private val cornerRadius = 2f * density
     private val maxMarkerWidth = 13f * density
     private val maxMarkerHeight = 10f * density
+    var showTicks = true
+    var showPeak = true
     private var reading = 0f
     private var peak = Float.NEGATIVE_INFINITY
     private var minimum = 0f
@@ -195,8 +201,10 @@ class EngineLoadBarView @JvmOverloads constructor(
             lineTo(markerX, markerBottom)
             close()
         }
-        canvas.drawPath(markerPath, maxMarkerGlowPaint)
-        canvas.drawPath(markerPath, maxMarkerPaint)
+        if (showPeak) {
+            canvas.drawPath(markerPath, maxMarkerGlowPaint)
+            canvas.drawPath(markerPath, maxMarkerPaint)
+        }
 
         // Draw ticks after the active fill so the tick marks sit visibly on top
         // of the red portion, as well as on the unfilled track.
@@ -207,7 +215,7 @@ class EngineLoadBarView @JvmOverloads constructor(
         // Four short minor ticks divide each interval between the six primary ticks.
         val minorTickTop = h * 0.28f
         val minorTickBottom = h * 0.58f
-        for (interval in 0 until 5) {
+        if (showTicks) for (interval in 0 until 5) {
             for (minor in 1..4) {
                 val fractionAtTick = (interval + minor / 5f) / 5f
                 val x = horizontalInset + usableWidth * fractionAtTick
@@ -215,7 +223,7 @@ class EngineLoadBarView @JvmOverloads constructor(
             }
         }
 
-        for (index in 0..5) {
+        if (showTicks) for (index in 0..5) {
             val fractionAtTick = index / 5f
             val x = horizontalInset + usableWidth * fractionAtTick
             val tickValue = minimum + (maximum - minimum) * fractionAtTick
