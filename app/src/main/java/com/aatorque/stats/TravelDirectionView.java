@@ -2,6 +2,7 @@ package com.aatorque.stats;
 
 import android.Manifest;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
@@ -18,7 +19,9 @@ public class TravelDirectionView extends AppCompatTextView implements LocationLi
 
     public TravelDirectionView(Context context, AttributeSet attrs) {
         super(context, attrs);
-        setText("");
+        SharedPreferences prefs = context.getSharedPreferences("direction_settings", Context.MODE_PRIVATE);
+        String lastDirection = prefs.getString("last_direction", "--");
+        setText(" • " + lastDirection);
     }
 
     @Override protected void onAttachedToWindow() {
@@ -48,7 +51,10 @@ public class TravelDirectionView extends AppCompatTextView implements LocationLi
         if (!location.hasBearing() || !location.hasSpeed() || location.getSpeed() < 2.0f) return;
         String[] directions = {"N", "NE", "E", "SE", "S", "SW", "W", "NW"};
         int sector = Math.round((location.getBearing() % 360f) / 45f) % 8;
-        setText(" • " + directions[sector]);
+        String direction = directions[sector];
+        setText(" • " + direction);
+        getContext().getSharedPreferences("direction_settings", Context.MODE_PRIVATE)
+            .edit().putString("last_direction", direction).apply();
     }
 
     @Override public void onStatusChanged(String provider, int status, Bundle extras) {}
