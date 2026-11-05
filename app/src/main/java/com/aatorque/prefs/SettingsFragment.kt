@@ -258,10 +258,4 @@ class SettingsFragment : PreferenceFragmentCompat() {
         (requireActivity() as SettingsActivity).supportActionBar!!.subtitle = null
     }
 
-} catch (e: IllegalArgumentException) {
-                Timber.e("Failed to unbind Torque PID service", e)
-            }
-            barTorqueBound = false
-        }
-    }
 }
