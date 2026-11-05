@@ -26,6 +26,8 @@ class TorqueLoadBar : Fragment() {
     private var maximum = 100.0
     private var useWholeNumbers = true
     private var displayUnit = ""
+    private var allTimePid = ""
+    private var allTimeEnabled = false
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -46,16 +48,31 @@ class TorqueLoadBar : Fragment() {
         useWholeNumbers = wholeNumbers
         displayUnit = unit.trim()
         gauge.showTicks = showTicks
-        gauge.showPeak = showPeak
+        allTimePid = data.display.pid
+        allTimeEnabled = showPeak
+        gauge.showAllTimePeak = showPeak
+        gauge.setAllTimePeak(if (showPeak) AllTimePeakStore.get(requireContext(), data.display)?.toFloat() else null)
+        gauge.showPeak = true
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
         gauge.setProgress(data.lastData.toFloat())
         gauge.setPeak(data.maxValue.toFloat())
+        recordAllTimePeak(data.lastData)
         valueText.text = formatReading(data.lastData)
         data.notifyUpdate = {
             val value = it.lastData
             gauge.animateProgress(value.toFloat(), TorqueRefresher.REFRESH_INTERVAL)
             gauge.setPeak(it.maxValue.toFloat())
+            recordAllTimePeak(value)
             valueText.text = formatReading(value)
+        }
+    }
+
+    private fun recordAllTimePeak(value: Double) {
+        if (!value.isFinite() || allTimePid.isBlank()) return
+        val saved = AllTimePeakStore.get(requireContext(), allTimePid)
+        if (saved == null || value > saved) {
+            AllTimePeakStore.set(requireContext(), allTimePid, value)
+            if (allTimeEnabled) gauge.setAllTimePeak(value.toFloat())
         }
     }
 
@@ -98,6 +115,10 @@ class EngineLoadBarView @JvmOverloads constructor(
         color = maxMarkerColor
         style = Paint.Style.FILL
     }
+    private val allTimeMarkerPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = android.graphics.Color.WHITE
+        style = Paint.Style.FILL
+    }
     private val tickPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFF5F5F5.toInt()
         strokeWidth = max(2f, 2f * density)
@@ -118,6 +139,13 @@ class EngineLoadBarView @JvmOverloads constructor(
     private val maxMarkerHeight = 10f * density
     var showTicks = true
     var showPeak = true
+    var showAllTimePeak = false
+    private var allTimePeak = Float.NaN
+
+    fun setAllTimePeak(value: Float?) {
+        allTimePeak = value?.takeIf { it.isFinite() } ?: Float.NaN
+        invalidate()
+    }
     private var reading = 0f
     private var peak = Float.NEGATIVE_INFINITY
     private var minimum = 0f
@@ -207,6 +235,17 @@ class EngineLoadBarView @JvmOverloads constructor(
         if (showPeak) {
             canvas.drawPath(markerPath, maxMarkerGlowPaint)
             canvas.drawPath(markerPath, maxMarkerPaint)
+        }
+        if (showAllTimePeak && allTimePeak.isFinite()) {
+            val allTimeFraction = ((allTimePeak - minimum) / (maximum - minimum)).coerceIn(0f, 1f)
+            val allTimeX = horizontalInset + usableWidth * allTimeFraction
+            val allTimePath = Path().apply {
+                moveTo(allTimeX - maxMarkerWidth / 2f, markerTop)
+                lineTo(allTimeX + maxMarkerWidth / 2f, markerTop)
+                lineTo(allTimeX, markerBottom)
+                close()
+            }
+            canvas.drawPath(allTimePath, allTimeMarkerPaint)
         }
 
         // Draw ticks after the active fill so the tick marks sit visibly on top
