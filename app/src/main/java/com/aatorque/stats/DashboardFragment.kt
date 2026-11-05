@@ -643,7 +643,8 @@ open class DashboardFragment : AlbumArt() {
             configuredDisplay.showLabel,
             configuredDisplay.wholeNumbers,
             configuredDisplay.ticksActive,
-            configuredDisplay.allTimePeakActive
+            configuredDisplay.allTimePeakActive,
+            configuredDisplay.unit
         )
     }
 
