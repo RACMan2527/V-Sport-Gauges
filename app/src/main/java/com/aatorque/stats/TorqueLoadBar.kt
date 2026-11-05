@@ -215,7 +215,7 @@ class EngineLoadBarView @JvmOverloads constructor(
         // Four short minor ticks divide each interval between the six primary ticks.
         val minorTickTop = h * 0.28f
         val minorTickBottom = h * 0.58f
-        if (showTicks) for (interval in 0 until 5) {
+        for (interval in 0 until 5) {
             for (minor in 1..4) {
                 val fractionAtTick = (interval + minor / 5f) / 5f
                 val x = horizontalInset + usableWidth * fractionAtTick
@@ -223,12 +223,12 @@ class EngineLoadBarView @JvmOverloads constructor(
             }
         }
 
-        if (showTicks) for (index in 0..5) {
+        for (index in 0..5) {
             val fractionAtTick = index / 5f
             val x = horizontalInset + usableWidth * fractionAtTick
             val tickValue = minimum + (maximum - minimum) * fractionAtTick
             canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
-            canvas.drawText(formatTick(tickValue), x, labelY, labelPaint)
+            if (showTicks) canvas.drawText(formatTick(tickValue), x, labelY, labelPaint)
         }
     }
 
