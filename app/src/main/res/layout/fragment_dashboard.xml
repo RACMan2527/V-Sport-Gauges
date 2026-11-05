@@ -143,6 +143,7 @@
                 android:layout_width="120dp"
                 android:layout_height="59dp"
                 android:layout_marginEnd="18dp"
+                android:translationY="-3dp"
                 android:contentDescription="Cadillac V-Series badge"
                 android:scaleType="fitCenter"
                 android:src="@drawable/cadillac_v_series"
