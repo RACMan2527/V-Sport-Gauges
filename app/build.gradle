@@ -22,7 +22,7 @@ android {
     namespace "com.aatorque.stats"
     compileSdk 34
     defaultConfig {
-        applicationId "com.aatorque.stats.test340"
+        applicationId "com.aatorque.stats"
         minSdkVersion 28
         targetSdkVersion 34
         versionCode versionMajor * 1000 + versionMinor * 100 + versionPatch * 10
@@ -31,7 +31,6 @@ android {
             useSupportLibrary true
         }
         buildConfigField "boolean", "SIMULATE_METRICS", "false"
-        resValue "string", "test_app_name", "V-Sport Gauges 3.4 Test"
         resValue "string", "app_version", "${versionMajor}.${versionMinor}.${versionPatch}"
         resourceConfigurations += ['en', 'cs', 'de', 'el', 'es', 'fr', 'fr-rCA', 'it', 'nl', 'pl', 'pt', 'pt-rBR', 'ru', 'sl', 'uk', 'zh-rHK']
     }
