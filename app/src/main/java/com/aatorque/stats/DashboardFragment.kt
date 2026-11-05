@@ -639,7 +639,11 @@ open class DashboardFragment : AlbumArt() {
             barData,
             if (configuredDisplay.hasHorizontalMinValue()) configuredDisplay.horizontalMinValue else configuredDisplay.minValue.toDouble(),
             if (configuredDisplay.hasHorizontalMaxValue()) configuredDisplay.horizontalMaxValue else configuredDisplay.maxValue.toDouble(),
-            configuredDisplay.label.ifBlank { "PID $barPid" }
+            configuredDisplay.label.ifBlank { "PID $barPid" },
+            configuredDisplay.showLabel,
+            configuredDisplay.wholeNumbers,
+            configuredDisplay.ticksActive,
+            configuredDisplay.allTimePeakActive
         )
     }
 
