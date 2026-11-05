@@ -409,7 +409,7 @@ class SettingsActivity : AppCompatActivity(),
         val args = Bundle()
         args.putCharSequence("title", pref.title)
         val prefix = pref.extras.getString("prefix") ?: pref.key
-        if (prefix.startsWith("clock_") || prefix.startsWith("display")) {
+        if (prefix.startsWith("clock_") || prefix.startsWith("display") || prefix.startsWith("horizontal_")) {
             val parts = prefix.split("_")
             assert(parts.size == 3)
             val isClock = parts[0] == "clock"
