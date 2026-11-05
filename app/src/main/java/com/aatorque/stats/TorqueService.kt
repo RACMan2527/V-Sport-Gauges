@@ -88,9 +88,9 @@ class TorqueService {
     private fun applySimulationSetting() {
         val context = appContext ?: return
         val simulateMetrics = BuildConfig.SIMULATE_METRICS ||
-            (BuildConfig.DEBUG && context.getSharedPreferences(
+            context.getSharedPreferences(
                 "runtime_settings", Context.MODE_PRIVATE
-            ).getBoolean("simulateEcuData", false))
+            ).getBoolean("simulateEcuData", false)
         torqueService?.setDebugTestMode(simulateMetrics && torqueService?.isConnectedToECU == false)
     }
 
