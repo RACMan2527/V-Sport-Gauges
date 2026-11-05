@@ -136,36 +136,6 @@ open class DashboardFragment : AlbumArt() {
         }
         registerWithView {
             data -> data.collect {
-                if (it.horizontalBarDisplay.pid.isBlank()) {
-                    val legacyBarSettings = context.getSharedPreferences("horizontal_bar_settings", Context.MODE_PRIVATE)
-                    val legacyPid = it.horizontalBarPid.ifBlank {
-                        legacyBarSettings.getString("pid", "0104") ?: "0104"
-                    }.removePrefix("torque_").uppercase()
-                    val legacyTitle = it.horizontalBarTitle.ifBlank {
-                        legacyBarSettings.getString("title", "PID $legacyPid") ?: "PID $legacyPid"
-                    }
-                    val legacyMin = it.horizontalBarMin.toDoubleOrNull()
-                        ?: legacyBarSettings.getString("min", "0")?.toDoubleOrNull() ?: 0.0
-                    val legacyMax = it.horizontalBarMax.toDoubleOrNull()
-                        ?: legacyBarSettings.getString("max", "100")?.toDoubleOrNull() ?: 100.0
-                    lifecycleScope.launch {
-                        context.dataStore.updateData { current ->
-                            if (current.horizontalBarDisplay.pid.isNotBlank()) current
-                            else current.toBuilder().setHorizontalBarDisplay(
-                                Display.newBuilder()
-                                    .setPid("torque_$legacyPid")
-                                    .setLabel(legacyTitle)
-                                    .setShowLabel(false)
-                                    .setHorizontalMinValue(legacyMin)
-                                    .setHorizontalMaxValue(if (legacyMax > legacyMin) legacyMax else legacyMin + 100.0)
-                                    .setMinValue(legacyMin.toInt())
-                                    .setMaxValue(legacyMax.toInt())
-                                    .build()
-                            ).build()
-                        }
-                    }
-                    return@collect
-                }
                 TorqueRefresher.REFRESH_INTERVAL = (if (it.refreshIntervalMs == 0) 300 else it.refreshIntervalMs).toLong()
                 val screenIndex = abs(it.currentScreen) % it.screensCount
                 val screens = it.screensList[screenIndex]
@@ -652,13 +622,14 @@ open class DashboardFragment : AlbumArt() {
     private fun setupConfiguredBar(screenIndex: Int, settings: UserPreference) {
         // The horizontal bar uses the same persisted Display configuration as
         // a round gauge. Only its renderer is different.
-        val barDisplay = settings.horizontalBarDisplay
+        val barDisplay = settings.screensList[screenIndex].horizontalGauge
+        val showBar = !barDisplay.disabled && barDisplay.pid.isNotBlank()
+        loadBar.view?.visibility = if (showBar) View.VISIBLE else View.GONE
+        if (!showBar) return
         // Match the round gauges: pass the saved Display, including its exact
         // Torque PID identifier, straight through to TorqueRefresher.
         // The horizontal bar changes only the renderer, not PID construction.
-        val configuredDisplay = barDisplay.toBuilder()
-            .setShowLabel(false)
-            .build()
+        val configuredDisplay = barDisplay
         val barPid = configuredDisplay.pid.removePrefix("torque_")
         val barData = if (torqueRefresher.hasChanged(7, configuredDisplay)) {
             torqueRefresher.populateQuery(7, screenIndex, configuredDisplay)
