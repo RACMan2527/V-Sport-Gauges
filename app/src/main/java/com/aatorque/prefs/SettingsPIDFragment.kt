@@ -34,6 +34,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
     lateinit var prefCat: PreferenceCategory
     var mBound: Boolean = false
 
+    var isHorizontal = false
     var isClock = true
     var screen = 0
     var index = 0
@@ -91,7 +92,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         super.onCreate(savedInstanceState)
         val args = requireArguments()
         val prefix = args.getString("prefix")
-        isClock = args.getBoolean("isClock")
+        isHorizontal = args.getString("prefix")?.startsWith("horizontal_") == true
+        isClock = args.getBoolean("isClock") || isHorizontal
         screen = args.getInt("screen")
         index = args.getInt("index")
         preferenceManager.sharedPreferencesName = null
@@ -116,6 +118,14 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         highVisActivePref = findPreference("highVisActive")!!
         colorPref = findPreference("chartColor")!!
         findPreference<Preference>("indicatorColor")!!.extras.putCharSequence("prefix", prefix)
+        if (isHorizontal) {
+            findPreference<Preference>("indicatorColor")!!.isVisible = false
+            imagePref.isVisible = false
+            colorPref.isVisible = false
+            highVisActivePref.isVisible = false
+            maxValuesActivePref.isVisible = false
+            maxMarksActivePref.isVisible = false
+        }
 
         pidPref.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
         imagePref.setSummaryProvider {
@@ -197,7 +207,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         lifecycleScope.launch {
             requireContext().dataStore.data.map {
                 val screen = it.getScreens(screen)
-                return@map if (isClock) screen.getGauges(index) else screen.getDisplays(index)
+                return@map if (isHorizontal) screen.horizontalGauge else if (isClock) screen.getGauges(index) else screen.getDisplays(index)
             }.collect{
                 display = it
                 enabledPref.isChecked = !display.disabled
@@ -330,7 +340,9 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                         Screen.newBuilder()
                     }
                     screenObj = screenObj.let screen@{
-                        if (isClock) {
+                        if (isHorizontal) {
+                            return@screen it.setHorizontalGauge(display)
+                        } else if (isClock) {
                             return@screen it.setGauges(index, display)
                         } else {
                             return@screen it.setDisplays(index, display)
