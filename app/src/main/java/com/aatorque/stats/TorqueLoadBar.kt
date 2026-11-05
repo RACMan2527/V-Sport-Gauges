@@ -61,7 +61,7 @@ class TorqueLoadBar : Fragment() {
 
     private fun formatReading(value: Double): String {
         val number = if (!value.isFinite()) "--" else if (useWholeNumbers) value.roundToInt().toString() else String.format(java.util.Locale.US, "%.1f", value)
-        return if (displayUnit.isBlank() || !value.isFinite()) number else "$number $displayUnit"
+        return if (displayUnit.isBlank() || !value.isFinite()) number else "$number$displayUnit"
     }
 }
 
