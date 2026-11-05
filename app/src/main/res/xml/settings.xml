@@ -93,36 +93,6 @@
             android:persistent="false" />
     </PreferenceCategory>
 
-    <PreferenceCategory android:title="Horizontal bar"
-        app:isPreferenceVisible="false">
-        <ListPreference
-            android:key="barPid"
-            android:title="Bar PID"
-            android:summary="Select the Torque PID to display"
-            android:persistent="false"
-            app:dialogTitle="Bar PID" />
-        <EditTextPreference
-            android:key="barTitle"
-            android:title="Bar title"
-            android:summary="Custom title displayed on the right side of the bar"
-            android:defaultValue="PID 0104"
-            android:persistent="false" />
-        <EditTextPreference
-            android:key="barMin"
-            android:title="Bar minimum"
-            android:summary="Reading shown at the left end of the bar"
-            android:defaultValue="0"
-            android:inputType="numberDecimal|numberSigned"
-            android:persistent="false" />
-        <EditTextPreference
-            android:key="barMax"
-            android:title="Bar maximum"
-            android:summary="Reading shown at the right end of the bar"
-            android:defaultValue="100"
-            android:inputType="numberDecimal|numberSigned"
-            android:persistent="false" />
-    </PreferenceCategory>
-
     <PreferenceCategory android:title="@string/media">
         <CheckBoxPreference
             android:key="mediaBg"
