@@ -111,7 +111,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
         barMinPref = findPreference("barMin")!!
         barMaxPref = findPreference("barMax")!!
         val simulateEcuDataPref = findPreference<CheckBoxPreference>("simulateEcuData")!!
-        simulateEcuDataPref.isVisible = com.aatorque.stats.BuildConfig.DEBUG
+        simulateEcuDataPref.isVisible = true
         simulateEcuDataPref.isChecked = requireContext().getSharedPreferences(
             "runtime_settings", android.content.Context.MODE_PRIVATE
         ).getBoolean("simulateEcuData", false)
