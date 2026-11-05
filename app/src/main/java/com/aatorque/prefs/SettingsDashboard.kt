@@ -82,6 +82,14 @@ class SettingsDashboard : PreferenceFragmentCompat() {
                                         )
                                     }
                                 }
+                                optionsCat.addPreference(Preference(requireContext()).also {
+                                    it.key = "horizontal_${dbIndex}_0"
+                                    it.title = "Horizontal Gauge"
+                                    it.summary = pids.firstOrNull { pid ->
+                                        "torque_${pid.first}" == screen.horizontalGauge.pid
+                                    }?.second?.get(0) ?: "PID not set"
+                                    it.fragment = SettingsPIDFragment::class.java.canonicalName
+                                })
                             }
                         }
                     }
