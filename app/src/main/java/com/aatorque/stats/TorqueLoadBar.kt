@@ -25,6 +25,7 @@ class TorqueLoadBar : Fragment() {
     private var minimum = 0.0
     private var maximum = 100.0
     private var useWholeNumbers = true
+    private var displayUnit = ""
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -38,11 +39,12 @@ class TorqueLoadBar : Fragment() {
         return view
     }
 
-    fun setupBar(data: TorqueData, minValue: Double, maxValue: Double, title: String, showLabel: Boolean, wholeNumbers: Boolean, showTicks: Boolean, showPeak: Boolean) {
+    fun setupBar(data: TorqueData, minValue: Double, maxValue: Double, title: String, showLabel: Boolean, wholeNumbers: Boolean, showTicks: Boolean, showPeak: Boolean, unit: String) {
         minimum = minValue
         maximum = if (maxValue > minValue) maxValue else minValue + 1.0
         titleText.text = if (showLabel) title else ""
         useWholeNumbers = wholeNumbers
+        displayUnit = unit.trim()
         gauge.showTicks = showTicks
         gauge.showPeak = showPeak
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
@@ -58,7 +60,8 @@ class TorqueLoadBar : Fragment() {
     }
 
     private fun formatReading(value: Double): String {
-        return if (!value.isFinite()) "--" else if (useWholeNumbers) value.roundToInt().toString() else String.format(java.util.Locale.US, "%.1f", value)
+        val number = if (!value.isFinite()) "--" else if (useWholeNumbers) value.roundToInt().toString() else String.format(java.util.Locale.US, "%.1f", value)
+        return if (displayUnit.isBlank() || !value.isFinite()) number else "$number $displayUnit"
     }
 }
 
