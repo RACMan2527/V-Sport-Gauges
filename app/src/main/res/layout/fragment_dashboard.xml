@@ -92,7 +92,7 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:id="@+id/headers_wrap"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="59dp"
             android:elevation="1dp"
             android:layout_marginBottom="4dp"
             app:layout_constraintTop_toTopOf="parent">
@@ -100,16 +100,14 @@
             <TextView
                 android:id="@+id/con_status"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:padding="5dp"
-                android:layout_marginBottom="5dp"
+                android:layout_height="match_parent"
                 android:visibility="@{status == 0 ? View.GONE : View.VISIBLE}"
                 android:text='@{status == 0 ? "" : context.getString(status)}'
                 android:textAlignment="center"
                 android:textColor="@android:color/white"
                 android:textSize="20sp"
                 android:typeface="@{font}"
-                android:background="@color/transparentBlack"
+                android:gravity="center"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent" />
@@ -123,7 +121,7 @@
                 android:format24Hour="H:mm"
                 android:textColor="@android:color/white"
                 android:textSize="25sp"
-                android:visibility="@{status == 0 ? View.VISIBLE : View.GONE}"
+                android:visibility="visible"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="@id/textTitle"
                  />
@@ -134,7 +132,7 @@
                 android:layout_height="wrap_content"
                 android:textColor="@android:color/white"
                 android:textSize="25sp"
-                android:visibility="@{status == 0 ? View.VISIBLE : View.GONE}"
+                android:visibility="visible"
                 app:layout_constraintStart_toEndOf="@id/dashboardClock"
                 app:layout_constraintTop_toTopOf="@id/dashboardClock" />
 
@@ -147,7 +145,7 @@
                 android:contentDescription="Cadillac V-Series badge"
                 android:scaleType="fitCenter"
                 android:src="@drawable/cadillac_v_series"
-                android:visibility="@{status == 0 ? View.VISIBLE : View.GONE}"
+                android:visibility="visible"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@id/textTitle"
                  />
@@ -155,7 +153,7 @@
             <TextView
                 android:id="@+id/textTitle"
                 android:layout_width="500dp"
-                android:layout_height="0dp"
+                android:layout_height="match_parent"
                 android:ellipsize="marquee"
                 android:maxLines="1"
                 android:text="@{title}"
