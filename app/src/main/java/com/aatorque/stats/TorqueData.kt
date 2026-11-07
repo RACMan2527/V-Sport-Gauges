@@ -67,6 +67,17 @@ class TorqueData(var display: Display) {
             return false
         }
 
+        // Reject shutdown sentinels and readings beyond 200% of the configured
+        // display range before updating the gauge, session extrema, or peaks.
+        val reading = converted.first
+        val upperLimit = display.maxValue * 2.0
+        val lowerLimit = if (display.minValue < 0.0) display.minValue * 2.0 else display.minValue
+        if (reading == Int.MAX_VALUE.toDouble() || reading == Int.MIN_VALUE.toDouble() ||
+            (upperLimit.isFinite() && reading > upperLimit) ||
+            (lowerLimit.isFinite() && reading < lowerLimit)) {
+            return false
+        }
+
         lastData = converted.first
         lastDataStr = converted.second
         if (lastData > maxValue) maxValue = lastData
