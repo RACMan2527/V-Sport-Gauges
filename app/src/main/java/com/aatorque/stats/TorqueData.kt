@@ -71,10 +71,10 @@ class TorqueData(var display: Display) {
         // display range before updating the gauge, session extrema, or peaks.
         val reading = converted.first
         val upperLimit = display.maxValue * 2.0
-        val lowerLimit = if (display.minValue < 0.0) display.minValue * 2.0 else display.minValue.toDouble()
+        // Negative readings remain valid; the gauge itself clamps them to its
+        // display minimum, as it did before this shutdown-spike guard.
         if (reading == Int.MAX_VALUE.toDouble() || reading == Int.MIN_VALUE.toDouble() ||
-            (upperLimit.isFinite() && reading > upperLimit) ||
-            (lowerLimit.isFinite() && reading < lowerLimit)) {
+            (upperLimit.isFinite() && reading > upperLimit)) {
             return false
         }
 
