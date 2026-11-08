@@ -264,6 +264,8 @@ class TorqueGauge : Fragment() {
         allTimePeakEnabled = data.display.allTimePeakActive
         allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
         mAllTime.visibility = View.INVISIBLE
+        DailyPeakStore.get(requireContext(), data.display, data.display.maxMarksActive == MaxControl.MIN)
+            ?.let { mMax.setSpeedAt(it.toFloat()) }
         if (allTimePeakEnabled) {
             val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
                 ?.let { AllTimePeakStore.get(requireContext(), data.display) }
@@ -355,13 +357,16 @@ class TorqueGauge : Fragment() {
                 }
             }
         }
+        if (data.hasReceivedReading && data.lastData.isFinite()) {
+            DailyPeakStore.record(requireContext(), data.display, data.lastData)
+        }
         mClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         mRayClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         if (data.display.maxMarksActive == MaxControl.MAX && data.maxValue.isFinite()) {
-            mMax.setSpeedAt(data.maxValue.toFloat())
+            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display) ?: data.maxValue).toFloat())
             Timber.d("Setting max speed ${data.maxValue}")
         } else if (data.display.maxMarksActive == MaxControl.MIN && data.minValue.isFinite()) {
-            mMax.setSpeedAt(data.minValue.toFloat())
+            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display, true) ?: data.minValue).toFloat())
             Timber.d("Setting min speed ${data.minValue}")
         }
         if (data.display.maxValuesActive != MaxControl.OFF) {
