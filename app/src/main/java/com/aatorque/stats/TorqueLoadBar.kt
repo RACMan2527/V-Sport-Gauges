@@ -55,13 +55,14 @@ class TorqueLoadBar : Fragment() {
         gauge.showPeak = true
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
         gauge.setProgress(data.lastData.toFloat())
-        gauge.setPeak(data.maxValue.toFloat())
+        gauge.setPeak((DailyPeakStore.get(requireContext(), data.display) ?: data.maxValue).toFloat())
         recordAllTimePeak(data.lastData)
         valueText.text = formatReading(data.lastData)
         data.notifyUpdate = {
             val value = it.lastData
             gauge.animateProgress(value.toFloat(), TorqueRefresher.REFRESH_INTERVAL)
-            gauge.setPeak(it.maxValue.toFloat())
+            if (it.hasReceivedReading && value.isFinite()) DailyPeakStore.record(requireContext(), it.display, value)
+            gauge.setPeak((DailyPeakStore.get(requireContext(), it.display) ?: it.maxValue).toFloat())
             recordAllTimePeak(value)
             valueText.text = formatReading(value)
         }
