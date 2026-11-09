@@ -21,6 +21,7 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MotionEvent
+import android.view.ViewConfiguration
 import android.view.View
 import android.view.ViewGroup
 import android.os.Handler
@@ -71,6 +72,9 @@ open class DashboardFragment : AlbumArt() {
     var gaugeViews = arrayOfNulls<FragmentContainerView>(3)
 
     private var screensAnimating = false
+    private val gaugePressHandler = Handler(Looper.getMainLooper())
+    private var allRoundGaugesLarge = false
+    private var centerGaugeLarge = false
     private val logoLongPressHandler = Handler(Looper.getMainLooper())
     private var refreshIntervalOverlay: View? = null
     private var pollingIntervalOverlay: View? = null
@@ -278,6 +282,11 @@ open class DashboardFragment : AlbumArt() {
         gaugeViews[0] = binding.gaugeLeft
         gaugeViews[1] = binding.gaugeCenter
         gaugeViews[2] = binding.gaugeRight
+        allRoundGaugesLarge = requireContext().getSharedPreferences("round_gauge_display", Context.MODE_PRIVATE)
+            .getBoolean("all_round_gauges_large", false)
+        applyRoundGaugeScale()
+        configureGaugeScaleLongPress(binding.gaugeLeft, allGauges = true)
+        configureGaugeScaleLongPress(binding.gaugeCenter, allGauges = false)
 
         guages[0] = childFragmentManager.findFragmentById(R.id.gaugeLeft)!! as TorqueGauge
         guages[1] = childFragmentManager.findFragmentById(R.id.gaugeCenter)!! as TorqueGauge
@@ -344,6 +353,72 @@ open class DashboardFragment : AlbumArt() {
         return rootView
     }
 
+
+    private fun applyRoundGaugeScale() {
+        val sideScale = if (allRoundGaugesLarge) 1.1f else 1f
+        binding.gaugeLeft.scaleX = sideScale
+        binding.gaugeLeft.scaleY = sideScale
+        binding.gaugeRight.scaleX = sideScale
+        binding.gaugeRight.scaleY = sideScale
+        // The center remains controlled by the existing persisted centerGaugeLarge setting.
+        binding.largeCenter = allRoundGaugesLarge || centerGaugeLarge
+    }
+
+    private fun configureGaugeScaleLongPress(gauge: View, allGauges: Boolean) {
+        val handler = gaugePressHandler
+        val touchSlop = ViewConfiguration.get(gauge.context).scaledTouchSlop
+        var startX = 0f
+        var startY = 0f
+        var pending: Runnable? = null
+        gauge.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    startX = event.x
+                    startY = event.y
+                    // Restrict activation to the central portion of the round dial.
+                    val centerX = view.width / 2f
+                    val centerY = view.height / 2f
+                    val radius = minOf(view.width, view.height) * 0.22f
+                    if ((startX - centerX) * (startX - centerX) +
+                        (startY - centerY) * (startY - centerY) <= radius * radius) {
+                        val action = Runnable {
+                            if (allGauges) {
+                                allRoundGaugesLarge = !allRoundGaugesLarge
+                                requireContext().getSharedPreferences("round_gauge_display", Context.MODE_PRIVATE)
+                                    .edit().putBoolean("all_round_gauges_large", allRoundGaugesLarge).apply()
+                                applyRoundGaugeScale()
+                            } else {
+                                val next = !centerGaugeLarge
+                                lifecycleScope.launch {
+                                    requireContext().dataStore.updateData { current ->
+                                        current.toBuilder().setCenterGaugeLarge(next).build()
+                                    }
+                                }
+                            }
+                        }
+                        pending = action
+                        handler.postDelayed(action, 3_000L)
+                    }
+                    true
+                }
+                MotionEvent.ACTION_MOVE -> {
+                    if (kotlin.math.abs(event.x - startX) > touchSlop ||
+                        kotlin.math.abs(event.y - startY) > touchSlop) {
+                        pending?.let(handler::removeCallbacks)
+                        pending = null
+                    }
+                    true
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    pending?.let(handler::removeCallbacks)
+                    pending = null
+                    if (event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
+                    true
+                }
+                else -> true
+            }
+        }
+    }
 
     private fun configureRefreshIntervalLongPress() {
         val badge = binding.cadillacVSeriesBadge
@@ -738,6 +813,7 @@ open class DashboardFragment : AlbumArt() {
     override fun onPause() {
         Timber.d("onPause")
         logoLongPressHandler.removeCallbacksAndMessages(null)
+        gaugePressHandler.removeCallbacksAndMessages(null)
         dismissRefreshIntervalOverlay(restore = true)
         dismissPollingIntervalOverlay(restore = true)
         super.onPause()
@@ -767,7 +843,8 @@ open class DashboardFragment : AlbumArt() {
     }
 
     private fun updateScale(largeCenter: Boolean) {
-        binding.largeCenter = largeCenter
+        centerGaugeLarge = largeCenter
+        applyRoundGaugeScale()
     }
 
     private fun setupBackground(newBackground: String?) {
