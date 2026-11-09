@@ -96,7 +96,17 @@ Once those data sources were available, I needed a way to display them on the Es
 
 The technical approach had changed dramatically. In the CTS-V, I intercepted the factory video signal and used a jailbroken iPhone, hardware relays, and Wi-Fi diagnostics.
 
-In the Escalade, I wanted to achieve the same integrated effect **without modifying the factory display hardware**. Android Auto offered a new path, and Kevin Agronick's AA Torque provided the open-source foundation for projecting customizable Torque Pro gauges onto the vehicle's existing screen.
+My first idea for the Escalade was considerably simpler: mount an Android phone near the A-pillar to display a few key engine parameters, particularly horsepower. I already had a camera monitor in that area for use while towing my trailer, but the prospect of swapping devices—and the decidedly non-factory appearance of another screen—made me reconsider. I wanted the gauges on the Escalade's existing infotainment display.
+
+I briefly explored another route: running my familiar DashCommand software on an **AI-Box**, a device that uses the vehicle's CarPlay connection to present an Android interface. That approach would have let me continue using the dashboard software I had spent so much time customizing for the CTS-V. Unfortunately, the AI-Box proved insufficiently robust for what I wanted.
+
+That led me back to an old Android phone I had purchased and repurposed despite its damaged screen. Could I extend its usefulness by connecting it to the Escalade through **Android Auto**, with the phone doing the work and the Cadillac's factory OLED display showing the gauges?
+
+There was one significant obstacle: **DashCommand did not project its dashboards through Android Auto.** To pursue this approach, I needed a different OBD-II application and a way to present its information on the vehicle's screen.
+
+That search led to **Torque Pro** for acquiring diagnostic data and **Kevin Agronick's open-source AA Torque** for displaying customizable gauges through Android Auto.
+
+In the Escalade, I could finally pursue the same integrated instrumentation experience I had created in the CTS-V—**without intercepting video signals or modifying the factory display hardware**.
 
 The technologies were different, but the ambition remained the same: **make my Cadillac show me what its engine is doing—with instrumentation worthy of its performance.**
 
