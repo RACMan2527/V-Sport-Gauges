@@ -4,6 +4,10 @@ import android.content.Context
 import android.os.Handler
 import android.os.Looper
 import com.aatorque.datastore.Display
+import com.aatorque.datastore.MaxControl
+import java.time.LocalDate
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ScheduledFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -20,9 +24,13 @@ enum class ConnectStatus {
 class TorqueRefresher {
     val data = HashMap<Int, TorqueData>()
     private val executor = ScheduledThreadPoolExecutor(7)
+    private val rpmValidationExecutor = ScheduledThreadPoolExecutor(1)
+    private val pendingMinimums = ConcurrentHashMap<TorqueData, ScheduledFuture<*>>()
+    private val minimumChecksInProgress = ConcurrentHashMap.newKeySet<TorqueData>()
     val handler = Handler(Looper.getMainLooper())
     @Volatile private var pollingEnabled = false
     private var activeService: TorqueService? = null
+    private lateinit var appContext: Context
     private var conWatcher = MutableStateFlow(ConnectStatus.CONNECTING_TORQUE)
     val connectStatus = conWatcher.asSharedFlow()
     val cache = mutableMapOf<Int, HashMap<Int, TorqueData>>()
@@ -52,6 +60,7 @@ class TorqueRefresher {
     }
 
     fun initialize(context: Context) {
+        appContext = context.applicationContext
         synchronized(instances) { instances.add(this) }
         val prefs = context.applicationContext.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
         // Ignore any interval produced by the removed automatic calibration.
@@ -127,6 +136,11 @@ class TorqueRefresher {
                 return@runIfConnected
             }
             torqueData.hasReceivedReading = true
+            when (torqueData.display.maxMarksActive) {
+                MaxControl.MAX -> DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData)
+                MaxControl.MIN -> validateMinimumIfNeeded(service, torqueData, torqueData.lastData)
+                else -> Unit
+            }
             Timber.d("Got valid $value from torque for ${torqueData.display.label}")
             if (value != 0.0) {
                 torqueData.hasReceivedNonZero = true
@@ -146,6 +160,50 @@ class TorqueRefresher {
         }
     }
 
+    /**
+     * Only a new daily MIN candidate triggers RPM validation. Two one-shot
+     * RPM reads, five seconds apart; no monitoring in between.
+     */
+    private fun validateMinimumIfNeeded(service: TorqueService, data: TorqueData, candidate: Double) {
+        if (!pollingEnabled || !DailyPeakStore.isNewMinimum(appContext, data.display, candidate) ||
+            !minimumChecksInProgress.add(data)) return
+        val candidateDate = LocalDate.now().toString()
+        try {
+            var firstValid = false
+            service.runIfConnected { ts ->
+                val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
+                firstValid = rpm != null && rpm.isFinite() && rpm > 300.0
+            }
+            if (!firstValid) {
+                minimumChecksInProgress.remove(data)
+                return
+            }
+            val task = rpmValidationExecutor.schedule({
+                try {
+                    if (pollingEnabled && activeService === service &&
+                        data in this.data.values && candidateDate == LocalDate.now().toString()) {
+                        service.runIfConnected { ts ->
+                            val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
+                            if (rpm != null && rpm.isFinite() && rpm > 300.0) {
+                                DailyPeakStore.recordMinimum(appContext, data.display, candidate, candidateDate)
+                                handler.post { if (pollingEnabled) data.sendNotifyUpdate() }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    Timber.w(e, "Second RPM check failed; minimum rejected")
+                } finally {
+                    pendingMinimums.remove(data)
+                    minimumChecksInProgress.remove(data)
+                }
+            }, 5, TimeUnit.SECONDS)
+            pendingMinimums[data] = task
+        } catch (e: Exception) {
+            minimumChecksInProgress.remove(data)
+            Timber.w(e, "First RPM check failed; minimum rejected")
+        }
+    }
+
     private fun reschedulePolling() {
         handler.post {
             val service = activeService ?: return@post
@@ -159,6 +217,9 @@ class TorqueRefresher {
 
     fun stopExecutors() {
         pollingEnabled = false
+        pendingMinimums.values.forEach { it.cancel(false) }
+        pendingMinimums.clear()
+        minimumChecksInProgress.clear()
         activeService = null
         Timber.i("Telling Torque refreshers to stop")
         for (td in data.values) {
