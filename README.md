@@ -88,25 +88,27 @@ Years later, my 2023 Cadillac Escalade Sport Platinum presented a new opportunit
 
 But I still missed something from my CTS-V project: a dedicated view of **real-time engine horsepower and torque**, similar in spirit to the SRT Performance Pages.
 
-The key question became whether I could obtain meaningful crankshaft horsepower and torque estimates from the L87 engine control module. That led to investigating GM torque-related diagnostic parameters, custom Torque Pro calculations, and an L87-specific oil-pressure reading.
-
-Once those data sources were available, I needed a way to display them on the Escalade's factory screen.
+I knew what I wanted to see. The challenge was finding a practical way to display it without compromising the Escalade's factory appearance.
 
 ### From hardware modification to Android Auto
 
 The technical approach had changed dramatically. In the CTS-V, I intercepted the factory video signal and used a jailbroken iPhone, hardware relays, and Wi-Fi diagnostics.
 
-My first idea for the Escalade was considerably simpler: mount an Android phone near the A-pillar to display a few key engine parameters, particularly horsepower. I already had a camera monitor in that area for use while towing my trailer, but the prospect of swapping devices—and the decidedly non-factory appearance of another screen—made me reconsider. I wanted the gauges on the Escalade's existing infotainment display.
+I initially considered mounting an Android phone near the A-pillar to show a few engine parameters, particularly horsepower. I already had a camera monitor in that area for use while towing my trailer. But swapping devices and adding another non-factory-looking display were not appealing. I wanted the gauges integrated into the Escalade's infotainment screen instead.
 
-I briefly explored another route: running my familiar DashCommand software on an **AI-Box**, a device that uses the vehicle's CarPlay connection to present an Android interface. That approach would have let me continue using the dashboard software I had spent so much time customizing for the CTS-V. Unfortunately, the AI-Box proved insufficiently robust for what I wanted.
+**My first attempt at that integration was DashCommand on an AI-Box.** The AI-Box used the vehicle's CarPlay connection to display an Android interface, potentially allowing me to reuse the dashboard software I had customized so extensively for the CTS-V. Unfortunately, the AI-Box wasn't robust enough for the job.
 
-That led me back to an old Android phone I had purchased and repurposed despite its damaged screen. Could I extend its usefulness by connecting it to the Escalade through **Android Auto**, with the phone doing the work and the Cadillac's factory OLED display showing the gauges?
+I then returned to an old, damaged-screen Android phone I had purchased and repurposed. Instead of adding a separate display, could I use **Android Auto** to project its instrumentation onto the Escalade's factory OLED screen?
 
-There was one significant obstacle: **DashCommand did not project its dashboards through Android Auto.** To pursue this approach, I needed a different OBD-II application and a way to present its information on the vehicle's screen.
+DashCommand presented the next obstacle: **its custom dashboards could not be projected through Android Auto**. I needed another OBD-II application and a compatible way to show its data on the vehicle's display.
 
-That search led to **Torque Pro** for acquiring diagnostic data and **Kevin Agronick's open-source AA Torque** for displaying customizable gauges through Android Auto.
+That search led me first to **Torque Pro** for reading vehicle diagnostics, and then to **Kevin Agronick's open-source AA Torque**, which could display customizable Torque Pro gauges through Android Auto.
 
-In the Escalade, I could finally pursue the same integrated instrumentation experience I had created in the CTS-V—**without intercepting video signals or modifying the factory display hardware**.
+Only after finding that software combination did I turn to the deeper question: **could I expose the L87's horsepower and torque rather than settle for conventional temperature and pressure gauges?**
+
+I investigated GM's engine torque-related diagnostic parameters and worked through custom Torque Pro calculations to derive estimates of **crankshaft torque and horsepower**. I also pursued an **L87-specific oil-pressure PID** to obtain a reading better suited to my engine.
+
+Those discoveries gave me the engine information I had wanted to see. Torque Pro and AA Torque gave me a way to bring it onto the Escalade's factory screen—**without intercepting video signals or modifying the display hardware**.
 
 The technologies were different, but the ambition remained the same: **make my Cadillac show me what its engine is doing—with instrumentation worthy of its performance.**
 
