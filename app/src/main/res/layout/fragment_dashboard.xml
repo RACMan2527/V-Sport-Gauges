@@ -232,6 +232,7 @@
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:id="@+id/dashContent"
+                android:translationY="-10dp"
                 android:layout_width="match_parent"
                 android:layout_height="@{showChart ? LayoutParams.MATCH_PARENT : LayoutParams.WRAP_CONTENT, default=wrap_content}"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -266,7 +267,7 @@
                     app:layout_constraintLeft_toLeftOf="parent"
                     app:layout_constraintRight_toLeftOf="@id/guideline1"
                     app:layout_constraintTop_toTopOf="parent"
-                    android:translationY="8dp"
+                    android:translationY="18dp"
                     app:alpha="@{gaugeAlpha}"
                     app:layout_constraintBottom_toTopOf="@id/loadBar" />
 
@@ -285,7 +286,7 @@
                     app:layout_constraintLeft_toRightOf="@id/guideline1"
                     app:layout_constraintRight_toLeftOf="@+id/guideline2"
                     app:layout_constraintTop_toTopOf="parent"
-                    android:translationY="8dp"
+                    android:translationY="18dp"
                     android:visibility="@{!showChart ? View.VISIBLE : View.GONE}"
                     android:scaleX="@{largeCenter ? 1.1f : 1f}"
                     android:scaleY="@{largeCenter ? 1.1f : 1f}"
@@ -306,7 +307,7 @@
                     app:layout_constraintRight_toRightOf="parent"
                     app:alpha="@{gaugeAlpha}"
                     app:layout_constraintTop_toTopOf="parent"
-                    android:translationY="8dp" />
+                    android:translationY="18dp" />
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/loadBar"
@@ -315,7 +316,7 @@
                     android:layout_height="32dp"
                     android:layout="@layout/fragment_load_bar"
                     android:elevation="3dp"
-                    android:translationY="-6dp"
+                    android:translationY="4dp"
                     android:visibility="@{!showChart ? View.VISIBLE : View.GONE}"
                     app:layout_constraintBottom_toBottomOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
