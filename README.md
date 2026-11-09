@@ -1,88 +1,101 @@
-![CI Status](https://github.com/agronick/aa-torque/actions/workflows/ci.yml/badge.svg?branch=master)
-![downloads](https://img.shields.io/github/downloads/agronick/aa-torque/total.svg)
+# V-Sport Gauges
 
+### Cadillac-Inspired Performance Instrumentation for Android Auto
 
-# Torque Plugin for Android Auto 
+**Real-time vehicle performance monitoring. Customizable instrumentation. A factory-inspired driving experience.**
 
-## Video Walkthrough
-(Click to open in YouTube)
-[![Click to open in YouTube](https://github.com/agronick/aa-torque/assets/2042303/b735fc1c-8732-4237-8a8d-a540a0d1f778
-)](https://www.youtube.com/watch?v=gYJJ9M9a0m8)
+V-Sport Gauges is a personalized evolution of the open-source AA Torque application, developed for a 2023 Cadillac Escalade Sport Platinum with the 6.2L L87 V8. It combines Torque Pro vehicle diagnostics with Cadillac V-Series-inspired instrumentation, responsive gauges, performance calculations, and additional monitoring features.
 
+**The goal:** Make aftermarket instrumentation look, feel, and perform as though it belongs in the vehicle.
 
-This is a performance monitor based on [Chillout's Performance Monitor](https://github.com/jilleb/mqb-pm) which was based on Martoreto's aa-stats.
-The app has been modified with a focus on making it more customizable with the ability
-to obtain any PID from Torque. Torque pro is required to use this app.
+## Origins & Acknowledgments
 
-The original app focused on VAG (Volkswagen Auto Group) cars. This version focuses on exposing
-all data from Torque in a way that is as customizable as possible.
+**V-Sport Gauges would not exist without the work of Kevin Agronick and the developers whose innovations preceded his.**
 
-## Help and helping
-- Visit [the dicussions page](https://github.com/agronick/aa-torque/discussions) to ask questions and get support
-- English isn't your native language? [Help translate this app!](https://poeditor.com/join/project/yttme0y1VZ) Many of the translations are incomplete.
-- Help spread the word. Make posts on forums and other social networks showing off your setup.
-- This app is taking hundreds of hours of work. If you enjoy it consider donating on [Paypal](https://www.paypal.me/kagronick) or [Github Sponsors](https://github.com/agronick).
+[Kevin Agronick's AA Torque](https://github.com/agronick/aa-torque) is the direct software foundation of this project. Kevin developed a highly customizable way to display Torque Pro data within Android Auto, including custom PIDs, configurable dashboards, gauge themes, expressions, and rotary controller support.
 
-# Main features:
-- Display data from Torque including custom PIDs
-- Many themes, fonts, incons, and backgrounds to choose from
-- Up to 10 dashboards
-- Rotary dial support
-- Supports custom expressions using [EvalEx](https://ezylang.github.io/EvalEx/references/functions.html)
-- Backup, restore, and share your configuration
+The project's earlier lineage includes [Chillout's Performance Monitor](https://github.com/jilleb/mqb-pm), itself based on Martoreto's aa-stats.
 
-# Instructions:
+**None of the personalization, performance enhancements, or additional features of V-Sport Gauges would have been possible without these developers' creativity, technical achievements, and generosity in sharing their work.** Their contributions are gratefully acknowledged.
 
-## Prepare
-- Install [Torque Pro](https://play.google.com/store/apps/details?id=org.prowl.torque&hl=en_US&gl=US) You will need this app and a cheap OBD2 Bluetooth module.
+## The Evolution of V-Sport Gauges
 
-## Install
-[Video guide for how to install](https://www.youtube.com/watch?v=DDxPrPzxZ3k)
+The project began by adapting AA Torque's appearance and layout to complement the Escalade's factory OLED display. Refinements to typography, gauge arrangement, needles, and colors led to a broader effort to improve the instrumentation experience itself.
 
-- Download the latest [release](https://github.com/agronick/aa-torque/releases). Pre-releases can only be installed through Kingstaller.
-- Make sure Android Auto is in developer mode: Open Android Auto (while not connected to the car), go to About. Tap the "About Android Auto" header 10 times until you see a toast message saying you're a developer. From the right top corner select developer options, scroll down and make sure you check "Unknown sources". This will allow programs from non-Playstore apps to be run on Android Auto. [See a picture guide how to enable Developer mode here](https://www.howtogeek.com/271132/how-to-enable-developer-settings-on-android-auto/).
-- Install the APK that you downloaded in the _Prepare_ section using your normal package installer
-- Open _AA Torque Settings_
-- Select the options menu and select force update. Follow the process so your phone will reinstall
-  it thinking it came from the Play Store.
-- If this fails, you can try using [Kingstaller](https://github.com/fcaronte/KingInstaller/releases)
-  so your phone thinks it came from the Play Store. Reference the Kingstaller README if you have
-  issues installing.
+Subsequent work focused on smoother gauge movement, more responsive acquisition, calibration, calculated performance data, peak tracking, and protection against invalid ECU readings.
 
-Note: Do not open a bug for an installation issue. You need to bypass restrictions put in place by Google to get this app working on Android Auto. These instructions will work for most phones. I can not troubleshoot every phone. Pixel phones have special instructions on the [Kingstaller README](https://github.com/fcaronte/KingInstaller). 
+The development philosophy remains simple: preserve the flexibility of AA Torque, make the interface feel native to the vehicle, and favor reliable, efficient operation over unnecessary complexity.
 
-The Kingstaller README has this to say about Pixel Phones:
+## Features & Enhancements
 
-> For this phone you need to reinstall\update the current Google PackageInstaller, you can download the same version from ApkMirror or similar site, or you can get the apk directly from your phone using a file manager with that feature (I'm use mixplorer) then install the apk as normal and now you can use kinginstaller to install the app and will work!
+### Cadillac-inspired dashboard
 
-There seems to be issues with Android 14 as well. If you upgrade to Android 14 you may need to
-uninstall and reinstall. Check the [discussions](https://github.com/agronick/aa-torque/discussions)
-page for help installing.
-If you have an AAWireless dongle, enabling developer mode in AAWireless can work around it.
+- Refined round gauges, labels, ticks, needles, and themed colors
+- Custom horizontal gauge and multiple personalized dashboard layouts
+- Integrated clock, directional heading, and V-Series branding
+- Configurable parameters, ranges, and dashboard arrangements
 
-## Using
-- Open the AA Torque settings, grant all the rights it's requesting. If you don't do this, the app will NOT work.
-- Hook your phone to your car's USB, start Android Auto on your unit.
-- You can find the AA Torque in the menu on the lower right in Android Auto, the one with the dashboard clock on it.
+### Responsive instrumentation
 
-# Screenshots:
-Some screenshots of the app:
+- Separate diagnostic sampling and animated gauge movement
+- Adjustable animation timing
+- Automatic communication calibration and a calibration results display
+- Optimizations developed through testing with Torque Pro and a Bluetooth OBD-II adapter
 
-<img src="https://github.com/agronick/aa-torque/assets/2042303/e31b0598-25ec-4003-bcee-11e5e108d3a4" width="100%" alt="" />
+### Vehicle performance and diagnostics
 
-<img src="https://github.com/agronick/aa-torque/assets/2042303/bf40ed97-adf3-4923-bbc5-63a618899173" width="100%" alt="" />
+The Escalade configuration includes calculated horsepower and torque, engine load, oil pressure and temperature, coolant and transmission temperatures, and trip information. GM-specific PIDs and Torque Pro expressions allow additional customization.
 
-*Album art background with ray instead of needle*
+**Calculated horsepower and torque are estimates derived from ECU data, not dynamometer measurements.**
 
-<img src="https://github.com/agronick/aa-torque/assets/2042303/a99571f9-0bb3-43ec-89ce-938e41506e97" width="100%" alt="" />
+### Peak monitoring and data protection
 
-*Chart view*
+- Persistent peak values and colored peak indicators
+- Temporary peak readouts when a dashboard loads or a new maximum occurs
+- Filtering of invalid, non-finite, and implausible diagnostic readings
+- Additional daily maximum/minimum tracking is part of ongoing development
 
-<img src="https://github.com/agronick/aa-torque/assets/2042303/229315c8-ad3b-42e6-86e6-e7fe7abb16a8" width="100%" alt="" />
+## From Concept to Reality
 
-<img src="https://github.com/agronick/aa-torque/assets/2042303/698c666b-5e3c-4611-80a5-8e767b04186a" width="100%" alt="" />
+V-Sport Gauges has evolved through repeated design experiments and in-vehicle testing. Concepts explored alternative gauge faces, tick marks, typography, needles, and dashboard layouts.
 
+Development concept artwork can be added here in a future documentation update, clearly labeled as conceptual rather than a screenshot of the running application.
 
+## Development & Testing Environment
 
-## Custom Expressions
-AA Torque uses [EvalEx](https://ezylang.github.io/EvalEx) for custom expressions. You can find documentation [here](https://ezylang.github.io/EvalEx/references/functions.html).
+| Component | Configuration |
+| --- | --- |
+| Vehicle | 2023 Cadillac Escalade Sport Platinum |
+| Engine | GM 6.2L L87 V8 |
+| Display | Factory Cadillac OLED |
+| Android device | Samsung Galaxy S10 |
+| Android version | Android 12 |
+| Vehicle interface | Android Auto |
+| Diagnostic software | Torque Pro |
+| OBD-II adapter | Vgate vLinker BM Bluetooth |
+
+Other vehicle and Android configurations may work, depending on available diagnostic data and Android Auto compatibility.
+
+## Installation & Configuration
+
+1. Install and configure [Torque Pro](https://play.google.com/store/apps/details?id=org.prowl.torque).
+2. Pair and verify a compatible OBD-II adapter.
+3. Download the appropriate APK from [V-Sport Gauges Releases](https://github.com/RACMan2527/aa-torque/releases).
+4. Install the APK and enable the application in Android Auto where supported.
+5. Configure dashboards, gauges, and PIDs, then verify live data in the vehicle.
+
+Android Auto places restrictions on applications installed outside the Play Store. Installation methods vary by device and software version. For detailed background, see the [original AA Torque installation guide](https://github.com/agronick/aa-torque#instructions).
+
+## Development Philosophy
+
+V-Sport Gauges is an ongoing personal project shaped by practical use and experimentation. Many improvements are small refinements to alignment, responsiveness, clarity, and usability rather than new features.
+
+**The objective is not simply to display more information. It is to display the right information, in the right way, at the right time.**
+
+## Credits, License & Disclaimer
+
+- **Kevin Agronick:** [AA Torque](https://github.com/agronick/aa-torque), the principal software foundation
+- **Chillout / jilleb:** [Performance Monitor](https://github.com/jilleb/mqb-pm)
+- **Martoreto:** aa-stats, an earlier project in the development lineage
+
+Applicable upstream license terms and attribution requirements remain in effect. V-Sport Gauges is an independent personal customization project and is not affiliated with or endorsed by Cadillac, General Motors, Google, or the upstream developers. Diagnostic readings are provided for informational purposes and depend on the vehicle, adapter, and configured calculations.
