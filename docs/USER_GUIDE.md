@@ -36,7 +36,7 @@ These **high/low selectors are available for round gauges**. They are intentiona
 
 - All-time values are saved against the complete Torque PID identifier and can be shared by gauges using that PID.
 - **Show all-time peak marker** controls visibility of the **white triangle**, not whether the app records a peak.
-- **All-time peak value** displays the saved value for the PID and lets you **manually enter a replacement**. The settings code treats an entered **0** as a reset; subsequent readings can establish a new peak.
+- **All-time peak value** displays the saved value for the PID and lets you **manually enter a replacement**. Entering **0** stores a zero-valued peak (it does **not** delete the saved record). A subsequent higher valid reading can then establish a new maximum.
 - When a saved peak is loaded, **`PEAK: <value>`** appears for approximately **three seconds**.
 - When a **new all-time maximum** is reached while the all-time marker is enabled, the `PEAK:` label remains visible until the gauge is reinitialized. It is not a continuously displayed live measurement.
 
