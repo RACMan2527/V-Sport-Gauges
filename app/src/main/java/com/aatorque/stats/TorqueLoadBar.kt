@@ -55,14 +55,14 @@ class TorqueLoadBar : Fragment() {
         gauge.showPeak = true
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
         gauge.setProgress(data.lastData.toFloat())
-        gauge.setPeak((DailyPeakStore.get(requireContext(), data.display) ?: data.maxValue).toFloat())
+        gauge.setDailyPeak(DailyPeakStore.get(requireContext(), data.display)?.toFloat())
         recordAllTimePeak(data.lastData)
         valueText.text = formatReading(data.lastData)
         data.notifyUpdate = {
             val value = it.lastData
             gauge.animateProgress(value.toFloat(), TorqueRefresher.REFRESH_INTERVAL)
             if (it.hasReceivedReading && value.isFinite()) DailyPeakStore.record(requireContext(), it.display, value)
-            gauge.setPeak((DailyPeakStore.get(requireContext(), it.display) ?: it.maxValue).toFloat())
+            gauge.setDailyPeak(DailyPeakStore.get(requireContext(), it.display)?.toFloat())
             recordAllTimePeak(value)
             valueText.text = formatReading(value)
         }
@@ -162,7 +162,6 @@ class EngineLoadBarView @JvmOverloads constructor(
 
     fun setProgress(value: Float) {
         reading = if (value.isFinite()) value.coerceIn(minimum, maximum) else minimum
-        if (!peak.isFinite()) peak = reading
         invalidate()
     }
 
@@ -191,11 +190,10 @@ class EngineLoadBarView @JvmOverloads constructor(
         }
     }
 
-    fun setPeak(value: Float) {
-        if (value.isFinite()) {
-            peak = maxOf(peak.takeIf { it.isFinite() } ?: value, value).coerceIn(minimum, maximum)
-            invalidate()
-        }
+    fun setDailyPeak(value: Float?) {
+        peak = value?.takeIf { it.isFinite() }?.coerceIn(minimum, maximum)
+            ?: Float.NEGATIVE_INFINITY
+        invalidate()
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -233,7 +231,7 @@ class EngineLoadBarView @JvmOverloads constructor(
             lineTo(markerX, markerBottom)
             close()
         }
-        if (showPeak) {
+        if (showPeak && peak.isFinite()) {
             canvas.drawPath(markerPath, maxMarkerGlowPaint)
             canvas.drawPath(markerPath, maxMarkerPaint)
         }
