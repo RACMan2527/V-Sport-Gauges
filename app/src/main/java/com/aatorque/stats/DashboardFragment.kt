@@ -213,6 +213,14 @@ open class DashboardFragment : AlbumArt() {
         }
         registerWithView {
             data -> data.map {
+                it.selectedTheme
+            }.distinctUntilChanged().collect { selectedTheme ->
+                binding.cadillacVSeriesBadge.visibility =
+                    if (selectedTheme == "Cadillac V-Sport") View.VISIBLE else View.GONE
+            }
+        }
+        registerWithView {
+            data -> data.map {
                 it.selectedFont
             }.distinctUntilChanged().collect(
                 this@DashboardFragment::setupTypeface
@@ -806,7 +814,7 @@ open class DashboardFragment : AlbumArt() {
             "seat" -> R.font.seat_metastyle_monodigit_regular
             "audi" -> R.font.auditypedisplayhigh
             "vw" -> R.font.vwtextcarui_regular
-            "vw2" -> R.font.vwthesis_mib_regular
+            "vw2", "cadillac_escalade" -> R.font.vwthesis_mib_regular
             "frutiger" -> R.font.frutiger
             "vw3" -> R.font.vw_digit_reg
             "skoda" -> R.font.skoda

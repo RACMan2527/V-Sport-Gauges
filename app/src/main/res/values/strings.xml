@@ -50,6 +50,7 @@
     <string name="font_skoda" translatable="false">Skoda</string>
     <string name="font_vw" translatable="false">Volkswagen CarUI</string>
     <string name="font_vw2" translatable="false">Volkswagen Thesis</string>
+    <string name="font_cadillac_escalade" translatable="false">Cadillac Escalade</string>
     <string name="font_vw3" translatable="false">VW Digit</string>
     <string name="pref_appearance">Appearance</string>
     <string name="pref_centerclock">Center gauges</string>

@@ -213,6 +213,8 @@
         <item name="sv_tickRotation">false</item>
     </style>
 
+    <style name="AppTheme.CadillacVSport" parent="AppTheme.AudiTT" />
+
     <style name="AppTheme.AudiTT" parent="AppTheme">
         <item name="themedDialBackground">@drawable/dial_background_marks_audi4</item>
         <item name="themedEmptyDialBackground">@drawable/dial_background_marks_audi4</item>

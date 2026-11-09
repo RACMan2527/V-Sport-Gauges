@@ -147,7 +147,7 @@
                 android:contentDescription="Cadillac V-Series badge"
                 android:scaleType="fitCenter"
                 android:src="@drawable/cadillac_v_series"
-                android:visibility="visible"
+                android:visibility="gone"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintTop_toTopOf="@id/textTitle"
                  />
