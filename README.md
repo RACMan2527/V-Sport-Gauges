@@ -119,7 +119,7 @@ The technologies were different, but the ambition remained the same: **make my C
 # The Development of V-Sport Gauges
 
 ## Phase 1 — The First Manual Modifications
-### October 10–28, 2026 | Before Version 3.0.0
+### October 2026 | Before Version 3.0.0
 
 The project began with a straightforward goal: make AA Torque's instrumentation look more appropriate on the large factory OLED display in my Cadillac Escalade.
 
@@ -127,9 +127,9 @@ I initially made source-code modifications myself, working through the changes w
 
 ### Refining the round gauges
 
-The first recorded change, on October 10, modified `TorqueGauge.kt` to reduce the gauge tick count from nine to five.
+The first recorded change, in October 2026, modified `TorqueGauge.kt` to reduce the gauge tick count from nine to five.
 
-On October 15, I experimented further by reducing the count from five to three.
+Later that month, I experimented further by reducing the count from five to three.
 
 These changes began a longer process of experimenting with tick spacing, gauge readability, labels, needle presentation, and the visual balance of the dashboard.
 
@@ -137,15 +137,15 @@ The objective was not simply to fit more information on the screen. I wanted a c
 
 ### Establishing the V-Sport identity
 
-By October 19, I was modifying application strings to reflect the V-Sport customization.
+As the work continued, I was modifying application strings to reflect the V-Sport customization.
 
-On October 28, further changes to the application identity included the name **AA Torque V-Sport**.
+Later in October, further changes to the application identity included the name **AA Torque V-Sport**.
 
 The project was beginning to develop an identity distinct from the original application, although it remained entirely dependent on AA Torque's underlying architecture.
 
 ### Introducing configurable refresh behavior
 
-October 28 also marked an important step beyond appearance.
+This period also marked an important step beyond appearance.
 
 The original `TorqueRefresher.kt` used a fixed 300 ms refresh interval. I began modifying this behavior to allow configuration rather than relying on a permanently fixed value.
 
@@ -170,33 +170,33 @@ That was about to change.
 ---
 
 ## Phase 2 — Establishing V-Sport Gauges
-### October 28–31, 2026 | Versions 3.0–3.1
+### October 2026 | Versions 3.0–3.1
 
 As my manual changes expanded, the work became a structured GitHub development project. I continued defining requirements and testing in the Escalade, while ChatGPT increasingly assisted with code changes, troubleshooting, and builds.
 
-The interface took shape as a Cadillac-inspired instrument panel with configurable round gauges and a compact horizontal engine-load bar. Work included themed colors, typography, tick labels, bar height, rounded ends, and precise positioning. The horizontal bar's color and text contrast were refined in the 3.0.1 work, and **3.1.0 was released October 31**.
+The interface took shape as a Cadillac-inspired instrument panel with configurable round gauges and a compact horizontal engine-load bar. Work included themed colors, typography, tick labels, bar height, rounded ends, and precise positioning. The horizontal bar's color and text contrast were refined in the 3.0.1 work, and **3.1.0 was released in October 2026**.
 
 Versioned builds and separate test identities helped isolate experiments. The `master` branch became the production release line.
 
 ---
 
 ## Phase 3 — Persistent Peaks and Gauge Refinements
-### November 1–4, 2026 | Versions 3.2.0–3.2.3
+### November 2026 | Versions 3.2.0–3.2.3
 
-**3.2.0 — November 2:** I introduced persistent all-time peak tracking for round gauges. A white triangular marker identified the recorded maximum, with storage keyed to the selected PID so values survived dashboard switches and application restarts. Recording could remain active even when the marker was hidden. This work also included restoring existing records and allowing peak values to be edited or reset in settings.
+**3.2.0:** I introduced persistent all-time peak tracking for round gauges. A white triangular marker identified the recorded maximum, with storage keyed to the selected PID so values survived dashboard switches and application restarts. Recording could remain active even when the marker was hidden. This work also included restoring existing records and allowing peak values to be edited or reset in settings.
 
 The dashboard continued to evolve visually, including AudiTT tick-label sizing and spacing and adjustments to the horizontal gauge's ticks and position.
 
-**3.2.1 — November 2:** The release incorporated further horizontal gauge tick placement, including stopping major ticks at the bar midpoint.
+**3.2.1:** The release incorporated further horizontal gauge tick placement, including stopping major ticks at the bar midpoint.
 
-**3.2.2–3.2.3 — November 3–4:** Peak readouts became more useful. Saved peaks could appear temporarily when a gauge loaded, and a new all-time maximum could trigger an on-screen label. The label was raised and enlarged for readability.
+**3.2.2–3.2.3:** Peak readouts became more useful. Saved peaks could appear temporarily when a gauge loaded, and a new all-time maximum could trigger an on-screen label. The label was raised and enlarged for readability.
 
 The development of smooth needle movement also distinguished **PID polling** (how often diagnostic values are obtained) from **gauge animation** (how the needle moves between values). A 200 ms polling target was used during this work, while animation timing could be adjusted independently. This distinction became important in the subsequent 3.3 experiments.
 
 ---
 
 ## Phase 4 — Calibration Experiments and Live Controls
-### November 4, 2026 | Versions 3.3.0–3.3.8
+### November 2026 | Versions 3.3.0–3.3.8
 
 **3.3.0 — Automatic calibration:** An experimental first-connection process measured diagnostic polling behavior and saved a recommended interval, rather than assuming every phone, adapter, and vehicle could support the same rate.
 
@@ -213,7 +213,7 @@ These iterations reinforced the value of testing actual ECU communication and ke
 ---
 
 ## Phase 5 — Peak Visibility, Clock, Compass, and Header
-### November 4–5, 2026 | Versions 3.3.9–3.3.14
+### November 2026 | Versions 3.3.9–3.3.14
 
 **3.3.9–3.3.10:** Peak-label behavior was refined so newly achieved all-time peaks could remain visible until the dashboard changed, with a subsequent compilation fix.
 
@@ -226,7 +226,7 @@ The clock, compass, and Cadillac-inspired branding made the display feel more li
 ---
 
 ## Phase 6 — Per-Dashboard Horizontal Gauges
-### November 5, 2026 | Versions 3.4.0–3.4.4
+### November 2026 | Versions 3.4.0–3.4.4
 
 **3.4.0:** The horizontal gauge moved into **individual dashboard configuration**. Each dashboard could select its own horizontal PID and reuse relevant round-gauge display options. The renderer gained support for dashboard-specific label, numeric value, tick, and peak-display settings.
 
@@ -241,7 +241,7 @@ This sequence completed the transition from a globally configured bar to a gauge
 ---
 
 ## Phase 7 — Direction Persistence and Horizontal Peak Markers
-### November 5, 2026 | Versions 3.4.5–3.4.6
+### November 2026 | Versions 3.4.5–3.4.6
 
 **3.4.5:** The last known GPS travel direction was persisted and restored, so the compass could continue showing the previous heading while a fresh direction was unavailable.
 
@@ -250,7 +250,7 @@ This sequence completed the transition from a globally configured bar to a gauge
 ---
 
 ## Phase 8 — Diagnostic Validation and Stable Startup Layout
-### November 7, 2026 | Refinements after 3.4.6, before 3.5.0
+### November 2026 | Refinements after 3.4.6, before 3.5.0
 
 Testing the Escalade revealed that shutdown and ECU communication changes could produce implausibly large PID values, corrupting gauge readings or recorded peaks.
 
@@ -263,7 +263,7 @@ These changes were aimed at making the instrumentation both more trustworthy and
 ---
 
 ## Phase 9 — Daily Peak Tracking
-### November 8–9, 2026 | Versions 3.5.0–3.5.2
+### November 2026 | Versions 3.5.0–3.5.2
 
 **3.5.0:** The next development series began, preserving the working foreground polling baseline.
 
@@ -276,7 +276,7 @@ This extended the original all-time peak idea into a more useful record of **tod
 ---
 
 ## Phase 10 — RPM-Qualified Daily Minimums
-### November 9, 2026 | Version 3.5.3
+### November 2026 | Version 3.5.3
 
 Daily minimum recording raised a specific concern: oil pressure can be low while an engine is starting, and a transient startup reading should not automatically become the day's minimum.
 
