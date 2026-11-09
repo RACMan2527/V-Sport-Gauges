@@ -169,297 +169,128 @@ That was about to change.
 
 ---
 
-## Phase 2 — From Manual Modifications to V-Sport Gauges
-### Late October 2026 | Versions 3.0–3.1
+## Phase 2 — Establishing V-Sport Gauges
+### October 28–31, 2026 | Versions 3.0–3.1
 
-As the modifications became more extensive, development evolved from individual manual edits into a more structured GitHub workflow.
+As my manual changes expanded, the work became a structured GitHub development project. I continued defining requirements and testing in the Escalade, while ChatGPT increasingly assisted with code changes, troubleshooting, and builds.
 
-I continued to establish the design requirements, review proposed changes, and test the results. ChatGPT began taking a more active role in implementing the modifications and preparing builds.
+The interface took shape as a Cadillac-inspired instrument panel with configurable round gauges and a compact horizontal engine-load bar. Work included themed colors, typography, tick labels, bar height, rounded ends, and precise positioning. The horizontal bar's color and text contrast were refined in the 3.0.1 work, and **3.1.0 was released October 31**.
 
-### Creating a cohesive dashboard
-
-The interface evolved toward a Cadillac-inspired layout combining multiple round gauges with a horizontal performance gauge.
-
-The horizontal gauge was particularly important because it offered a different way to display rapidly changing information, such as engine load, without consuming another large circular instrument.
-
-Its design went through numerous refinements:
-
-- Compact horizontal presentation
-- Rounded bar ends
-- Improved tick positioning
-- More readable labels and values
-- Better use of themed colors
-- Adjustments to vertical alignment and spacing
-
-Even small changes of one or two density-independent pixels became meaningful when viewed on the Escalade's large, high-resolution display.
-
-### Developing the visual identity
-
-Work continued on gauge typography, tick labels, themed colors, needle presentation, and dashboard proportions.
-
-The goal was a unified instrument panel rather than a collection of unrelated gauges.
-
-The Cadillac-inspired design gradually became a recognizable characteristic of V-Sport Gauges.
-
-### Establishing release management
-
-The project adopted versioned builds and GitHub-based development.
-
-This made it easier to test changes, retain working versions, and distinguish experimental modifications from production releases.
-
-The `master` branch ultimately became the production release branch, while isolated test builds could be installed alongside the primary application.
+Versioned builds and separate test identities helped isolate experiments. The `master` branch became the production release line.
 
 ---
 
-## Phase 3 — Making the Gauges More Responsive
-### Versions 3.2–3.3
+## Phase 3 — Persistent Peaks and Gauge Refinements
+### November 1–4, 2026 | Versions 3.2.0–3.2.3
 
-Once the dashboard's appearance was taking shape, attention shifted to the behavior of the gauges.
+**3.2.0 — November 2:** I introduced persistent all-time peak tracking for round gauges. A white triangular marker identified the recorded maximum, with storage keyed to the selected PID so values survived dashboard switches and application restarts. Recording could remain active even when the marker was hidden. This work also included restoring existing records and allowing peak values to be edited or reset in settings.
 
-A recurring problem was that gauge movement did not appear as smooth as the live instrumentation in Torque Pro.
+The dashboard continued to evolve visually, including AudiTT tick-label sizing and spacing and adjustments to the horizontal gauge's ticks and position.
 
-### Separating data acquisition from animation
+**3.2.1 — November 2:** The release incorporated further horizontal gauge tick placement, including stopping major ticks at the bar midpoint.
 
-One of the most important technical changes was recognizing that the frequency of diagnostic readings and the visual movement of the needles should not be treated as the same setting.
+**3.2.2–3.2.3 — November 3–4:** Peak readouts became more useful. Saved peaks could appear temporarily when a gauge loaded, and a new all-time maximum could trigger an on-screen label. The label was raised and enlarged for readability.
 
-The development separated two functions:
-
-**PID acquisition** — How frequently the application requests or processes diagnostic data from Torque Pro.
-
-**Gauge animation** — How the displayed needle transitions between received values.
-
-The implementation used a fixed 200 ms sampling target during this development phase, while a separate adjustable animation duration controlled needle movement.
-
-This allowed smoother visual transitions without unnecessarily slowing diagnostic updates.
-
-### Adjustable gauge animation
-
-A configurable animation control was introduced, allowing the responsiveness of the display to be tuned.
-
-The objective was to balance smooth movement against the need to show changing vehicle conditions promptly.
-
-This was especially important for rapidly varying values such as horsepower, torque, and engine load.
-
-### Automatic communication calibration
-
-Version 3.3.0 introduced automatic PID polling calibration.
-
-Instead of assuming every phone, OBD adapter, and vehicle combination could support the same polling interval, the application began measuring communication performance and retaining a calibrated value.
-
-The calibration system was developed to account for the active dashboard and the PIDs being monitored.
-
-### Calibration results display
-
-Version 3.3.1 expanded this feature by adding a dedicated Calibration Results display.
-
-The results could be reviewed directly on the Android Auto screen, with rotary-controller input used to dismiss the panel and return to the normal dashboard.
-
-This turned a background technical process into something that could be observed and evaluated during testing.
-
-### Live adjustment controls
-
-Further development explored adjusting gauge behavior directly from the dashboard, including a long-press interaction with the V-Series logo.
-
-This required additional work on overlays, input handling, and interaction with Android Auto.
-
-The goal was to make tuning possible without repeatedly navigating through conventional settings screens.
+The development of smooth needle movement also distinguished **PID polling** (how often diagnostic values are obtained) from **gauge animation** (how the needle moves between values). A 200 ms polling target was used during this work, while animation timing could be adjusted independently. This distinction became important in the subsequent 3.3 experiments.
 
 ---
 
-## Phase 4 — Advanced Peak Monitoring
-### Versions 3.2–3.5
+## Phase 4 — Calibration Experiments and Live Controls
+### November 4, 2026 | Versions 3.3.0–3.3.8
 
-A major part of the project became the ability to remember meaningful vehicle performance readings rather than displaying only the current value.
+**3.3.0 — Automatic calibration:** An experimental first-connection process measured diagnostic polling behavior and saved a recommended interval, rather than assuming every phone, adapter, and vehicle could support the same rate.
 
-### Persistent all-time peaks
+**3.3.1 — Calibration Results:** A dedicated on-screen results panel reported calibration information and could be dismissed using the vehicle's rotary controller.
 
-Version 3.2 introduced persistent peak recording for round gauges.
+**3.3.2–3.3.3 — Live gauge adjustment:** Long-pressing the V-Series logo was developed as a way to change gauge refresh or animation behavior from an overlay without leaving the dashboard.
 
-Peak values were associated with the selected PID, allowing a recorded maximum to survive dashboard changes and application restarts.
+**3.3.4–3.3.6 — Calibration refinements:** The experimental calibration logic was extended with ECU-qualified samples, dashboard-change handling, timing improvements, and more detailed results.
 
-A white triangular marker provided a visual reference to the recorded maximum.
+**3.3.7–3.3.8 — Change of direction:** Real-world testing led me to **remove automatic polling calibration**, its results screen, and the CAL indicator. In their place, development introduced a **persistent, manually adjustable PID polling interval**, accessible from settings and a clock long-press control. The logo-based gauge control was retained. This is an important distinction: the earlier calibration feature was part of the development history, **not a feature that remained in the later releases**.
 
-Peak tracking could continue even when the marker itself was not displayed.
-
-### Temporary peak readouts
-
-The application was further refined to show a peak value temporarily when a dashboard loaded or a new all-time maximum was recorded.
-
-This made peak information available without requiring permanent numeric clutter around the gauges.
-
-### Horizontal gauge peak indicators
-
-The horizontal gauge received its own peak-display capabilities.
-
-Different marker colors distinguished session information from persistent all-time records.
-
-This allowed the horizontal gauge to communicate both the current reading and previously achieved values.
-
-### Daily maximum and minimum tracking
-
-Version 3.5 expanded peak monitoring beyond all-time records.
-
-Daily maximum and minimum values were introduced, with persistent date-scoped storage and rollover handling.
-
-This made it possible to retain meaningful information from a day's driving without carrying those values indefinitely into future days.
-
-### Protecting minimum readings during engine startup
-
-An important issue emerged with minimum values, especially for oil pressure.
-
-A low reading during engine startup should not automatically become the day's recorded minimum.
-
-Version 3.5.3 introduced a specific validation method: the engine RPM must exceed 300, followed by a second qualifying RPM check five seconds later before accepting a minimum.
-
-This was intentionally kept simple, without adding unnecessary logic to monitor continuous engine operation between the checks.
-
-The feature illustrates the development philosophy: address real operating conditions with targeted, understandable changes.
+These iterations reinforced the value of testing actual ECU communication and keeping polling control separate from the visual behavior of the gauges.
 
 ---
 
-## Phase 5 — Improving Diagnostic Reliability
+## Phase 5 — Peak Visibility, Clock, Compass, and Header
+### November 4–5, 2026 | Versions 3.3.9–3.3.14
 
-A sophisticated dashboard is only useful when the displayed data can be trusted.
+**3.3.9–3.3.10:** Peak-label behavior was refined so newly achieved all-time peaks could remain visible until the dashboard changed, with a subsequent compilation fix.
 
-Testing revealed that ECU disconnection, engine shutdown, and certain diagnostic responses could produce abnormal values.
+**3.3.11:** The dashboard gained a compact **clock and GPS-derived travel direction**. Unlike engine readings, these values came from the phone rather than Torque Pro. The required location-permission handling was also added.
 
-Some readings were far outside plausible operating ranges and could corrupt recorded peaks.
+**3.3.12–3.3.14:** Release workflow and settings refinements continued, including restoring the simulated ECU data toggle and adjusting the V-Series logo's position.
 
-### Rejecting invalid values
-
-Data validation was introduced to prevent unsuitable readings from reaching the gauges and peak-recording logic.
-
-This work included handling non-finite values and rejecting readings that exceeded defined plausibility limits.
-
-A later change rejected readings outside twice the configured display limits before they could update peak records.
-
-### Preserving legitimate zero and negative readings
-
-Filtering introduced another challenge.
-
-During deceleration, some calculated engine parameters legitimately approach zero or become negative.
-
-An overly aggressive filter could cause a gauge to freeze above zero rather than follow the actual reading.
-
-The validation logic was revised to preserve legitimate deceleration behavior while still rejecting abnormal data.
-
-### Engine shutdown protection
-
-Testing also exposed occasional extreme values when the Escalade was turned off and diagnostic communication ended.
-
-These cases reinforced the importance of validating readings before allowing them to alter persistent performance records.
-
-### The result
-
-Diagnostic validation became an integral part of V-Sport Gauges, rather than a separate cosmetic feature.
-
-The objective was to improve the usefulness of the displayed information without sacrificing responsiveness.
+The clock, compass, and Cadillac-inspired branding made the display feel more like an integrated vehicle instrument panel rather than a generic diagnostic application.
 
 ---
 
-## Phase 6 — Cadillac-Specific Performance Instrumentation
+## Phase 6 — Per-Dashboard Horizontal Gauges
+### November 5, 2026 | Versions 3.4.0–3.4.4
 
-The project also expanded beyond displaying standard Torque Pro parameters.
+**3.4.0:** The horizontal gauge moved into **individual dashboard configuration**. Each dashboard could select its own horizontal PID and reuse relevant round-gauge display options. The renderer gained support for dashboard-specific label, numeric value, tick, and peak-display settings.
 
-Custom GM diagnostic PIDs and calculated expressions were explored to provide information relevant to the Escalade's L87 engine.
+**3.4.1:** The Tick Values option was refined to hide numeric tick labels without removing the major and minor tick marks.
 
-### Horsepower and torque
+**3.4.2–3.4.3:** Configured units were added to the horizontal value, eventually without an intervening space. Obsolete global horizontal-gauge controls, preferences, and service lifecycle handling were removed—not merely hidden.
 
-Custom calculations were developed to estimate engine torque and horsepower using ECU-derived information.
+**3.4.4:** The horizontal value font was matched to the 18sp label font.
 
-The calculations use available torque-related parameters and engine RPM.
-
-Because these values are calculated from diagnostic data, they are estimates rather than direct dynamometer measurements.
-
-### Engine and drivetrain monitoring
-
-The customized dashboards have included parameters such as:
-
-- Calculated engine horsepower and torque
-- Engine load
-- Engine oil pressure
-- Engine oil temperature
-- Coolant temperature
-- Transmission temperature
-- Trip information and fuel economy
-- Vehicle travel direction
-
-The specific parameters can vary by dashboard and user configuration.
-
-### A dashboard for actual driving
-
-The selection of information reflects the vehicle's real use, including ordinary driving, performance monitoring, and towing.
-
-Rather than trying to show every available PID, the goal has been to make important vehicle information visible and understandable at a glance.
+This sequence completed the transition from a globally configured bar to a gauge that could be tailored independently for each dashboard.
 
 ---
 
-## Phase 7 — Refining the Complete Dashboard
-### Versions 3.3–3.4
+## Phase 7 — Direction Persistence and Horizontal Peak Markers
+### November 5, 2026 | Versions 3.4.5–3.4.6
 
-As the instrumentation matured, considerable attention went into making the dashboard feel more integrated with the vehicle.
+**3.4.5:** The last known GPS travel direction was persisted and restored, so the compass could continue showing the previous heading while a fresh direction was unavailable.
 
-### Clock and compass
-
-A clock and directional heading were incorporated into the display.
-
-The direction feature uses phone-derived location information rather than a Torque Pro PID.
-
-Later development added persistence of the last known travel direction, allowing the heading to remain visible when a new direction was not yet available.
-
-### V-Series branding
-
-A Cadillac V-Series-inspired logo was integrated into the dashboard header.
-
-Its positioning, size, and clipping behavior were refined to fit within the available screen area.
-
-### Stable header during ECU connection
-
-Another refinement addressed layout movement during ECU connection.
-
-The header was adjusted so that the clock, compass, and logo could remain visible while diagnostic communication was being established.
-
-This helped prevent the dashboard from visibly shifting when connection status changed.
-
-### Independent horizontal gauge configuration
-
-Version 3.4 moved the horizontal gauge from global configuration into the individual dashboard settings.
-
-Each dashboard could therefore have its own horizontal gauge configuration.
-
-Obsolete global controls and associated lifecycle code were subsequently removed.
-
-Additional options refined labels, numeric values, units, tick visibility, and peak indicators.
-
-This represented a move toward more consistent configuration of round and horizontal instruments.
+**3.4.6:** The horizontal gauge gained distinct peak indicators: a **colored session marker** and a **white persistent all-time marker**. This let the bar communicate current and previously achieved values without permanently displaying additional numbers.
 
 ---
 
-## Phase 8 — Daily Instrumentation and Continued Refinement
-### Version 3.5.3 | November 2026
+## Phase 8 — Diagnostic Validation and Stable Startup Layout
+### November 7, 2026 | Refinements after 3.4.6, before 3.5.0
 
-By version 3.5.3, V-Sport Gauges had evolved substantially beyond its initial manual changes.
+Testing the Escalade revealed that shutdown and ECU communication changes could produce implausibly large PID values, corrupting gauge readings or recorded peaks.
 
-The application combined:
+Validation was tightened to reject non-finite and clearly out-of-range values, including readings outside **twice the configured gauge display limits**. Subsequent corrections preserved legitimate negative readings and transitions toward zero during deceleration, rather than allowing the gauges to freeze above zero.
 
-- Customized Cadillac-inspired instrumentation
-- Multiple configurable dashboards
-- Separately managed sampling and animation
-- Automatic diagnostic polling calibration
-- Persistent peak records
-- Daily maximum and minimum tracking
-- RPM-qualified minimum validation
-- Session and all-time peak indicators
-- Diagnostic plausibility filtering
-- Clock and compass integration
-- Per-dashboard horizontal gauges
-- Production and isolated test builds
+The dashboard header was also stabilized during ECU connection. The clock, direction, and V-Series branding could remain visible while waiting for diagnostic data, without the previous shift in layout. Clock and direction text were enlarged, and the logo was positioned and clipped to the header boundary.
 
-The development has also involved many smaller refinements to layout, fonts, colors, spacing, input handling, and startup behavior.
+These changes were aimed at making the instrumentation both more trustworthy and more visually consistent in everyday use.
 
-Some experiments were revised or abandoned when testing revealed problems. That iterative process has been essential to improving the application.
+---
 
-**V-Sport Gauges remains an ongoing project, with changes guided by real-world testing rather than feature additions alone.**
+## Phase 9 — Daily Peak Tracking
+### November 8–9, 2026 | Versions 3.5.0–3.5.2
+
+**3.5.0:** The next development series began, preserving the working foreground polling baseline.
+
+**3.5.1:** Date-scoped persistent daily extrema were introduced for gauges, allowing a day's maximum and minimum to be tracked separately from all-time records. Round and horizontal gauge displays were connected to the stored daily values.
+
+**3.5.2:** Day-rollover behavior was corrected so daily markers and stored readings could reset appropriately when the date changed, including the horizontal gauge's daily maximum.
+
+This extended the original all-time peak idea into a more useful record of **today's driving**, without indefinitely carrying daily records forward.
+
+---
+
+## Phase 10 — RPM-Qualified Daily Minimums
+### November 9, 2026 | Version 3.5.3
+
+Daily minimum recording raised a specific concern: oil pressure can be low while an engine is starting, and a transient startup reading should not automatically become the day's minimum.
+
+**3.5.3** introduced a deliberately simple qualification: check that engine RPM is above **300**, wait **five seconds**, and confirm RPM is still above **300** before accepting a daily minimum. The implementation does not attempt to prove continuous engine operation between those two checks.
+
+Further commits separated daily maximum and minimum persistence, refined the cyan MIN triangle, avoided duplicate writes from the horizontal gauge, and preserved the horizontal bar's daily maximum tracking independently of round-gauge MIN/MAX/OFF selection.
+
+By this point, the application combined Cadillac-inspired instrumentation, independent polling and animation controls, persistent all-time and daily peak tracking, diagnostic plausibility checks, clock and compass information, and per-dashboard horizontal gauges.
+
+**V-Sport Gauges remains an ongoing project, guided by testing in the Escalade rather than feature additions alone.**
+
+### Subsequent releases
+
+New versions will be documented **below this section in release order**, with their dates, version numbers, significant changes, and any important corrections or removed experiments. This keeps the history chronological as the project continues.
 
 ---
 
