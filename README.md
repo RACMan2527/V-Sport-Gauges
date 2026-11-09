@@ -306,11 +306,10 @@ New versions will be documented **below this section in release order**, with th
 
 ### November 2026 | Version 3.5.7
 
-**3.5.7 (successful APK build):** Added a three-second center hold on the **left round gauge** to toggle all three round gauges between 100% and 110% size. A three-second center hold on the **middle round gauge** toggles the existing persistent `centerGaugeLarge` setting. The all-gauges choice is persisted separately. Scaling applies to the complete gauge, including peak triangles and `PEAK:` labels; the horizontal gauge is not scaled.
+**3.5.7:** Added a three-second center hold on the **left round gauge** to toggle all three round gauges between 100% and 110% size. A three-second center hold on the **middle round gauge** toggles the existing persistent `centerGaugeLarge` setting. The all-gauges choice is persisted separately. Scaling applies to the complete gauge, including peak triangles and `PEAK:` labels; the horizontal gauge is not scaled.
 
 Moved the `dashContent` layout up 10dp to raise the three round gauges and four small displays together, restoring the original per-gauge offsets and compensating the horizontal bar to keep it in place. See the [User Guide](docs/USER_GUIDE.md#enlarge-the-round-gauges-on-android-auto) for controls.
 
-The 3.5.7 APK build completed successfully. In-vehicle behavior has not yet been independently verified.
 
 ---
 
