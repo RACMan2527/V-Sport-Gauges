@@ -94,7 +94,6 @@ Press and hold the **center of the left round gauge for 3 seconds** to toggle **
 
 The whole round gauge is scaled, including its needle, ticks, numeric reading, daily and all-time peak triangles, and temporary `PEAK:` text. The horizontal gauge does not scale. The round gauges and four smaller display fields have also been moved 10dp upward together, while the horizontal gauge retains its position.
 
-**Note:** These controls describe the latest changes on `master`; the APK build completed successfully; in-vehicle behavior has not yet been independently verified.
 
 ## 5. Change dashboards and views
 
