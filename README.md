@@ -292,6 +292,12 @@ By this point, the application combined Cadillac-inspired instrumentation, indep
 
 New versions will be documented **below this section in release order**, with their dates, version numbers, significant changes, and any important corrections or removed experiments. This keeps the history chronological as the project continues.
 
+### November 2026 | Versions 3.5.4–3.5.5
+
+**3.5.4:** Redesigned the settings Info screen as a scrollable About V-Sport Gauges page, using the existing V-Series logo, dynamic version display, corrected project and upstream credits, and links to the repository, releases, and development history.
+
+**3.5.5:** Updated project links after renaming the GitHub repository to **V-Sport-Gauges** and pointed the in-app update checker at V-Sport releases. Improved release tag comparison and APK asset selection.
+
 ---
 
 # My Development and Testing Environment
