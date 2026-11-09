@@ -4,6 +4,12 @@
 
 **Real-time vehicle performance monitoring. Customizable instrumentation. A factory-inspired driving experience.**
 
+## My V-Sport Gauges Setup
+
+![V-Sport Gauges running on the factory OLED display of a 2023 Cadillac Escalade Sport Platinum](V-Sport%20Gauges.jpg)
+
+*My V-Sport Gauges setup running on the factory OLED display of a 2023 Cadillac Escalade Sport Platinum.*
+
 V-Sport Gauges is a personalized evolution of the open-source AA Torque application, developed for a 2023 Cadillac Escalade Sport Platinum with the 6.2L L87 V8. It combines Torque Pro vehicle diagnostics with Cadillac V-Series-inspired instrumentation, responsive gauges, performance calculations, and additional monitoring features.
 
 **The goal:** Make aftermarket instrumentation look, feel, and perform as though it belongs in the vehicle.
