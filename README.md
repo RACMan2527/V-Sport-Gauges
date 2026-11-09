@@ -94,9 +94,9 @@ I knew what I wanted to see. The challenge was finding a practical way to displa
 
 The technical approach had changed dramatically. In the CTS-V, I intercepted the factory video signal and used a jailbroken iPhone, hardware relays, and Wi-Fi diagnostics.
 
-I initially considered mounting an Android phone near the A-pillar to show a few engine parameters, particularly horsepower. I already had a camera monitor in that area for use while towing my trailer. But swapping devices and adding another non-factory-looking display were not appealing. I wanted the gauges integrated into the Escalade's infotainment screen instead.
+I first tried **DashCommand on an Android phone**, intending to mount the phone near the A-pillar to show a few engine parameters, particularly horsepower. I already had a camera monitor in that area for use while towing my trailer. But swapping devices and adding another non-factory-looking display were not appealing. I wanted the gauges integrated into the Escalade's infotainment screen instead.
 
-**My first attempt at that integration was DashCommand on an AI-Box.** The AI-Box used the vehicle's CarPlay connection to display an Android interface, potentially allowing me to reuse the dashboard software I had customized so extensively for the CTS-V. Unfortunately, the AI-Box wasn't robust enough for the job.
+**My next attempt was DashCommand on an AI-Box.** The AI-Box used the vehicle's CarPlay connection to display an Android interface, potentially allowing me to reuse the dashboard software I had customized so extensively for the CTS-V. Unfortunately, the AI-Box wasn't robust enough for the job.
 
 I then returned to an old, damaged-screen Android phone I had purchased and repurposed. Instead of adding a separate display, could I use **Android Auto** to project its instrumentation onto the Escalade's factory OLED screen?
 
