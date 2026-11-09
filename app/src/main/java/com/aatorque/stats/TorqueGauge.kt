@@ -255,6 +255,8 @@ class TorqueGauge : Fragment() {
         binding.limitValue = "-"
         turnTickEnabled(data.display.ticksActive)
         turnMinMaxMarksEnabled(data.display.maxMarksActive)
+        mMax.indicator.color = if (data.display.maxMarksActive == MaxControl.MIN) Color.CYAN else
+            requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedNeedleColor)).getColor(0, Color.RED)
         turnMinMaxTextViewsEnabled(data.display.maxValuesActive)
         turnRaysEnabled(data.display.highVisActive)
         turnWholeNumbers(data.display.wholeNumbers)
@@ -356,9 +358,6 @@ class TorqueGauge : Fragment() {
                     }
                 }
             }
-        }
-        if (data.hasReceivedReading && data.lastData.isFinite()) {
-            DailyPeakStore.record(requireContext(), data.display, data.lastData)
         }
         mClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         mRayClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
