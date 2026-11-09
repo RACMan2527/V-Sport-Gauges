@@ -3,6 +3,7 @@ package com.aatorque.stats
 import android.content.Context
 import android.util.Base64
 import com.aatorque.datastore.Display
+import com.aatorque.datastore.MaxControl
 import java.time.LocalDate
 
 /**
@@ -19,21 +20,46 @@ object DailyPeakStore {
             Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
 
-    @Synchronized
-    fun record(context: Context, display: Display, reading: Double) {
-        if (!reading.isFinite() || display.pid.isBlank()) return
+    private fun preferencesForToday(context: Context): android.content.SharedPreferences {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val today = LocalDate.now().toString()
-        val id = key(display)
         if (prefs.getString("date", null) != today) {
             prefs.edit().clear().putString("date", today).commit()
         }
-        val previousMax = prefs.getString("max_$id", null)?.toDoubleOrNull()
-        val previousMin = prefs.getString("min_$id", null)?.toDoubleOrNull()
-        val edit = prefs.edit()
-        if (previousMax == null || reading > previousMax) edit.putString("max_$id", reading.toString())
-        if (previousMin == null || reading < previousMin) edit.putString("min_$id", reading.toString())
-        edit.apply()
+        return prefs
+    }
+
+    @Synchronized
+    fun isNewMinimum(context: Context, display: Display, reading: Double): Boolean {
+        if (!reading.isFinite() || display.pid.isBlank() ||
+            display.maxMarksActive != MaxControl.MIN) return false
+        val previous = get(context, display, true)
+        return previous == null || reading < previous
+    }
+
+    @Synchronized
+    fun recordMaximum(context: Context, display: Display, reading: Double) {
+        if (!reading.isFinite() || display.pid.isBlank() ||
+            display.maxMarksActive != MaxControl.MAX) return
+        val prefs = preferencesForToday(context)
+        val name = "max_${key(display)}"
+        val previous = prefs.getString(name, null)?.toDoubleOrNull()
+        if (previous == null || reading > previous) {
+            prefs.edit().putString(name, reading.toString()).apply()
+        }
+    }
+
+    @Synchronized
+    fun recordMinimum(context: Context, display: Display, reading: Double, candidateDate: String) {
+        if (!reading.isFinite() || display.pid.isBlank() ||
+            display.maxMarksActive != MaxControl.MIN ||
+            candidateDate != LocalDate.now().toString()) return
+        val prefs = preferencesForToday(context)
+        val name = "min_${key(display)}"
+        val previous = prefs.getString(name, null)?.toDoubleOrNull()
+        if (previous == null || reading < previous) {
+            prefs.edit().putString(name, reading.toString()).apply()
+        }
     }
 
     @Synchronized
