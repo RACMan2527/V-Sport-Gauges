@@ -306,7 +306,7 @@ New versions will be documented **below this section in release order**, with th
 | Projection interface | Android Auto |
 | Diagnostic application | Torque Pro |
 | OBD-II adapter | Vgate vLinker BM Bluetooth |
-| Development repository | RACMan2527/aa-torque |
+| Development repository | RACMan2527/V-Sport-Gauges |
 
 The application may work with other vehicles and configurations, although individual PIDs, performance characteristics, and Android Auto compatibility will vary.
 
@@ -318,7 +318,7 @@ V-Sport Gauges builds upon AA Torque and requires Torque Pro and a compatible OB
 
 1. Install and configure [Torque Pro](https://play.google.com/store/apps/details?id=org.prowl.torque).
 2. Pair a compatible Bluetooth OBD-II adapter and verify communication with the vehicle.
-3. Download the appropriate APK from [V-Sport Gauges Releases](https://github.com/RACMan2527/aa-torque/releases).
+3. Download the appropriate APK from [V-Sport Gauges Releases](https://github.com/RACMan2527/V-Sport-Gauges/releases).
 4. Install the application and configure Android Auto permissions as required by the device.
 5. Configure the desired dashboards, gauges, PIDs, and display settings.
 6. Verify the displayed data against known vehicle readings before relying on calculated parameters.
