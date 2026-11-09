@@ -38,6 +38,72 @@ I am grateful to these developers for making their work available to others.
 
 ---
 
+# Before V-Sport Gauges — The CTS-V That Started It All
+
+### A long-standing passion for Cadillac performance instrumentation
+
+My interest in custom automotive instrumentation began long before V-Sport Gauges and my 2023 Cadillac Escalade. As an enthusiast of Cadillac's V-Series performance vehicles, I wanted to see what the engine was actually doing, in real time, on a display that looked like it belonged in the car.
+
+Dodge's SRT and Hellcat Performance Pages offered an appealing example: factory displays devoted to horsepower, torque, operating parameters, and performance measurements. I wanted that same level of visibility in my Cadillacs—not an aftermarket gauge pod, but instrumentation integrated into the factory display.
+
+## My Cadillac CTS-V Coupe — The Original Custom Dashboard
+
+![Custom DashCommand performance gauges in my Cadillac CTS-V Coupe](CTS-V%20Coupe%20Gauges.jpg)
+
+*My original CTS-V Coupe dashboard: custom DashCommand instrumentation projected onto the factory retractable display using a jailbroken iPhone 5.*
+
+My CTS-V Coupe featured a motorized, retractable center-console display. I modified the vehicle's video system to intercept the original display signal and show the output of a dedicated **jailbroken iPhone 5** instead.
+
+The phone ran Palmer Performance Engineering's **DashCommand**, connected to the vehicle through a **Wi-Fi OBD-II adapter**. Rather than adding another visible screen, I made the Cadillac's existing display serve as a custom performance instrument panel.
+
+### Making the system operate automatically
+
+A permanently installed iPhone had to behave like part of the car, not like a phone that required attention every time I drove.
+
+I used a combination of hardware relays and jailbreak-based triggers to coordinate the system: wake the phone when the vehicle started, establish the Wi-Fi connection to the OBD adapter, display the gauges, and return the phone to a low-power state after shutdown.
+
+This required integrating vehicle power behavior, hardware switching, mobile automation, wireless diagnostics, and the factory display. The objective was a seamless, factory-like experience.
+
+### Designing my own DashCommand gauges
+
+Getting the display working was only the beginning.
+
+One of my biggest inspirations was the **Nissan GT-R's distinctive multifunction performance display**, which presented detailed engine and vehicle operating information through purpose-built digital gauges.
+
+I admired how the GT-R combined technical information with a cockpit-like presentation, making engine performance and vehicle dynamics part of the driving experience.
+
+Using Palmer Performance Engineering's **DashXL dashboard editor**, I set out to bring that same philosophy to my Cadillac CTS-V Coupe.
+
+I designed and refined dozens of custom dashboard versions, experimenting with circular gauges, layouts, graphics, scales, colors, and the selection of engine parameters.
+
+I wasn't satisfied with generic OBD gauges. I wanted something that combined the GT-R's performance-focused instrumentation with the character of Cadillac's V-Series.
+
+I used the system extensively while running the CTS-V at the track, where monitoring engine operating conditions and performance-related information was especially valuable.
+
+Those experiences established an approach that would reappear years later in V-Sport Gauges: **select the information that matters, make it visually engaging, and integrate it naturally into the vehicle.**
+
+### The Escalade — A new vehicle, the same ambition
+
+Years later, my 2023 Cadillac Escalade Sport Platinum presented a new opportunity. Its factory OLED infotainment system offered a remarkable display platform, and Cadillac provided built-in readings such as coolant, oil, and transmission temperatures.
+
+But I still missed something from my CTS-V project: a dedicated view of **real-time engine horsepower and torque**, similar in spirit to the SRT Performance Pages.
+
+The key question became whether I could obtain meaningful crankshaft horsepower and torque estimates from the L87 engine control module. That led to investigating GM torque-related diagnostic parameters, custom Torque Pro calculations, and an L87-specific oil-pressure reading.
+
+Once those data sources were available, I needed a way to display them on the Escalade's factory screen.
+
+### From hardware modification to Android Auto
+
+The technical approach had changed dramatically. In the CTS-V, I intercepted the factory video signal and used a jailbroken iPhone, hardware relays, and Wi-Fi diagnostics.
+
+In the Escalade, I wanted to achieve the same integrated effect **without modifying the factory display hardware**. Android Auto offered a new path, and Kevin Agronick's AA Torque provided the open-source foundation for projecting customizable Torque Pro gauges onto the vehicle's existing screen.
+
+The technologies were different, but the ambition remained the same: **make my Cadillac show me what its engine is doing—with instrumentation worthy of its performance.**
+
+**V-Sport Gauges is not where that interest began. It is the latest evolution of something I started building years earlier.**
+
+---
+
 # The Development of V-Sport Gauges
 
 ## Phase 1 — The First Manual Modifications
