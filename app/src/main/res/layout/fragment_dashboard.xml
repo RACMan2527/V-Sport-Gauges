@@ -140,8 +140,8 @@
 
             <ImageView
                 android:id="@+id/cadillacVSeriesBadge"
-                android:layout_width="90dp"
-                android:layout_height="44.25dp"
+                android:layout_width="102dp"
+                android:layout_height="50.15dp"
                 android:layout_marginEnd="18dp"
                 android:translationY="-6dp"
                 android:contentDescription="Cadillac V-Series badge"
