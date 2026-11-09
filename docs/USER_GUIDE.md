@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.5.5** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.5.6** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
 
@@ -60,9 +60,20 @@ The horizontal gauge has its **own configuration on each dashboard**, rather tha
 
 The bar's appearance, tick marks and colored peak marker are theme/rendering dependent. The diagram is a functional explanation, not a screenshot. The horizontal settings intentionally do **not** expose round-gauge MIN/MAX selectors.
 
-## 3. Adjust the gauges live on Android Auto
+## 3. Choose the Cadillac appearance
 
-The two three-second press-and-hold gestures change **different** behaviors. Both sliders operate over **50–500 ms** and are also represented in the phone's settings.
+On the Android phone, open **V-Sport Gauges → Settings → Appearance**.
+
+- **Theme → Cadillac V-Sport** selects the new Cadillac-named theme. Its gauge appearance currently inherits the **Audi TT** theme unchanged; the original Audi TT selection remains available.
+- **Font → Cadillac Escalade** selects the same underlying **Volkswagen Thesis** typeface under a separate Cadillac-named option. The original Volkswagen Thesis option remains available.
+- The **V-Series logo in the dashboard header is visible only with the Cadillac V-Sport theme**. Changing the font alone does not show or hide the logo.
+- Theme and font choices are saved in the app's existing settings and are included in normal settings export/import. An imported configuration restores its saved selections.
+
+The Cadillac V-Sport theme does not place a logo inside the round gauges. Its header logo can be held for three seconds to open the gauge-refresh slider. With any other theme, the logo is hidden and that logo-based shortcut is unavailable; the refresh interval remains configurable in phone settings.
+
+## 4. Adjust the gauges live on Android Auto
+
+The two three-second press-and-hold gestures change **different** behaviors. The V-Series logo gesture is available **only with the Cadillac V-Sport theme**, because other themes hide the logo. Both sliders operate over **50–500 ms** and are also represented in the phone's settings.
 
 | Press and hold for 3 seconds | On-screen panel | What it changes | Initial default |
 | --- | --- | --- | --- |
@@ -77,31 +88,31 @@ The two three-second press-and-hold gestures change **different** behaviors. Bot
 
 The earlier **automatic polling calibration and Calibration Results screen were removed**; do not look for them in the current release.
 
-## 4. Change dashboards and views
+## 5. Change dashboards and views
 
 - **Swipe horizontally** across the dashboard to switch between configured dashboards.
 - **Rotary/directional inputs** can also change dashboards: left/up and right/down navigate in opposite directions.
 - **Vertical swipe** or the supported **center/select button** toggles the alternate chart view.
 - Dashboard titles, round gauges, four smaller display fields and horizontal gauge are configured for each dashboard on the phone.
-- The **clock, direction and V-Series header logo** remain part of the dashboard header while ECU data is being connected. A connection-state/title change should not require the entire layout to move.
+- The **clock and direction** remain part of the dashboard header while ECU data is being connected. The **V-Series logo** also remains visible during connection when Cadillac V-Sport is selected; it is hidden for other themes. A connection-state/title change should not require the entire layout to move.
 
 The precise vehicle rotary mappings can vary by Android Auto receiver; the list above describes the events handled by the app code.
 
-## 5. Clock, travel direction and startup
+## 6. Clock, travel direction and startup
 
 - The **clock** comes from the phone, not a Torque Pro PID.
 - **Travel direction** is derived from phone GPS movement; when a fresh direction is unavailable, the last known direction is retained.
 - Engine data requires **Torque Pro**, a working OBD connection, and the requested PID. The gauges may wait for ECU data while the header remains visible.
 - The app considers the ECU **connected** after receiving a qualifying nonzero reading; a zero-only stream may still display as waiting. That status rule does not mean every legitimate zero value is invalid.
 
-## 6. Data quality, custom PIDs and calculated power
+## 7. Data quality, custom PIDs and calculated power
 
 - V-Sport Gauges rejects **non-finite readings**, invalid converted values, certain shutdown sentinel values and readings **above twice the configured display maximum** before they update the gauge or peak records.
 - Negative readings are **allowed** for PIDs that legitimately produce them. The visual gauge may clamp a reading to the dial minimum without changing the underlying value.
 - This is a **plausibility filter**, not a guarantee that every ECU/adapter error is detected.
 - Custom Torque Pro PIDs and formulas can supply calculated **horsepower and torque**. These are **ECU-based estimates**, not dynamometer measurements. Verify the PID definition, units and formula for your vehicle.
 
-## 7. Troubleshooting
+## 8. Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
@@ -115,7 +126,7 @@ The precise vehicle rotary mappings can vary by Android Auto receiver; the list 
 | Polling slider changes response time | This is expected: polling actually reschedules diagnostic requests |
 | Needle slider changes animation but not PID speed | This is expected: animation and polling are independent |
 
-## 8. Feature status and scope
+## 9. Feature status and scope
 
 This guide describes features **verified in the current `master` source**, including `DashboardFragment.kt`, `TorqueGauge.kt`, `TorqueLoadBar.kt`, `TorqueRefresher.kt`, `TorqueData.kt`, `DailyPeakStore.kt`, `AllTimePeakStore.kt`, `SettingsPIDFragment.kt` and the settings XML. It is **not** a claim of fresh in-vehicle testing.
 
