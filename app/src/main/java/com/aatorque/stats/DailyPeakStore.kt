@@ -38,9 +38,9 @@ object DailyPeakStore {
     }
 
     @Synchronized
-    fun recordMaximum(context: Context, display: Display, reading: Double) {
+    fun recordMaximum(context: Context, display: Display, reading: Double, horizontalBar: Boolean = false) {
         if (!reading.isFinite() || display.pid.isBlank() ||
-            display.maxMarksActive != MaxControl.MAX) return
+            (display.maxMarksActive != MaxControl.MAX && !horizontalBar)) return
         val prefs = preferencesForToday(context)
         val name = "max_${key(display)}"
         val previous = prefs.getString(name, null)?.toDoubleOrNull()
