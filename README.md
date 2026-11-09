@@ -16,6 +16,10 @@ The project has evolved through repeated experimentation, real-world testing, an
 
 The result is an Android Auto instrumentation application designed to complement the vehicle's factory display while retaining the flexibility of Torque Pro.
 
+## User Guide — Features & Controls
+
+**[Read the illustrated V-Sport Gauges User Guide](docs/USER_GUIDE.md)** for round and horizontal gauges, all-time and daily peak markers, the `PEAK:` display, three-second logo/clock adjustments, dashboard navigation, polling and animation, startup behavior, and troubleshooting. The guide includes recreated gauge diagrams and step-by-step instructions.
+
 ---
 
 ## Origins — Acknowledging the Developers Who Made This Possible
