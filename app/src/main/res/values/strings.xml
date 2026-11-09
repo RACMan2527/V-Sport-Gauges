@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="activity_credits_title">Credits</string>
+    <string name="activity_credits_title">About V-Sport Gauges</string>
     <string name="activity_main_title">Performance Monitor</string>
     <string name="activity_settings_title">V-Sport Settings</string>
     <string name="activity_stopwatch_title">Stopwatch</string>
