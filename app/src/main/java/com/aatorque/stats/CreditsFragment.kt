@@ -23,7 +23,10 @@ class CreditsFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        btnOpenUrl(R.id.githubBtn, "https://github.com/agronick/aa-torque")
+        btnOpenUrl(R.id.githubBtn, "https://github.com/RACMan2527/aa-torque")
+        btnOpenUrl(R.id.releasesBtn, "https://github.com/RACMan2527/aa-torque/releases")
+        btnOpenUrl(R.id.historyBtn, "https://github.com/RACMan2527/aa-torque/blob/master/README.md#the-development-of-v-sport-gauges")
+        view.findViewById<TextView>(R.id.txtVersion).text = "Version ${BuildConfig.VERSION_NAME}"
         btnOpenUrl(R.id.donateBtn, "https://www.paypal.me/kagronick")
         btnOpenUrl(R.id.translateBtn, "https://poeditor.com/join/project/yttme0y1VZ")
         val iconCredits = view.findViewById<LinearLayout>(R.id.ic_credits_list)
