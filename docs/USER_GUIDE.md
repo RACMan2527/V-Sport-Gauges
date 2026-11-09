@@ -88,6 +88,14 @@ The two three-second press-and-hold gestures change **different** behaviors. The
 
 The earlier **automatic polling calibration and Calibration Results screen were removed**; do not look for them in the current release.
 
+### Enlarge the round gauges on Android Auto
+
+Press and hold the **center of the left round gauge for 3 seconds** to toggle **all three round gauges** between normal (100%) and enlarged (110%) size. Press and hold the **center of the middle round gauge for 3 seconds** to toggle the middle gauge's existing large-center setting. The two selections are saved and restored after restarting the app. If all-gauges enlargement is on, the middle gauge remains enlarged even when its independent center-only setting is off.
+
+The whole round gauge is scaled, including its needle, ticks, numeric reading, daily and all-time peak triangles, and temporary `PEAK:` text. The horizontal gauge does not scale. The round gauges and four smaller display fields have also been moved 10dp upward together, while the horizontal gauge retains its position.
+
+**Note:** These controls describe the latest changes on `master`; their Android Auto behavior has not yet been verified in a successful APK build or vehicle test.
+
 ## 5. Change dashboards and views
 
 - **Swipe horizontally** across the dashboard to switch between configured dashboards.
