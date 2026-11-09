@@ -136,7 +136,9 @@ class TorqueRefresher {
                 return@runIfConnected
             }
             torqueData.hasReceivedReading = true
-            when (torqueData.display.maxMarksActive) {
+            if (data[7] === torqueData) {
+                DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData, horizontalBar = true)
+            } else when (torqueData.display.maxMarksActive) {
                 MaxControl.MAX -> DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData)
                 MaxControl.MIN -> validateMinimumIfNeeded(service, torqueData, torqueData.lastData)
                 else -> Unit
