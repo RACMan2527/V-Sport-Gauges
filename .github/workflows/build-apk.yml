@@ -7,6 +7,14 @@ on:
       - feature/sample-screening-all-time-peak
       - master
   workflow_dispatch:
+    inputs:
+      publish_release:
+        description: 'Publish the current master version as a GitHub Release'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
 
 jobs:
   build-apk:
@@ -38,6 +46,45 @@ jobs:
           VERSION="$(grep '^majorVersion=' version.properties | cut -d= -f2).$(grep '^minorVersion=' version.properties | cut -d= -f2).$(grep '^patchVersion=' version.properties | cut -d= -f2)"
           echo "APK_VERSION=$VERSION" >> "$GITHUB_ENV"
           cp app/build/outputs/apk/release/app-release.apk "app/build/outputs/apk/release/v-sport-gauges-$VERSION.apk"
+
+      - name: Check whether this is a new production version
+        id: release_check
+        if: github.ref == 'refs/heads/master' && (github.event_name == 'workflow_dispatch' && inputs.publish_release || github.event_name == 'push')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [[ "${{ github.event_name }}" == "push" ]]; then
+            git fetch --no-tags --depth=2 origin master
+            if ! git diff --name-only HEAD^ HEAD -- version.properties | grep -q '^version.properties        uses: actions/upload-artifact@v4
+        with:
+          name: v-sport-gauges-${{ env.APK_VERSION }}-apk
+          path: app/build/outputs/apk/release/v-sport-gauges-${{ env.APK_VERSION }}.apk
+          if-no-files-found: error
+          retention-days: 14
+; then
+              echo "README-only or non-version push; skip release publishing."
+              exit 0
+            fi
+          fi
+          TAG="v${APK_VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; do not overwrite it."
+          else
+            echo "publish=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Publish versioned GitHub Release
+        if: steps.release_check.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.release_check.outputs.tag }}
+        run: |
+          gh release create "$RELEASE_TAG" "app/build/outputs/apk/release/v-sport-gauges-${APK_VERSION}.apk" \\
+            --target "$GITHUB_SHA" \\
+            --title "V-Sport Gauges ${APK_VERSION}" \\
+            --generate-notes \\
+            --latest
 
       - name: Upload installable release APK
         uses: actions/upload-artifact@v4
