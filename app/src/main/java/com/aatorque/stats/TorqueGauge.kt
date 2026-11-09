@@ -362,11 +362,11 @@ class TorqueGauge : Fragment() {
         }
         mClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         mRayClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
-        if (data.display.maxMarksActive == MaxControl.MAX && data.maxValue.isFinite()) {
-            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display) ?: data.maxValue).toFloat())
+        if (data.display.maxMarksActive == MaxControl.MAX) {
+            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display)?.toFloat() ?: mMax.minSpeed))
             Timber.d("Setting max speed ${data.maxValue}")
-        } else if (data.display.maxMarksActive == MaxControl.MIN && data.minValue.isFinite()) {
-            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display, true) ?: data.minValue).toFloat())
+        } else if (data.display.maxMarksActive == MaxControl.MIN) {
+            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display, true)?.toFloat() ?: mMax.minSpeed))
             Timber.d("Setting min speed ${data.minValue}")
         }
         if (data.display.maxValuesActive != MaxControl.OFF) {
