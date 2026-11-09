@@ -266,7 +266,7 @@
                     app:layout_constraintLeft_toLeftOf="parent"
                     app:layout_constraintRight_toLeftOf="@id/guideline1"
                     app:layout_constraintTop_toTopOf="parent"
-                    android:translationY="18dp"
+                    android:translationY="8dp"
                     app:alpha="@{gaugeAlpha}"
                     app:layout_constraintBottom_toTopOf="@id/loadBar" />
 
@@ -285,7 +285,7 @@
                     app:layout_constraintLeft_toRightOf="@id/guideline1"
                     app:layout_constraintRight_toLeftOf="@+id/guideline2"
                     app:layout_constraintTop_toTopOf="parent"
-                    android:translationY="18dp"
+                    android:translationY="8dp"
                     android:visibility="@{!showChart ? View.VISIBLE : View.GONE}"
                     android:scaleX="@{largeCenter ? 1.1f : 1f}"
                     android:scaleY="@{largeCenter ? 1.1f : 1f}"
@@ -306,7 +306,7 @@
                     app:layout_constraintRight_toRightOf="parent"
                     app:alpha="@{gaugeAlpha}"
                     app:layout_constraintTop_toTopOf="parent"
-                    android:translationY="18dp" />
+                    android:translationY="8dp" />
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/loadBar"
