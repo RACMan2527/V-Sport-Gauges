@@ -459,25 +459,23 @@ class SettingsActivity : AppCompatActivity(),
                 val response = urlConnection.inputStream.bufferedReader().use {
                     JSONObject(it.readText())
                 }
-                val tagName = response.getString("tag_name")
-                downloadItem = response.getJSONArray("assets")
-                    .getJSONObject(0)
-                    .getString("browser_download_url")
-
-                val tagSplit = tagName.split(".")
-                val existingSplit = BuildConfig.VERSION_NAME.split(".")
-
-                tagSplit.forEachIndexed { pos, fromServer ->
-                    if (needsUpdate == null && existingSplit.size > pos) {
-                        val toComp = existingSplit[pos]
-                        if (
-                            fromServer != toComp &&
-                            fromServer.isDigitsOnly() && toComp.isDigitsOnly()
-                        ) {
-                            needsUpdate = fromServer.toInt() > toComp.toInt()
-                        }
+                val tagName = response.getString("tag_name").removePrefix("v")
+                val assets = response.getJSONArray("assets")
+                for (index in 0 until assets.length()) {
+                    val asset = assets.getJSONObject(index)
+                    if (asset.getString("name").endsWith(".apk", ignoreCase = true)) {
+                        downloadItem = asset.getString("browser_download_url")
+                        break
                     }
                 }
+
+                val remoteVersion = tagName.split(".").mapNotNull { it.toIntOrNull() }
+                val installedVersion = BuildConfig.VERSION_NAME.split(".").mapNotNull { it.toIntOrNull() }
+                if (!force && remoteVersion.size == 3 && installedVersion.size == 3) {
+                    needsUpdate = (0..2).firstOrNull { remoteVersion[it] != installedVersion[it] }
+                        ?.let { remoteVersion[it] > installedVersion[it] } ?: false
+                }
+
             }
         } catch (e: JSONException) {
             Timber.e("Failed to parse json on update check")
@@ -486,7 +484,7 @@ class SettingsActivity : AppCompatActivity(),
         }
 
 
-        if (needsUpdate == true) {
+        if (needsUpdate == true && downloadItem != null) {
             assert(downloadItem != null)
             Snackbar.make(
                 findViewById(android.R.id.content),
@@ -505,7 +503,7 @@ class SettingsActivity : AppCompatActivity(),
                     val downloadRequest = DownloadManager.Request(Uri.parse(downloadItem))
                     downloadRequest.setDestinationInExternalPublicDir(
                         Environment.DIRECTORY_DOWNLOADS,
-                        "aa-torque.apk"
+                        "v-sport-gauges.apk"
                     )
                     downloadRequest.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                     val dm = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
