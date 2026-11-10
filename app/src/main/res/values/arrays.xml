@@ -366,6 +366,8 @@
         <item>2</item>
     </string-array>
 
+    <string-array name="daily_marks_enum_value"><item>0</item><item>1</item><item>2</item><item>3</item></string-array>
+    <string-array name="daily_marks_enum"><item>Off</item><item>MIN only</item><item>MAX only</item><item>Both MIN and MAX</item></string-array>
     <string-array name="minmax_enum">
         <item>@string/element_none</item>
         <item>@string/min_value</item>
