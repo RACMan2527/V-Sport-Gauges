@@ -45,6 +45,8 @@ class TorqueGauge : Fragment() {
         get() {
             return binding.dialMax
         }
+    private val mMin: Speedometer
+        get() = binding.dialMin
     private val mAllTime: Speedometer
         get() {
             return binding.dialAllTime
@@ -94,6 +96,10 @@ class TorqueGauge : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         mMax.indicator = TriangleIndicator(requireContext())
         mMax.indicator.color = requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedNeedleColor)).getColor(0, Color.RED)
+        mMin.indicator = TriangleIndicator(requireContext())
+        mMin.indicator.color = Color.CYAN
+        mMin.clearSections()
+        mMin.addSections(Section(0f, 1f, android.R.color.transparent))
         mAllTime.indicator = TriangleIndicator(requireContext())
         mAllTime.indicator.color = Color.WHITE
         mAllTime.clearSections()
@@ -154,7 +160,7 @@ class TorqueGauge : Fragment() {
     }
 
     fun turnMinMaxMarksEnabled(enabled: MaxControl) {
-        binding.showLimitMarked = enabled
+        binding.showLimitMarked = MaxControl.OFF // Marker visibility is controlled individually by updateDailyMarkers().
     }
 
     fun turnMinMaxTextViewsEnabled(enabled: MaxControl) {
@@ -250,13 +256,13 @@ class TorqueGauge : Fragment() {
         binding.executePendingBindings()
         mClock.setSpeedAt(mClock.minSpeed)
         mMax.setSpeedAt(mMax.minSpeed)
+        mMin.setSpeedAt(mMin.minSpeed)
         mAllTime.setSpeedAt(mAllTime.minSpeed)
         mRayClock.setSpeedAt(mRayClock.minSpeed)
         binding.limitValue = "-"
         turnTickEnabled(data.display.ticksActive)
         turnMinMaxMarksEnabled(data.display.maxMarksActive)
-        mMax.indicator.color = if (data.display.maxMarksActive == MaxControl.MIN) Color.CYAN else
-            requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedNeedleColor)).getColor(0, Color.RED)
+        mMax.indicator.color = requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedNeedleColor)).getColor(0, Color.RED)
         turnMinMaxTextViewsEnabled(data.display.maxValuesActive)
         turnRaysEnabled(data.display.highVisActive)
         turnWholeNumbers(data.display.wholeNumbers)
@@ -266,13 +272,7 @@ class TorqueGauge : Fragment() {
         allTimePeakEnabled = data.display.allTimePeakActive
         allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
         mAllTime.visibility = View.INVISIBLE
-        val savedDaily = DailyPeakStore.get(requireContext(), data.display, data.display.maxMarksActive == MaxControl.MIN)
-        savedDaily?.let { mMax.setSpeedAt(it.toFloat()) }
-        if (data.display.maxMarksActive == MaxControl.MIN) {
-            binding.showLimitMarked = if (savedDaily == null) MaxControl.OFF else MaxControl.MIN
-            if (data.display.maxValuesActive == MaxControl.MIN && savedDaily == null)
-                binding.showLimitBelow = MaxControl.OFF
-        }
+        updateDailyMarkers(data.display)
         if (allTimePeakEnabled) {
             val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
                 ?.let { AllTimePeakStore.get(requireContext(), data.display) }
@@ -345,6 +345,19 @@ class TorqueGauge : Fragment() {
         }
     }
 
+    private fun updateDailyMarkers(display: com.aatorque.datastore.Display) {
+        val showMax = display.maxMarksActive == MaxControl.MAX || display.maxMarksActive == MaxControl.BOTH
+        val showMin = display.maxMarksActive == MaxControl.MIN || display.maxMarksActive == MaxControl.BOTH
+        val dailyMax = if (showMax) DailyPeakStore.get(requireContext(), display) else null
+        val dailyMin = if (showMin) DailyPeakStore.get(requireContext(), display, true) else null
+        mMax.visibility = if (dailyMax != null) View.VISIBLE else View.INVISIBLE
+        mMin.visibility = if (dailyMin != null) View.VISIBLE else View.INVISIBLE
+        dailyMax?.let { mMax.setSpeedAt(it.toFloat()) }
+        dailyMin?.let { mMin.setSpeedAt(it.toFloat()) }
+        if (display.maxValuesActive == MaxControl.MIN)
+            binding.showLimitBelow = if (dailyMin == null) MaxControl.OFF else MaxControl.MIN
+    }
+
     private fun onUpdate(data: TorqueData) {
         val fVal = data.lastData.toFloat()
         if (data.hasReceivedReading && data.lastData.isFinite()) {
@@ -366,17 +379,7 @@ class TorqueGauge : Fragment() {
         }
         mClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         mRayClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
-        if (data.display.maxMarksActive == MaxControl.MAX) {
-            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display)?.toFloat() ?: mMax.minSpeed))
-            Timber.d("Setting max speed ${data.maxValue}")
-        } else if (data.display.maxMarksActive == MaxControl.MIN) {
-            val savedMin = DailyPeakStore.get(requireContext(), data.display, true)
-            binding.showLimitMarked = if (savedMin == null) MaxControl.OFF else MaxControl.MIN
-            if (data.display.maxValuesActive == MaxControl.MIN)
-                binding.showLimitBelow = if (savedMin == null) MaxControl.OFF else MaxControl.MIN
-            if (savedMin != null) mMax.setSpeedAt(savedMin.toFloat())
-            Timber.d("Setting min speed ${data.minValue}")
-        }
+        updateDailyMarkers(data.display)
         if (data.display.maxValuesActive != MaxControl.OFF) {
             val possibleValue =
                 if (data.display.maxValuesActive == MaxControl.MAX) data.maxValue else data.minValue
