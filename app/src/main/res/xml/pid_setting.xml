@@ -137,9 +137,14 @@
         <ListPreference
             android:defaultValue="0"
             android:key="maxMarksActive"
-            android:entries="@array/minmax_enum"
-            android:entryValues="@array/minmax_enum_value"
+            android:entries="@array/daily_marks_enum"
+            android:entryValues="@array/daily_marks_enum_value"
             android:title="@string/pref_highlowmarks"
+            android:persistent="false" />
+        <CheckBoxPreference
+            android:key="horizontalDailyMaxEnabled"
+            android:title="Show daily MAX marker"
+            android:summary="Show the red daily maximum triangle on the horizontal gauge"
             android:persistent="false" />
         <CheckBoxPreference
             android:defaultValue="false"
