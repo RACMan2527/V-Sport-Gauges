@@ -439,18 +439,22 @@ open class DashboardFragment : AlbumArt() {
                     if ((startX - centerX) * (startX - centerX) +
                         (startY - centerY) * (startY - centerY) <= radius * radius) {
                         val action = Runnable {
-                            if (allGauges) {
-                                allRoundGaugesLarge = !allRoundGaugesLarge
-                                requireContext().getSharedPreferences("round_gauge_display", Context.MODE_PRIVATE)
-                                    .edit().putBoolean("all_round_gauges_large", allRoundGaugesLarge).apply()
-                                applyRoundGaugeScale()
-                            } else {
-                                val next = !centerGaugeLarge
-                                lifecycleScope.launch {
-                                    requireContext().dataStore.updateData { current ->
-                                        current.toBuilder().setCenterGaugeLarge(next).build()
-                                    }
+                            // Persist the center state before applying either size mode.
+                            // This prevents the DataStore observer from restoring a stale
+                            // center-only selection after an all-gauges toggle.
+                            val nextAll = if (allGauges) !allRoundGaugesLarge else false
+                            val nextCenter = if (allGauges) false
+                                else !allRoundGaugesLarge && !centerGaugeLarge
+                            lifecycleScope.launch {
+                                requireContext().dataStore.updateData { current ->
+                                    current.toBuilder().setCenterGaugeLarge(nextCenter).build()
                                 }
+                                requireContext().getSharedPreferences(
+                                    "round_gauge_display", Context.MODE_PRIVATE
+                                ).edit().putBoolean("all_round_gauges_large", nextAll).apply()
+                                allRoundGaugesLarge = nextAll
+                                centerGaugeLarge = nextCenter
+                                applyRoundGaugeScale()
                             }
                         }
                         pending = action
