@@ -90,7 +90,13 @@ The earlier **automatic polling calibration and Calibration Results screen were 
 
 ### Enlarge the round gauges on Android Auto
 
-Press and hold the **center of the left round gauge for 3 seconds** to toggle **all three round gauges** between normal (100%) and enlarged (110%) size. Press and hold the **center of the middle round gauge for 3 seconds** to toggle the middle gauge's existing large-center setting. The two selections are saved and restored after restarting the app. If all-gauges enlargement is on, the middle gauge remains enlarged even when its independent center-only setting is off.
+Press and hold the **center of the left or middle round gauge for 3 seconds** to change the gauge size. There are three mutually exclusive modes: **all normal**, **center enlarged**, and **all enlarged**. The selected mode is saved and restored after restarting the app.
+
+| Current mode | Hold left gauge (3 seconds) | Hold middle gauge (3 seconds) |
+| --- | --- | --- |
+| All normal (100%) | All enlarged (110%) | Center enlarged |
+| Center enlarged | All enlarged (110%) | All normal (100%) |
+| All enlarged (110%) | All normal (100%) | All normal (100%) |
 
 The whole round gauge is scaled, including its needle, ticks, numeric reading, daily and all-time peak triangles, and temporary `PEAK:` text. The horizontal gauge does not scale. The round gauges and four smaller display fields have also been moved 10dp upward together, while the horizontal gauge retains its position.
 
