@@ -25,8 +25,8 @@ class TorqueRefresher {
     val data = HashMap<Int, TorqueData>()
     private val executor = ScheduledThreadPoolExecutor(7)
     private val rpmValidationExecutor = ScheduledThreadPoolExecutor(1)
-    private val pendingMinimums = ConcurrentHashMap<TorqueData, ScheduledFuture<*>>()
-    private val minimumChecksInProgress = ConcurrentHashMap.newKeySet<TorqueData>()
+    private data class PendingMinimum(var lowest: Double, val date: String, var task: ScheduledFuture<*>? = null)
+    private val pendingMinimums = ConcurrentHashMap<TorqueData, PendingMinimum>()
     val handler = Handler(Looper.getMainLooper())
     @Volatile private var pollingEnabled = false
     private var activeService: TorqueService? = null
@@ -163,46 +163,53 @@ class TorqueRefresher {
     }
 
     /**
-     * Only a new daily MIN candidate triggers RPM validation. Two one-shot
-     * RPM reads, five seconds apart; no monitoring in between.
+     * Validate each new daily minimum over one fixed five-second window.
+     * Subsequent lower readings update the candidate without resetting its timer.
+     * RPM is checked only at the beginning and end of the window.
      */
-    private fun validateMinimumIfNeeded(service: TorqueService, data: TorqueData, candidate: Double) {
-        if (!pollingEnabled || !DailyPeakStore.isNewMinimum(appContext, data.display, candidate) ||
-            !minimumChecksInProgress.add(data)) return
-        val candidateDate = LocalDate.now().toString()
-        try {
-            var firstValid = false
-            service.runIfConnected { ts ->
-                val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
-                firstValid = rpm != null && rpm.isFinite() && rpm > 300.0
-            }
-            if (!firstValid) {
-                minimumChecksInProgress.remove(data)
+    private fun validateMinimumIfNeeded(service: TorqueService, gauge: TorqueData, candidate: Double) {
+        if (!pollingEnabled || !DailyPeakStore.isNewMinimum(appContext, gauge.display, candidate)) return
+        synchronized(pendingMinimums) {
+            val existing = pendingMinimums[gauge]
+            if (existing != null) {
+                if (candidate < existing.lowest) existing.lowest = candidate
                 return
             }
-            val task = rpmValidationExecutor.schedule({
-                try {
-                    if (pollingEnabled && activeService === service &&
-                        data in this.data.values && candidateDate == LocalDate.now().toString()) {
-                        service.runIfConnected { ts ->
-                            val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
-                            if (rpm != null && rpm.isFinite() && rpm > 300.0) {
-                                DailyPeakStore.recordMinimum(appContext, data.display, candidate, candidateDate)
-                                handler.post { if (pollingEnabled) data.sendNotifyUpdate() }
+            val date = LocalDate.now().toString()
+            try {
+                var rpmValid = false
+                service.runIfConnected { ts ->
+                    val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
+                    rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
+                }
+                if (!rpmValid) return
+                val pending = PendingMinimum(candidate, date)
+                pendingMinimums[gauge] = pending
+                pending.task = rpmValidationExecutor.schedule({
+                    try {
+                        if (pollingEnabled && activeService === service &&
+                            gauge in this.data.values && date == LocalDate.now().toString()) {
+                            service.runIfConnected { ts ->
+                                val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
+                                if (rpm != null && rpm.isFinite() && rpm > 300.0) {
+                                    val minimum = synchronized(pendingMinimums) { pending.lowest }
+                                    DailyPeakStore.recordMinimum(appContext, gauge.display, minimum, date)
+                                    handler.post { if (pollingEnabled) gauge.sendNotifyUpdate() }
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        Timber.w(e, "RPM minimum validation failed; candidate rejected")
+                    } finally {
+                        synchronized(pendingMinimums) {
+                            if (pendingMinimums[gauge] === pending) pendingMinimums.remove(gauge)
+                        }
                     }
-                } catch (e: Exception) {
-                    Timber.w(e, "Second RPM check failed; minimum rejected")
-                } finally {
-                    pendingMinimums.remove(data)
-                    minimumChecksInProgress.remove(data)
-                }
-            }, 5, TimeUnit.SECONDS)
-            pendingMinimums[data] = task
-        } catch (e: Exception) {
-            minimumChecksInProgress.remove(data)
-            Timber.w(e, "First RPM check failed; minimum rejected")
+                }, 5, TimeUnit.SECONDS)
+            } catch (e: Exception) {
+                pendingMinimums.remove(gauge)
+                Timber.w(e, "Initial RPM minimum validation failed; candidate rejected")
+            }
         }
     }
 
@@ -219,9 +226,8 @@ class TorqueRefresher {
 
     fun stopExecutors() {
         pollingEnabled = false
-        pendingMinimums.values.forEach { it.cancel(false) }
+        pendingMinimums.values.forEach { it.task?.cancel(false) }
         pendingMinimums.clear()
-        minimumChecksInProgress.clear()
         activeService = null
         Timber.i("Telling Torque refreshers to stop")
         for (td in data.values) {
