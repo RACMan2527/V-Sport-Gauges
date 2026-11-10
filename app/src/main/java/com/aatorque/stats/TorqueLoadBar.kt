@@ -52,7 +52,7 @@ class TorqueLoadBar : Fragment() {
         allTimeEnabled = showPeak
         gauge.showAllTimePeak = showPeak
         gauge.setAllTimePeak(if (showPeak) AllTimePeakStore.get(requireContext(), data.display)?.toFloat() else null)
-        gauge.showPeak = true
+        gauge.showPeak = !data.display.hasHorizontalDailyMaxEnabled() || data.display.horizontalDailyMaxEnabled
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
         gauge.setProgress(data.lastData.toFloat())
         gauge.setDailyPeak(DailyPeakStore.get(requireContext(), data.display)?.toFloat())
