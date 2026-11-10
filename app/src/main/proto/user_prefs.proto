@@ -9,6 +9,7 @@ enum MaxControl {
   OFF = 0;
   MIN = 1;
   MAX = 2;
+  BOTH = 3;
 }
 
 extend google.protobuf.EnumValueOptions {
@@ -50,6 +51,7 @@ message Display {
   optional double horizontalMinValue = 27;
   optional double horizontalMaxValue = 28;
   bool allTimePeakActive = 29;
+  optional bool horizontalDailyMaxEnabled = 30;
 }
 
 message Screen {
