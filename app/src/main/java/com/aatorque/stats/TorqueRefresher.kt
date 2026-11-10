@@ -137,10 +137,16 @@ class TorqueRefresher {
             }
             torqueData.hasReceivedReading = true
             if (data[7] === torqueData) {
-                DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData, horizontalBar = true)
+                if (!torqueData.display.hasHorizontalDailyMaxEnabled() || torqueData.display.horizontalDailyMaxEnabled) {
+                    DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData, horizontalBar = true)
+                }
             } else when (torqueData.display.maxMarksActive) {
                 MaxControl.MAX -> DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData)
                 MaxControl.MIN -> validateMinimumIfNeeded(service, torqueData, torqueData.lastData)
+                MaxControl.BOTH -> {
+                    DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData)
+                    validateMinimumIfNeeded(service, torqueData, torqueData.lastData)
+                }
                 else -> Unit
             }
             Timber.d("Got valid $value from torque for ${torqueData.display.label}")
