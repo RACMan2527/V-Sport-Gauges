@@ -57,6 +57,10 @@
             type="Boolean" />
 
         <variable
+            name="allRoundLarge"
+            type="Boolean" />
+
+        <variable
             name="showChart"
             type="Boolean" />
 
@@ -426,7 +430,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     app:layout_constraintGuide_begin="0dp"
-                    app:guidelinePercent="@{largeCenter ? 0.15f : (1f/6f)}" />
+                    app:guidelinePercent="@{allRoundLarge ? (1.1f/6f) : (largeCenter ? 0.15f : (1f/6f))}" />
 
                 <androidx.constraintlayout.widget.Guideline
                     android:id="@+id/line75"
@@ -434,7 +438,7 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     app:layout_constraintGuide_begin="0dp"
-                    app:guidelinePercent="@{largeCenter ? 0.85f : (5f/6f)}" />
+                    app:guidelinePercent="@{allRoundLarge ? (1f - 1.1f/6f) : (largeCenter ? 0.85f : (5f/6f))}" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
