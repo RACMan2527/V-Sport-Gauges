@@ -8,6 +8,7 @@ These are standing project requirements for any AI assistant modifying or review
 2. Read the current version from `version.properties` **before** editing. The Gradle application version is derived from `majorVersion`, `minorVersion`, and `patchVersion`. Never assume the version from a conversation or a prior build.
 3. Multiple conversations or contributors may modify this repository simultaneously. Immediately before committing or pushing, recheck the latest remote branch head and the target files. If they changed, reconcile with the new state; do not blindly overwrite, force-push, or discard other work.
 4. Never bump the version merely by assumption. Confirm the requested version and the repository's actual current version; if the requested target is stale or conflicting, resolve the conflict before writing.
+5. If a significant form / fit / function change is detected, ask if `minorVersion` should change.
 
 ## Investigate before proposing or changing
 
