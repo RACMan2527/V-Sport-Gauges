@@ -266,8 +266,13 @@ class TorqueGauge : Fragment() {
         allTimePeakEnabled = data.display.allTimePeakActive
         allTimePeakKey = data.display.pid.takeIf { it.isNotBlank() }?.let { AllTimePeakStore.key(it) }
         mAllTime.visibility = View.INVISIBLE
-        DailyPeakStore.get(requireContext(), data.display, data.display.maxMarksActive == MaxControl.MIN)
-            ?.let { mMax.setSpeedAt(it.toFloat()) }
+        val savedDaily = DailyPeakStore.get(requireContext(), data.display, data.display.maxMarksActive == MaxControl.MIN)
+        savedDaily?.let { mMax.setSpeedAt(it.toFloat()) }
+        if (data.display.maxMarksActive == MaxControl.MIN) {
+            binding.showLimitMarked = if (savedDaily == null) MaxControl.OFF else MaxControl.MIN
+            if (data.display.maxValuesActive == MaxControl.MIN && savedDaily == null)
+                binding.showLimitBelow = MaxControl.OFF
+        }
         if (allTimePeakEnabled) {
             val savedPeak = data.display.pid.takeIf { it.isNotBlank() }
                 ?.let { AllTimePeakStore.get(requireContext(), data.display) }
@@ -365,7 +370,11 @@ class TorqueGauge : Fragment() {
             mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display)?.toFloat() ?: mMax.minSpeed))
             Timber.d("Setting max speed ${data.maxValue}")
         } else if (data.display.maxMarksActive == MaxControl.MIN) {
-            mMax.setSpeedAt((DailyPeakStore.get(requireContext(), data.display, true)?.toFloat() ?: mMax.minSpeed))
+            val savedMin = DailyPeakStore.get(requireContext(), data.display, true)
+            binding.showLimitMarked = if (savedMin == null) MaxControl.OFF else MaxControl.MIN
+            if (data.display.maxValuesActive == MaxControl.MIN)
+                binding.showLimitBelow = if (savedMin == null) MaxControl.OFF else MaxControl.MIN
+            if (savedMin != null) mMax.setSpeedAt(savedMin.toFloat())
             Timber.d("Setting min speed ${data.minValue}")
         }
         if (data.display.maxValuesActive != MaxControl.OFF) {
