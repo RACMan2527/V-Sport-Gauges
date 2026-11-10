@@ -32,7 +32,7 @@ object DailyPeakStore {
     @Synchronized
     fun isNewMinimum(context: Context, display: Display, reading: Double): Boolean {
         if (!reading.isFinite() || display.pid.isBlank() ||
-            display.maxMarksActive != MaxControl.MIN) return false
+            display.maxMarksActive != MaxControl.MIN && display.maxMarksActive != MaxControl.BOTH) return false
         val previous = get(context, display, true)
         return previous == null || reading < previous
     }
@@ -40,7 +40,7 @@ object DailyPeakStore {
     @Synchronized
     fun recordMaximum(context: Context, display: Display, reading: Double, horizontalBar: Boolean = false) {
         if (!reading.isFinite() || display.pid.isBlank() ||
-            (display.maxMarksActive != MaxControl.MAX && !horizontalBar)) return
+            (display.maxMarksActive != MaxControl.MAX && display.maxMarksActive != MaxControl.BOTH && !horizontalBar)) return
         val prefs = preferencesForToday(context)
         val name = "max_${key(display)}"
         val previous = prefs.getString(name, null)?.toDoubleOrNull()
