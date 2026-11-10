@@ -55,6 +55,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
     lateinit var ticksActivePref: CheckBoxPreference
     lateinit var maxValuesActivePref: ListPreference
     lateinit var maxMarksActivePref: ListPreference
+    lateinit var horizontalDailyMaxPref: CheckBoxPreference
     lateinit var allTimePeakActivePref: CheckBoxPreference
     lateinit var allTimePeakValuePref: EditTextPreference
     lateinit var highVisActivePref: CheckBoxPreference
@@ -113,6 +114,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         ticksActivePref = findPreference("ticksActive")!!
         maxValuesActivePref = findPreference("maxValuesActive")!!
         maxMarksActivePref = findPreference("maxMarksActive")!!
+        horizontalDailyMaxPref = findPreference("horizontalDailyMaxEnabled")!!
+        horizontalDailyMaxPref.isVisible = isHorizontal
         allTimePeakActivePref = findPreference("allTimePeakActive")!!
         allTimePeakValuePref = findPreference("allTimePeakValue")!!
         highVisActivePref = findPreference("highVisActive")!!
@@ -223,6 +226,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 ticksActivePref.isChecked = display.ticksActive
                 maxValuesActivePref.value = display.maxValuesActive.number.toString()
                 maxMarksActivePref.value = display.maxMarksActive.number.toString()
+                horizontalDailyMaxPref.isChecked = if (display.hasHorizontalDailyMaxEnabled()) display.horizontalDailyMaxEnabled else true
                 allTimePeakActivePref.isChecked = display.allTimePeakActive
                 refreshAllTimePeakPreference(display.pid, display)
                 highVisActivePref.isChecked = display.highVisActive
@@ -326,6 +330,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         ).setChartColor(
             colorPref.colorValue
         )
+        if (isHorizontal) display = display.setHorizontalDailyMaxEnabled(horizontalDailyMaxPref.isChecked)
         if (imagePref.value != null) {
             display = display.setIcon(imagePref.value)
         }
