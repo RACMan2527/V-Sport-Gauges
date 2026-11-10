@@ -311,6 +311,23 @@ New versions will be documented **below this section in release order**, with th
 Moved the `dashContent` layout up 10dp to raise the three round gauges and four small displays together, restoring the original per-gauge offsets and compensating the horizontal bar to keep it in place. See the [User Guide](docs/USER_GUIDE.md#enlarge-the-round-gauges-on-android-auto) for controls.
 
 
+### November 2026 | Version 3.5.8
+
+**3.5.8:** Refined the four small trip/data views so their horizontal centers are calculated from the actual round-gauge dial edges and scaling, rather than fixed offsets. Alignment adapts to all-normal, center-enlarged, and all-enlarged round-gauge layouts; enlarged outer gauges are positioned against the dashboard edges.
+
+### November 2026 | Version 3.5.9
+
+**3.5.9:** Revised daily minimum tracking to validate candidate minimums using engine RPM and a five-second confirmation period. A daily MIN indicator remains hidden until a valid minimum has been confirmed, avoiding misleading zero readings during engine shutdown or before qualification.
+
+### November 2026 | Version 3.5.10
+
+**3.5.10:** Added independent daily MIN and MAX marker selections for round gauges, including the ability to show either or both. The horizontal gauge retains an optional daily MAX indicator without a MIN option.
+
+### November 2026 | Version 3.5.11
+
+**3.5.11:** Advanced the application version following the round-gauge long-press behavior correction. The left-gauge hold toggles all-gauge enlargement; the center-gauge hold selects center-only enlargement from normal, or restores normal size from all-enlarged mode. The three states remain mutually exclusive and persistent, as described above and in the User Guide.
+
+
 ---
 
 # My Development and Testing Environment
