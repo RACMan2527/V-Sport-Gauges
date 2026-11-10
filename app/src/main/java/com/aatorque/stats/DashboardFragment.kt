@@ -367,6 +367,7 @@ open class DashboardFragment : AlbumArt() {
         binding.gaugeRight.scaleY = sideScale
         // The center remains controlled by the existing persisted centerGaugeLarge setting.
         binding.largeCenter = allRoundGaugesLarge || centerGaugeLarge
+        binding.allRoundLarge = allRoundGaugesLarge
     }
 
     private fun configureGaugeScaleLongPress(gauge: View, allGauges: Boolean) {
