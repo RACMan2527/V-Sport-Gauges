@@ -6,6 +6,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Matrix
 import android.graphics.Color
 import android.graphics.PorterDuff
 import android.graphics.PorterDuffColorFilter
@@ -368,6 +369,56 @@ open class DashboardFragment : AlbumArt() {
         // The center remains controlled by the existing persisted centerGaugeLarge setting.
         binding.largeCenter = allRoundGaugesLarge || centerGaugeLarge
         binding.allRoundLarge = allRoundGaugesLarge
+        // Wait until the scaled dial geometry has been laid out.
+        binding.dashContent.post { alignDisplaysBetweenDials() }
+    }
+
+    /**
+     * Center both pairs of trip displays in the actual horizontal space between
+     * the rendered dial circles, accounting for each dial's scale and pivot.
+     * Do not infer dial edges from the FragmentContainerView thirds.
+     */
+    private fun alignDisplaysBetweenDials() {
+        if (!isAdded || !::binding.isInitialized || binding.dashContent.width <= 0) return
+        val container = binding.dashContent
+        val toGlobal = Matrix()
+        container.transformMatrixToGlobal(toGlobal)
+        val fromGlobal = Matrix()
+        if (!toGlobal.invert(fromGlobal)) return
+
+        fun dialEdges(gauge: View): Pair<Float, Float>? {
+            val dial = gauge.findViewById<View>(R.id.dial) ?: return null
+            if (dial.width <= 0 || dial.height <= 0) return null
+            val radius = minOf(dial.width, dial.height) / 2f
+            val cx = dial.width / 2f
+            val cy = dial.height / 2f
+            val edges = floatArrayOf(cx - radius, cy, cx + radius, cy)
+            val matrix = Matrix()
+            dial.transformMatrixToGlobal(matrix)
+            matrix.mapPoints(edges)
+            fromGlobal.mapPoints(edges)
+            return minOf(edges[0], edges[2]) to maxOf(edges[0], edges[2])
+        }
+
+        val left = dialEdges(binding.gaugeLeft) ?: return
+        val middle = dialEdges(binding.gaugeCenter) ?: return
+        val right = dialEdges(binding.gaugeRight) ?: return
+        val leftGapCenter = (left.second + middle.first) / 2f
+        val rightGapCenter = (middle.second + right.first) / 2f
+
+        // Each display is constrained between a movable guideline and the
+        // fixed 50% guideline, so its CENTER is the average of those positions.
+        val width = container.width.toFloat()
+        fun setGuide(guide: View, displayCenter: Float) {
+            val percent = (2f * displayCenter / width - 0.5f).coerceIn(0f, 1f)
+            val params = guide.layoutParams as ConstraintLayout.LayoutParams
+            if (kotlin.math.abs(params.guidePercent - percent) > 0.0001f) {
+                params.guidePercent = percent
+                guide.layoutParams = params
+            }
+        }
+        setGuide(binding.line25, leftGapCenter)
+        setGuide(binding.line75, rightGapCenter)
     }
 
     private fun configureGaugeScaleLongPress(gauge: View, allGauges: Boolean) {
