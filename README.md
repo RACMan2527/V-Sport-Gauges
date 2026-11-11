@@ -400,3 +400,8 @@ Vehicle diagnostic data and calculated performance values are provided for infor
 **V-Sport Gauges**
 
 *Built upon the innovations of others. Developed through experimentation. Refined through real-world driving.*
+
+
+### November 2026 | Version 3.5.17
+
+**3.5.17:** Settings exports now include the manually selected PID polling interval (50–500 ms). Import restores that interval, including live polling rescheduling. Older exports without the interval restore the 200 ms default. Gauge animation timing remains separate.
