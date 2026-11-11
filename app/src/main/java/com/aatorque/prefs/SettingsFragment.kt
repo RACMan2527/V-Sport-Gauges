@@ -180,14 +180,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             return@setOnPreferenceChangeListener true
         }
 
-        val pollingPrefs = requireContext().getSharedPreferences(
-            TorqueRefresher.PREFS_NAME, android.content.Context.MODE_PRIVATE
-        )
-        // Initialize independently of the obsolete automatic calibration value.
-        val pollingValue = if (pollingPrefs.getBoolean("manual_polling_initialized", false))
-            pollingPrefs.getLong(TorqueRefresher.KEY_INTERVAL_MS, 200L).toInt().coerceIn(50, 500)
-        else 200
-        pollingIntervalPref.value = pollingValue
+        syncPollingIntervalFromStorage()
         pollingIntervalPref.setOnPreferenceChangeListener { _, newValue ->
             val interval = (newValue as Int).coerceIn(50, 500)
             TorqueRefresher.setGlobalPollingInterval(requireContext(), interval.toLong())
@@ -238,6 +231,22 @@ class SettingsFragment : PreferenceFragmentCompat() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::pollingIntervalPref.isInitialized) syncPollingIntervalFromStorage()
+    }
+
+    fun syncPollingIntervalFromStorage() {
+        val prefs = requireContext().getSharedPreferences(
+            TorqueRefresher.PREFS_NAME, android.content.Context.MODE_PRIVATE
+        )
+        val interval = if (prefs.getBoolean("manual_polling_initialized", false))
+            prefs.getLong(TorqueRefresher.KEY_INTERVAL_MS, TorqueRefresher.DEFAULT_SAMPLE_INTERVAL)
+                .toInt().coerceIn(50, 500)
+        else TorqueRefresher.DEFAULT_SAMPLE_INTERVAL.toInt()
+        if (pollingIntervalPref.value != interval) pollingIntervalPref.value = interval
     }
 
     @OptIn(DelicateCoroutinesApi::class)
