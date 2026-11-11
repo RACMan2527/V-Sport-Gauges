@@ -83,6 +83,14 @@ open class DashboardFragment : AlbumArt() {
     private var pollingIntervalInitialValue = 200
     private var refreshIntervalInitialValue = 300
     private var dashboardTitle: String = ""
+    private var currentConnectionStatus = ConnectStatus.CONNECTING_TORQUE
+    private var communicationFaultActive = false
+
+    private fun updateConnectionIndicators() {
+        binding.connectingEcu = currentConnectionStatus == ConnectStatus.CONNECTING_ECU
+        binding.brokenLink = currentConnectionStatus == ConnectStatus.CONNECTING_ECU ||
+            (currentConnectionStatus == ConnectStatus.CONNECTED && communicationFaultActive)
+    }
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
     lateinit var torqueChart: TorqueChart
@@ -241,12 +249,20 @@ open class DashboardFragment : AlbumArt() {
         }
         registerWithView{
             torqueRefresher.connectStatus.collect {
+                currentConnectionStatus = it
                 binding.status = when (it) {
                     ConnectStatus.CONNECTING_TORQUE -> R.string.status_connecting_torque
                     ConnectStatus.CONNECTING_ECU -> R.string.status_connecting_to_ecu
                     ConnectStatus.SETUP_GAUGE -> R.string.status_setup_gauges
                     ConnectStatus.CONNECTED -> 0
                 }
+                updateConnectionIndicators()
+            }
+        }
+        registerWithView {
+            torqueRefresher.communicationFault.collect {
+                communicationFaultActive = it
+                updateConnectionIndicators()
             }
         }
     }
@@ -257,6 +273,8 @@ open class DashboardFragment : AlbumArt() {
     ): View? {
         Timber.i("onCreateView")
         binding = FragmentDashboardBinding.inflate(inflater, container, false)
+        binding.connectingEcu = false
+        binding.brokenLink = false
 
         settingsViewModel.typefaceLiveData.observe(viewLifecycleOwner) {
             binding.font = it
