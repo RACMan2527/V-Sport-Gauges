@@ -219,11 +219,11 @@ These iterations reinforced the value of testing actual ECU communication and ke
 ## Phase 5 — Peak Visibility, Clock, Compass, and Header
 ### November 2026 | Versions 3.3.9–3.3.14
 
-**3.3.9–3.3.10:** Peak-label behavior was refined so newly achieved all-time peaks could remain visible until the dashboard changed, with a subsequent compilation fix.
+**3.3.9–3.3.10:** Peak-label behavior was refined so newly achieved all-time peaks could remain visible until the dashboard changed.
 
 **3.3.11:** The dashboard gained a compact **clock and GPS-derived travel direction**. Unlike engine readings, these values came from the phone rather than Torque Pro. The required location-permission handling was also added.
 
-**3.3.12–3.3.14:** Release workflow and settings refinements continued, including restoring the simulated ECU data toggle and adjusting the V-Series logo's position.
+**3.3.12–3.3.14:** The V-Series logo and header presentation were refined.
 
 The clock, compass, and Cadillac-inspired branding made the display feel more like an integrated vehicle instrument panel rather than a generic diagnostic application.
 
@@ -236,7 +236,7 @@ The clock, compass, and Cadillac-inspired branding made the display feel more li
 
 **3.4.1:** The Tick Values option was refined to hide numeric tick labels without removing the major and minor tick marks.
 
-**3.4.2–3.4.3:** Configured units were added to the horizontal value, eventually without an intervening space. Obsolete global horizontal-gauge controls, preferences, and service lifecycle handling were removed—not merely hidden.
+**3.4.2–3.4.3:** Configured units were added to the horizontal value, and dashboard-specific configuration replaced the earlier global controls.
 
 **3.4.4:** The horizontal value font was matched to the 18sp label font.
 
@@ -273,7 +273,7 @@ These changes were aimed at making the instrumentation both more trustworthy and
 
 **3.5.1:** Date-scoped persistent daily extrema were introduced for gauges, allowing a day's maximum and minimum to be tracked separately from all-time records. Round and horizontal gauge displays were connected to the stored daily values.
 
-**3.5.2:** Day-rollover behavior was corrected so daily markers and stored readings could reset appropriately when the date changed, including the horizontal gauge's daily maximum.
+
 
 This extended the original all-time peak idea into a more useful record of **today's driving**, without indefinitely carrying daily records forward.
 
@@ -286,7 +286,7 @@ Daily minimum recording raised a specific concern: oil pressure can be low while
 
 **3.5.3** introduced a deliberately simple qualification: check that engine RPM is above **300**, wait **five seconds**, and confirm RPM is still above **300** before accepting a daily minimum. The implementation does not attempt to prove continuous engine operation between those two checks.
 
-Further commits separated daily maximum and minimum persistence, refined the cyan MIN triangle, avoided duplicate writes from the horizontal gauge, and preserved the horizontal bar's daily maximum tracking independently of round-gauge MIN/MAX/OFF selection.
+The daily MIN uses a cyan triangle, while the horizontal bar retains its own daily MAX tracking independently of round-gauge MIN/MAX/OFF selection.
 
 By this point, the application combined Cadillac-inspired instrumentation, independent polling and animation controls, persistent all-time and daily peak tracking, diagnostic plausibility checks, clock and compass information, and per-dashboard horizontal gauges.
 
@@ -294,19 +294,17 @@ By this point, the application combined Cadillac-inspired instrumentation, indep
 
 ### Subsequent releases
 
-New versions will be documented **below this section in release order**, with their dates, version numbers, significant changes, and any important corrections or removed experiments. This keeps the history chronological as the project continues.
+New versions will be documented **below this section in release order** only when they introduce a confirmed, meaningful user-facing capability. Routine fixes and internal changes belong in Git commit history, not this README.
 
 ### November 2026 | Versions 3.5.4–3.5.6
 
 **3.5.4:** Redesigned the settings Info screen as a scrollable About V-Sport Gauges page, using the existing V-Series logo, dynamic version display, corrected project and upstream credits, and links to the repository, releases, and development history.
 
-**3.5.5:** Updated project links after renaming the GitHub repository to **V-Sport-Gauges** and pointed the in-app update checker at V-Sport releases. Improved release tag comparison and APK asset selection.
-
 **3.5.6:** Added a selectable **Cadillac V-Sport** theme that inherits the existing Audi TT gauge appearance, while keeping Audi TT available. Added a separate **Cadillac Escalade** font selection using the existing Volkswagen Thesis typeface, without removing the Volkswagen option. The V-Series header logo now appears **only** when Cadillac V-Sport is the selected theme; the logo's three-second gauge-refresh control remains available when it is visible. Both selections use the existing settings persistence and protobuf export/import format.
 
 ### November 2026 | Version 3.5.7
 
-**3.5.7:** Added a three-second center hold on the **left round gauge** to toggle all three round gauges between 100% and 110% size. A three-second center hold on the **middle round gauge** cycles between center-only enlargement and normal size when all gauges are normal; when all three are enlarged, holding the middle gauge returns all three to normal. Holding the left gauge enlarges all three from either normal or center-only mode, and returns all three to normal from all-large mode. The controls select one of three mutually exclusive, persistent states: all normal, center enlarged, or all enlarged. Scaling applies to the complete gauge, including peak triangles and `PEAK:` labels; the horizontal gauge is not scaled.
+**3.5.7:** Added three-second holds on the **left and middle round gauges** to select persistent all-normal, center-enlarged, or all-enlarged display modes. Scaling applies to the complete round gauge, including peak triangles and `PEAK:` labels; the horizontal gauge is not scaled.
 
 Moved the `dashContent` layout up 10dp to raise the three round gauges and four small displays together, restoring the original per-gauge offsets and compensating the horizontal bar to keep it in place. See the [User Guide](docs/USER_GUIDE.md#enlarge-the-round-gauges-on-android-auto) for controls.
 
@@ -315,28 +313,14 @@ Moved the `dashContent` layout up 10dp to raise the three round gauges and four 
 
 **3.5.8:** Refined the four small trip/data views so their horizontal centers are calculated from the actual round-gauge dial edges and scaling, rather than fixed offsets. Alignment adapts to all-normal, center-enlarged, and all-enlarged round-gauge layouts; enlarged outer gauges are positioned against the dashboard edges.
 
-### November 2026 | Version 3.5.9
-
-**3.5.9:** Revised daily minimum tracking to validate candidate minimums using engine RPM and a five-second confirmation period. A daily MIN indicator remains hidden until a valid minimum has been confirmed, avoiding misleading zero readings during engine shutdown or before qualification.
-
 ### November 2026 | Version 3.5.10
 
 **3.5.10:** Added independent daily MIN and MAX marker selections for round gauges, including the ability to show either or both. The horizontal gauge retains an optional daily MAX indicator without a MIN option.
 
-### November 2026 | Version 3.5.11
-
-**3.5.11:** Advanced the application version following the round-gauge long-press behavior correction. The left-gauge hold toggles all-gauge enlargement; the center-gauge hold selects center-only enlargement from normal, or restores normal size from all-enlarged mode. The three states remain mutually exclusive and persistent, as described above and in the User Guide.
-
-
-
 ### November 2026 | Version 3.5.17
 
-**3.5.17:** Settings exports now include the manually selected PID polling interval (50–500 ms). Import restores that interval, including live polling rescheduling. Older exports without the interval restore the 200 ms default. Gauge animation timing remains separate.
+**3.5.17:** Settings exports include the manually selected PID polling interval (50–500 ms), which can be restored on import. Gauge animation timing remains separate.
 
-
-### November 2026 | Version 3.5.19
-
-**3.5.19:** Restored PID polling settings now immediately update the visible settings slider after import, including when the settings screen stays open. Returning to settings also refreshes the displayed value from the saved polling interval.
 
 ### November 2026 | Version 3.6.4
 
