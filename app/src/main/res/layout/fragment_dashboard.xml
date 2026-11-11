@@ -173,6 +173,7 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_marginStart="14dp"
+                android:translationY="3dp"
                 android:contentDescription="@string/broken_link_description"
                 android:src="@drawable/broken_link"
                 android:visibility="@{brokenLink ? View.VISIBLE : View.GONE}"
