@@ -356,16 +356,17 @@ open class DashboardFragment : AlbumArt() {
 
 
     private fun applyRoundGaugeScale() {
-        val sideScale = if (allRoundGaugesLarge) 1.1f else 1f
         // Keep the outer edges of the side gauge views on the dashboard boundaries.
         // Scaling around the default center pivot pushes those edges offscreen.
         binding.gaugeLeft.pivotX = 0f
         binding.gaugeRight.pivotX = binding.gaugeRight.width.toFloat()
         binding.gaugeRight.post { binding.gaugeRight.pivotX = binding.gaugeRight.width.toFloat() }
-        binding.gaugeLeft.scaleX = sideScale
-        binding.gaugeLeft.scaleY = sideScale
-        binding.gaugeRight.scaleX = sideScale
-        binding.gaugeRight.scaleY = sideScale
+        // Scale all three gauges vertically about the center of their containers.
+        // Keep the side gauges' horizontal pivots at the dashboard edges.
+        listOf(binding.gaugeLeft, binding.gaugeCenter, binding.gaugeRight).forEach { gauge ->
+            gauge.pivotY = gauge.height / 2f
+            gauge.post { gauge.pivotY = gauge.height / 2f }
+        }
         // The center remains controlled by the existing persisted centerGaugeLarge setting.
         binding.largeCenter = allRoundGaugesLarge || centerGaugeLarge
         binding.allRoundLarge = allRoundGaugesLarge
