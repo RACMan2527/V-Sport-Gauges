@@ -10,6 +10,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ScheduledFuture
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -33,6 +34,16 @@ class TorqueRefresher {
     private lateinit var appContext: Context
     private var conWatcher = MutableStateFlow(ConnectStatus.CONNECTING_TORQUE)
     val connectStatus = conWatcher.asSharedFlow()
+    private val failedPolls = ConcurrentHashMap<TorqueData, Int>()
+    private val commFaultState = MutableStateFlow(false)
+    val communicationFault = commFaultState.asStateFlow()
+
+    private fun markPollResult(gauge: TorqueData, successful: Boolean) {
+        if (!pollingEnabled) return
+        if (successful) failedPolls.remove(gauge)
+        else failedPolls.compute(gauge) { _, count -> ((count ?: 0) + 1).coerceAtMost(3) }
+        commFaultState.value = data.values.any { (failedPolls[it] ?: 0) >= 3 }
+    }
     val cache = mutableMapOf<Int, HashMap<Int, TorqueData>>()
     companion object {
         const val DEFAULT_SAMPLE_INTERVAL = 200L
@@ -90,6 +101,8 @@ class TorqueRefresher {
     suspend fun makeExecutors(service: TorqueService) {
         pollingEnabled = true
         activeService = service
+        failedPolls.clear()
+        commFaultState.value = false
         var foundValid = false
 
         // SAMPLE_INTERVAL is the persisted manual PID polling period.
@@ -107,6 +120,7 @@ class TorqueRefresher {
                             doRefresh(service, torqueData)
                         } catch (e: Exception) {
                             Timber.e("Refresh failed in pos $index", e)
+                            markPollResult(torqueData, false)
                         }
                     }, refreshOffset, period, TimeUnit.MILLISECONDS)
                 }
@@ -125,16 +139,18 @@ class TorqueRefresher {
     }
 
     fun doRefresh(service: TorqueService, torqueData: TorqueData) {
-        service.runIfConnected { ts ->
+        val queried = service.runIfConnected { ts ->
             val value = try {
                 ts.getPIDValuesAsDouble(arrayOf(torqueData.pid!!))[0]
             } catch (e: ArrayIndexOutOfBoundsException) {
                 Timber.e("Torque returned invalid data for ${torqueData.pid}")
+                markPollResult(torqueData, false)
                 return@runIfConnected
             }
             if (!torqueData.updateReading(value)) {
                 return@runIfConnected
             }
+            markPollResult(torqueData, true)
             torqueData.hasReceivedReading = true
             if (data[7] === torqueData) {
                 if (!torqueData.display.hasHorizontalDailyMaxEnabled() || torqueData.display.horizontalDailyMaxEnabled) {
@@ -166,6 +182,7 @@ class TorqueRefresher {
                 }
             }
         }
+        if (!queried) markPollResult(torqueData, false)
     }
 
     /**
@@ -250,6 +267,8 @@ class TorqueRefresher {
 
     fun stopExecutors() {
         pollingEnabled = false
+        failedPolls.clear()
+        commFaultState.value = false
         pendingMinimums.values.forEach { it.task?.cancel(false) }
         pendingMinimums.clear()
         activeService = null
