@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.5.7** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.6.4** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
 
@@ -19,14 +19,14 @@ A round gauge displays its configured Torque Pro PID, label, units, scale, live 
 | **Cyan triangle** | **Daily minimum** when marker mode is **MIN** | New local calendar day starts a fresh daily record; RPM qualification required |
 | **`PEAK: 455`** | Numeric **all-time** maximum, not the live value or daily record | Appears briefly on load; persists after a new all-time record until the gauge is reinitialized |
 
-**Important:** MAX and MIN are **alternative selections** for the same round-gauge marker. The diagram shows both colored triangles to teach their meanings; it is **not** a claim that the same gauge displays MAX and MIN simultaneously. White all-time tracking is separate.
+**Important:** A round gauge can show **MAX, MIN, or BOTH** daily markers. The diagram illustrates both colored triangles; the white all-time marker is independent.
 
 ### Configure a round gauge
 
 1. On the Android phone, open **V-Sport Gauges → Settings → Dashboards**.
 2. Open the desired dashboard and select the **left, center or right round gauge**.
 3. Select the **PID**. Configure **Enabled**, **Show label**, **Label**, **Unit**, **Minimum**, **Maximum**, **Whole numbers**, and **Ticks** as needed.
-4. Set **High/low markers** (`maxMarksActive`) to **Off**, **Max**, or **Min**. This controls the colored triangle. The marker color is theme-dependent for MAX; MIN is cyan.
+4. Set **High/low markers** (`maxMarksActive`) to **Off**, **Max**, **Min**, or **Both**. This controls the colored triangle. The marker color is theme-dependent for MAX; MIN is cyan.
 5. Set **High/low values** (`maxValuesActive`) independently if you want the separate numeric high/low readout. This is **not** the `PEAK:` all-time label.
 6. Enable **Show all-time peak marker** to display the **white triangle** when a saved peak exists.
 

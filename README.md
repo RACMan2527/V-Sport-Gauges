@@ -338,6 +338,10 @@ Moved the `dashContent` layout up 10dp to raise the three round gauges and four 
 
 **3.5.19:** Restored PID polling settings now immediately update the visible settings slider after import, including when the settings screen stays open. Returning to settings also refreshes the displayed value from the saved polling interval.
 
+### November 2026 | Version 3.6.4
+
+**3.6.4:** Added a visual notification when a round gauge establishes a new daily high or low beyond its existing record. The gauge's unit text flashes for **10 seconds** at half-second intervals, without interrupting the live reading, needle, or independent all-time `PEAK:` display. A further daily record restarts the notification; the first reading of a new day establishes the initial record without flashing.
+
 ---
 
 # My Development and Testing Environment
