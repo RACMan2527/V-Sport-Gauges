@@ -33,6 +33,7 @@ import com.aatorque.stats.App
 import com.aatorque.stats.BuildConfig
 import com.aatorque.stats.CreditsFragment
 import com.aatorque.stats.R
+import com.aatorque.stats.TorqueRefresher
 import com.google.android.material.snackbar.Snackbar
 import com.google.protobuf.InvalidProtocolBufferException
 import kotlinx.coroutines.Dispatchers
@@ -245,8 +246,14 @@ class SettingsActivity : AppCompatActivity(),
                     if (data.horizontalBarDisplay.pid.isBlank()) {
                         throw IOException("Horizontal gauge PID is not saved. Select a PID before exporting.")
                     }
+                    val pollingPrefs = getSharedPreferences(TorqueRefresher.PREFS_NAME, Context.MODE_PRIVATE)
+                    val pollingInterval = pollingPrefs.getLong(
+                        TorqueRefresher.KEY_INTERVAL_MS, TorqueRefresher.DEFAULT_SAMPLE_INTERVAL
+                    ).coerceIn(50L, 500L)
+                    val exportedData = data.toBuilder()
+                        .setPidPollingIntervalMs(pollingInterval.toInt()).build()
                     val protobufBytes = ByteArrayOutputStream().use { buffer ->
-                        UserPreferenceSerializer.writeTo(data, buffer)
+                        UserPreferenceSerializer.writeTo(exportedData, buffer)
                         buffer.toByteArray()
                     }
                     val outputStream = contentResolver.openOutputStream(uri)
@@ -294,8 +301,9 @@ class SettingsActivity : AppCompatActivity(),
                         protobufBytes = inputBytes
                         importedBarSettings = null
                     }
+                    val importedPrefs = UserPreference.parseFrom(ByteArrayInputStream(protobufBytes))
                     this@SettingsActivity.applicationContext.dataStore.updateData {
-                        val imported = UserPreference.parseFrom(ByteArrayInputStream(protobufBytes))
+                        val imported = importedPrefs
                         if (importedBarSettings == null) {
                             // Current protobuf exports carry the horizontal PID in field 33.
                             // Older exports may only have the legacy fields 29-32.
@@ -328,6 +336,12 @@ class SettingsActivity : AppCompatActivity(),
                             ).build()
                         }
                     }
+                    // Older protobuf exports have no polling field (proto3 default zero).
+                    // Restore the default 200 ms for those exports.
+                    val restoredInterval = importedPrefs.pidPollingIntervalMs
+                        .takeIf { it in 50..500 }
+                        ?: TorqueRefresher.DEFAULT_SAMPLE_INTERVAL.toInt()
+                    TorqueRefresher.setGlobalPollingInterval(applicationContext, restoredInterval.toLong())
                     Toast.makeText(baseContext, R.string.file_imported_successfully, Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to import dashboard settings")
