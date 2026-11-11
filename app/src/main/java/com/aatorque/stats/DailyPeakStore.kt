@@ -52,7 +52,7 @@ object DailyPeakStore {
     @Synchronized
     fun recordMinimum(context: Context, display: Display, reading: Double, candidateDate: String) {
         if (!reading.isFinite() || display.pid.isBlank() ||
-            display.maxMarksActive != MaxControl.MIN ||
+            (display.maxMarksActive != MaxControl.MIN && display.maxMarksActive != MaxControl.BOTH) ||
             candidateDate != LocalDate.now().toString()) return
         val prefs = preferencesForToday(context)
         val name = "min_${key(display)}"
