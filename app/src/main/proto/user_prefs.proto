@@ -81,4 +81,5 @@ message UserPreference {
   string horizontalBarMin = 31;
   string horizontalBarMax = 32;
   Display horizontalBarDisplay = 33;
+  uint32 pidPollingIntervalMs = 34;
 }
