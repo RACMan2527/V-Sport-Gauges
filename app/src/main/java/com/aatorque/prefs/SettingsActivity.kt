@@ -342,6 +342,8 @@ class SettingsActivity : AppCompatActivity(),
                         .takeIf { it in 50..500 }
                         ?: TorqueRefresher.DEFAULT_SAMPLE_INTERVAL.toInt()
                     TorqueRefresher.setGlobalPollingInterval(applicationContext, restoredInterval.toLong())
+                    (supportFragmentManager.findFragmentById(R.id.settings_fragment) as? SettingsFragment)
+                        ?.syncPollingIntervalFromStorage()
                     Toast.makeText(baseContext, R.string.file_imported_successfully, Toast.LENGTH_SHORT).show()
                 } catch (e: Exception) {
                     Timber.e(e, "Failed to import dashboard settings")
