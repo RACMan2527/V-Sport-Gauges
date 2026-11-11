@@ -272,6 +272,8 @@
                     app:layout_constraintRight_toLeftOf="@id/guideline1"
                     app:layout_constraintTop_toTopOf="parent"
                     android:translationY="18dp"
+                    android:scaleX="@{allRoundLarge ? 1.1f : 1f}"
+                    android:scaleY="@{allRoundLarge ? 1.1f : 1f}"
                     app:alpha="@{gaugeAlpha}"
                     app:layout_constraintBottom_toTopOf="@id/loadBar" />
 
@@ -311,7 +313,9 @@
                     app:layout_constraintRight_toRightOf="parent"
                     app:alpha="@{gaugeAlpha}"
                     app:layout_constraintTop_toTopOf="parent"
-                    android:translationY="18dp" />
+                    android:translationY="18dp"
+                    android:scaleX="@{allRoundLarge ? 1.1f : 1f}"
+                    android:scaleY="@{allRoundLarge ? 1.1f : 1f}" />
 
                 <androidx.fragment.app.FragmentContainerView
                     android:id="@+id/loadBar"
