@@ -169,6 +169,18 @@
                 app:layout_constraintTop_toTopOf="@id/dashboardClock" />
 
             <ImageView
+                android:id="@+id/brokenLinkIndicator"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginStart="14dp"
+                android:contentDescription="@string/broken_link_description"
+                android:src="@drawable/broken_link"
+                android:visibility="@{brokenLink ? View.VISIBLE : View.GONE}"
+                app:layout_constraintStart_toEndOf="@id/dashboardDirection"
+                app:layout_constraintTop_toTopOf="@id/dashboardDirection"
+                app:layout_constraintBottom_toBottomOf="@id/dashboardDirection" />
+
+            <ImageView
                 android:id="@+id/cadillacVSeriesBadge"
                 android:layout_width="102dp"
                 android:layout_height="50.15dp"
@@ -470,19 +482,6 @@
                     android:orientation="vertical"
                     app:layout_constraintGuide_begin="0dp"
                     app:layout_constraintGuide_percent="0.83333333" />
-
-        <ImageView
-            android:id="@+id/brokenLinkIndicator"
-            android:layout_width="24dp"
-            android:layout_height="24dp"
-            android:layout_marginStart="12dp"
-            android:layout_marginBottom="8dp"
-            android:contentDescription="@string/broken_link_description"
-            android:src="@drawable/broken_link"
-            android:visibility="@{brokenLink ? View.VISIBLE : View.GONE}"
-            android:elevation="5dp"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/loadBar" />
 
             </androidx.constraintlayout.widget.ConstraintLayout>
 
