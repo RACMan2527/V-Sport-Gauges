@@ -3,6 +3,8 @@ package com.aatorque.stats
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Color
+import android.view.View
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.util.AttributeSet
@@ -19,6 +21,8 @@ class TorqueSpeedometer @JvmOverloads constructor(
     defStyleAttr: Int = 0,
 ) : ImageSpeedometer(context, attrs, defStyleAttr) {
 
+    var unitOverlay: GaugeUnitOverlay? = null
+    var overlayUnitColor: Int = Color.WHITE
     var icon: Drawable? = null
     var alarmPaint: Paint? = null
     val alarmBottomOffset = dpTOpx(3f)
@@ -49,6 +53,8 @@ class TorqueSpeedometer @JvmOverloads constructor(
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         drawIcon(canvas)
+        // The SpeedView numeric text is animated; keep only the separate unit layer aligned.
+        unitOverlay?.invalidate()
         alarmPaint?.let{
             var start = 45f
             var distance = 90f
@@ -86,6 +92,32 @@ class TorqueSpeedometer @JvmOverloads constructor(
         }
     }
 
+    /** Mirror the pinned SpeedView Gauge.updateSpeedUnitTextBitmap() placement. */
+    fun drawUnitOverlay(canvas: Canvas) {
+        if (unit.isEmpty()) return
+        val bounds = getSpeedUnitTextBounds()
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = overlayUnitColor
+            textSize = unitTextSize
+            typeface = speedTextTypeface
+            textAlign = Paint.Align.CENTER
+        }
+        if (unitUnderSpeedText) {
+            // SpeedView draws the unit at bitmap center + text size + half interval.
+            canvas.drawText(unit, bounds.centerX(),
+                bounds.centerY() + unitTextSize + unitSpeedInterval * .5f, paint)
+        } else {
+            val speedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                textSize = speedTextSize
+                typeface = speedTextTypeface
+            }
+            val speedWidth = speedPaint.measureText(getSpeedText().toString())
+            paint.textAlign = Paint.Align.LEFT
+            canvas.drawText(unit, bounds.left + speedWidth + unitSpeedInterval,
+                bounds.bottom, paint)
+        }
+    }
+
     private fun getIconBounds(): RectF {
         val bounds = getSpeedUnitTextBounds()
         val minPoint = (bounds.left + ((bounds.right - bounds.left) * 0.5f))
@@ -103,5 +135,16 @@ class TorqueSpeedometer @JvmOverloads constructor(
             it.bounds = getIconBounds().toRect()
             it.draw(canvas)
         }
+    }
+}
+
+/** Transparent sibling of the dial: alpha changes never invalidate the dial itself. */
+class GaugeUnitOverlay @JvmOverloads constructor(
+    context: Context, attrs: AttributeSet? = null
+) : View(context, attrs) {
+    var dial: TorqueSpeedometer? = null
+    override fun onDraw(canvas: Canvas) {
+        super.onDraw(canvas)
+        dial?.drawUnitOverlay(canvas)
     }
 }

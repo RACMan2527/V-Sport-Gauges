@@ -162,6 +162,18 @@
                 app:wholeNumbers="@{wholeNumbers}"
                 app:icon="@{icon}" />
 
+            <!-- Independent unit-only drawing layer, constrained exactly to the dial. -->
+            <com.aatorque.stats.GaugeUnitOverlay
+                android:id="@+id/unitOverlay"
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:elevation="9dp"
+                android:clickable="false"
+                app:layout_constraintTop_toTopOf="@id/dial"
+                app:layout_constraintBottom_toBottomOf="@id/dial"
+                app:layout_constraintStart_toStartOf="@id/dial"
+                app:layout_constraintEnd_toEndOf="@id/dial" />
+
             <com.github.anastr.speedviewlib.SpeedView
                 android:id="@+id/dial_Max"
                 android:layout_width="0dp"

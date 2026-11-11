@@ -52,6 +52,11 @@ class TorqueGauge : Fragment() {
             return binding.dialAllTime
         }
     private val peakLabelHandler = Handler(Looper.getMainLooper())
+    private val unitBlinkHandler = Handler(Looper.getMainLooper())
+    private var unitBlinkTask: Runnable? = null
+    private var unitBlinkUntil = 0L
+    private var dailyMaxSeen: Double? = null
+    private var dailyMinSeen: Double? = null
     private var hidePeakLabelRunnable: Runnable? = null
     private var allTimePeakEnabled = false
     private var allTimePeakKey: String? = null
@@ -146,6 +151,10 @@ class TorqueGauge : Fragment() {
             turnRaysEnabled(state.getBoolean("rayOn", false))
             turnTickEnabled(state.getBoolean("ticksOn", false))
         }
+        binding.unitOverlay.dial = mClock
+        mClock.unitOverlay = binding.unitOverlay
+        mClock.overlayUnitColor = mClock.unitTextColor
+        mClock.unitTextColor = Color.TRANSPARENT
         mClock.invalidate()
     }
 
@@ -243,7 +252,11 @@ class TorqueGauge : Fragment() {
         } else null
 
         binding.title = iconText
+        stopUnitBlink()
         mClock.unit = data.display.unit
+        dailyMaxSeen = DailyPeakStore.get(context, data.display)
+        dailyMinSeen = DailyPeakStore.get(context, data.display, true)
+        binding.unitOverlay.invalidate()
 
         drawable?.colorFilter = BlendModeColorFilterCompat.createBlendModeColorFilterCompat(
             mClock.unitTextColor,
@@ -304,7 +317,36 @@ class TorqueGauge : Fragment() {
         peakLabelHandler.postDelayed(hideLabel, 3_000L)
     }
 
+    private fun stopUnitBlink() {
+        unitBlinkTask?.let(unitBlinkHandler::removeCallbacks)
+        unitBlinkTask = null
+        unitBlinkUntil = 0L
+        if (::binding.isInitialized) binding.unitOverlay.alpha = 1f
+    }
+
+    private fun startUnitBlink() {
+        if (!::binding.isInitialized || mClock.unit.isEmpty()) return
+        unitBlinkTask?.let(unitBlinkHandler::removeCallbacks)
+        unitBlinkUntil = android.os.SystemClock.uptimeMillis() + 10_000L
+        binding.unitOverlay.alpha = 1f
+        val task = object : Runnable {
+            override fun run() {
+                if (!isAdded || !::binding.isInitialized) return
+                if (android.os.SystemClock.uptimeMillis() >= unitBlinkUntil) {
+                    stopUnitBlink()
+                    return
+                }
+                binding.unitOverlay.alpha = if (binding.unitOverlay.alpha > 0f) 0f else 1f
+                unitBlinkHandler.postDelayed(this, 500L)
+            }
+        }
+        unitBlinkTask = task
+        unitBlinkHandler.postDelayed(task, 500L)
+    }
+
     override fun onDestroyView() {
+        stopUnitBlink()
+        if (::binding.isInitialized) mClock.unitOverlay = null
         hidePeakLabelRunnable?.let(peakLabelHandler::removeCallbacks)
         hidePeakLabelRunnable = null
         super.onDestroyView()
@@ -380,6 +422,14 @@ class TorqueGauge : Fragment() {
         mClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         mRayClock.speedTo(fVal, TorqueRefresher.REFRESH_INTERVAL)
         updateDailyMarkers(data.display)
+        // A null prior record is the day's initial baseline, not a notification.
+        val latestMax = DailyPeakStore.get(requireContext(), data.display)
+        val latestMin = DailyPeakStore.get(requireContext(), data.display, true)
+        val newMax = dailyMaxSeen != null && latestMax != null && latestMax > dailyMaxSeen!!
+        val newMin = dailyMinSeen != null && latestMin != null && latestMin < dailyMinSeen!!
+        dailyMaxSeen = latestMax
+        dailyMinSeen = latestMin
+        if (newMax || newMin) startUnitBlink()
         if (data.display.maxValuesActive != MaxControl.OFF) {
             val possibleValue =
                 if (data.display.maxValuesActive == MaxControl.MAX) data.maxValue else data.minValue
