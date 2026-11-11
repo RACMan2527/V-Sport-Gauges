@@ -185,7 +185,7 @@ class TorqueRefresher {
             val pending = PendingMinimum(candidate, date)
             pendingMinimums[gauge] = pending
             // RPM IPC must not block the scheduled gauge polling thread.
-            pending.task = rpmValidationExecutor.submit {
+            pending.task = rpmValidationExecutor.schedule(initialCheck@{
                 try {
                     var rpmValid = false
                     service.runIfConnected { ts ->
@@ -198,11 +198,11 @@ class TorqueRefresher {
                         synchronized(pendingMinimums) {
                             if (pendingMinimums[gauge] === pending) pendingMinimums.remove(gauge)
                         }
-                        return@submit
+                        return@initialCheck
                     }
                     // Start the five-second window only after a valid initial RPM check.
                     synchronized(pendingMinimums) {
-                        if (pendingMinimums[gauge] !== pending) return@submit
+                        if (pendingMinimums[gauge] !== pending) return@initialCheck
                         pending.task = rpmValidationExecutor.schedule({
                             try {
                                 if (pollingEnabled && activeService === service &&
@@ -233,7 +233,7 @@ class TorqueRefresher {
                         if (pendingMinimums[gauge] === pending) pendingMinimums.remove(gauge)
                     }
                 }
-            }
+            }, 0, TimeUnit.MILLISECONDS)
         }
     }
 
