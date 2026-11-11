@@ -3,7 +3,6 @@ package com.aatorque.stats
 import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Color
 import android.view.View
 import android.graphics.RectF
 import android.graphics.drawable.Drawable
@@ -21,8 +20,10 @@ class TorqueSpeedometer @JvmOverloads constructor(
     defStyleAttr: Int = 0,
 ) : ImageSpeedometer(context, attrs, defStyleAttr) {
 
+    // SpeedView's unitSpeedInterval is private; mirror the effective 5dp XML setting.
+    private val unitOverlayInterval = dpTOpx(5f)
     var unitOverlay: GaugeUnitOverlay? = null
-    var overlayUnitColor: Int = Color.WHITE
+    var overlayUnitColor: Int = android.graphics.Color.WHITE
     var icon: Drawable? = null
     var alarmPaint: Paint? = null
     val alarmBottomOffset = dpTOpx(3f)
@@ -105,7 +106,7 @@ class TorqueSpeedometer @JvmOverloads constructor(
         if (unitUnderSpeedText) {
             // SpeedView draws the unit at bitmap center + text size + half interval.
             canvas.drawText(unit, bounds.centerX(),
-                bounds.centerY() + unitTextSize + unitSpeedInterval * .5f, paint)
+                bounds.centerY() + unitTextSize + unitOverlayInterval * .5f, paint)
         } else {
             val speedPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
                 textSize = speedTextSize
@@ -113,7 +114,7 @@ class TorqueSpeedometer @JvmOverloads constructor(
             }
             val speedWidth = speedPaint.measureText(getSpeedText().toString())
             paint.textAlign = Paint.Align.LEFT
-            canvas.drawText(unit, bounds.left + speedWidth + unitSpeedInterval,
+            canvas.drawText(unit, bounds.left + speedWidth + unitOverlayInterval,
                 bounds.bottom, paint)
         }
     }
