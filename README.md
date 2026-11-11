@@ -328,6 +328,12 @@ Moved the `dashContent` layout up 10dp to raise the three round gauges and four 
 **3.5.11:** Advanced the application version following the round-gauge long-press behavior correction. The left-gauge hold toggles all-gauge enlargement; the center-gauge hold selects center-only enlargement from normal, or restores normal size from all-enlarged mode. The three states remain mutually exclusive and persistent, as described above and in the User Guide.
 
 
+
+### November 2026 | Version 3.5.17
+
+**3.5.17:** Settings exports now include the manually selected PID polling interval (50–500 ms). Import restores that interval, including live polling rescheduling. Older exports without the interval restore the 200 ms default. Gauge animation timing remains separate.
+
+
 ---
 
 # My Development and Testing Environment
@@ -400,16 +406,3 @@ Vehicle diagnostic data and calculated performance values are provided for infor
 **V-Sport Gauges**
 
 *Built upon the innovations of others. Developed through experimentation. Refined through real-world driving.*
-
-
-### November 2026 | Version 3.5.17
-
-**3.5.17:** Settings exports now include the manually selected PID polling interval (50–500 ms). Import restores that interval, including live polling rescheduling. Older exports without the interval restore the 200 ms default. Gauge animation timing remains separate.
-
-
-### Version 3.5.18 — Daily minimum validation correction
-
-- Request engine RPM using Torque's `0c,0` PID identifier for the two five-second-window validation checks.
-- Run the initial RPM request on a separate executor so it does not block normal gauge polling.
-- Allow both **MIN** and **BOTH** gauge selections to save validated daily minimums.
-- Preserve zero as a legitimate minimum when both RPM checks confirm the engine is running; retain existing pending-minimum cancellation when switching dashboards.
