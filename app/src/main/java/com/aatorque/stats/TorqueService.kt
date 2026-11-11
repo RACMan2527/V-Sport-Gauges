@@ -41,10 +41,10 @@ class TorqueService {
         return this
     }
 
-    fun runIfConnected(func: (ITorqueService) -> Unit) {
-        if (torqueService != null) {
-            func(torqueService!!)
-        }
+    fun runIfConnected(func: (ITorqueService) -> Unit): Boolean {
+        val service = torqueService ?: return false
+        func(service)
+        return true
     }
 
     private val torqueConnection = object : ServiceConnection {
