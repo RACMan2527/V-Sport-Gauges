@@ -141,9 +141,9 @@ The precise vehicle rotary mappings can vary by Android Auto receiver; the list 
 
 ## Connection indicators
 
-During startup, **Connecting to ECU** appears with a small cyan rotating spinner. The spinner and message are centered together and disappear as soon as the existing connection state reports connected.
+During startup, **Connecting to ECU** appears with a small cyan rotating spinner when Torque is available but ECU communication is not yet established. The spinner and message are centered together and disappear when the existing connection state reports connected.
 
-The amber **Broken Link** symbol at the lower left is visible while the startup ECU connection is being established. It disappears immediately when the first qualifying reading establishes the connection. Afterward, three consecutive unsuccessful Torque PID requests for an active gauge cause the indicator to appear; a successful response for that gauge clears its failure streak. The symbol disappears when no active gauge has a persistent request failure.
+The amber **Broken Link** symbol appears beside the time and direction display if the app remains in **Connecting to Torque** for five seconds. It clears immediately when Torque connects; it stays hidden during normal **Connecting to ECU** startup. After ECU connection, three consecutive unsuccessful Torque PID requests for an active gauge cause the indicator to appear; a successful response for that gauge clears its failure streak. The symbol disappears when no active gauge has a persistent request failure.
 
 The indicator reports detectable Torque service/PID request failures. It does not prove that Torque's adapter or ECU is connected, and valid zero readings alone do not trigger the warning. The existing **Connecting to ECU** text remains a startup-only message.
 
