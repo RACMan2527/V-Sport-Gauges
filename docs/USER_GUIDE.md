@@ -149,3 +149,6 @@ The original AA Torque features (themes, alarms, formulas, dashboard fields and 
 ### Exporting and importing PID polling settings
 
 Starting in **3.5.17**, a settings export includes the manually selected **PID Polling Interval** as well as gauge animation settings. Importing the file restores the saved polling interval (for example, 125 ms) and applies it to active polling. Older exports that do not contain this setting restore the 200 ms default.
+
+
+After importing settings, the PID polling slider immediately reflects the restored value, even when the settings screen was already open.
