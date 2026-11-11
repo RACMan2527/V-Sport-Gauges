@@ -83,6 +83,14 @@ open class DashboardFragment : AlbumArt() {
     private var pollingIntervalInitialValue = 200
     private var refreshIntervalInitialValue = 300
     private var dashboardTitle: String = ""
+    private var currentConnectionStatus = ConnectStatus.CONNECTING_TORQUE
+    private var communicationFaultActive = false
+
+    private fun updateConnectionIndicators() {
+        binding.connectingEcu = currentConnectionStatus == ConnectStatus.CONNECTING_ECU
+        binding.brokenLink = currentConnectionStatus == ConnectStatus.CONNECTING_ECU ||
+            (currentConnectionStatus == ConnectStatus.CONNECTED && communicationFaultActive)
+    }
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
     lateinit var torqueChart: TorqueChart
@@ -241,12 +249,20 @@ open class DashboardFragment : AlbumArt() {
         }
         registerWithView{
             torqueRefresher.connectStatus.collect {
+                currentConnectionStatus = it
                 binding.status = when (it) {
                     ConnectStatus.CONNECTING_TORQUE -> R.string.status_connecting_torque
                     ConnectStatus.CONNECTING_ECU -> R.string.status_connecting_to_ecu
                     ConnectStatus.SETUP_GAUGE -> R.string.status_setup_gauges
                     ConnectStatus.CONNECTED -> 0
                 }
+                updateConnectionIndicators()
+            }
+        }
+        registerWithView {
+            torqueRefresher.communicationFault.collect {
+                communicationFaultActive = it
+                updateConnectionIndicators()
             }
         }
     }
@@ -257,6 +273,8 @@ open class DashboardFragment : AlbumArt() {
     ): View? {
         Timber.i("onCreateView")
         binding = FragmentDashboardBinding.inflate(inflater, container, false)
+        binding.connectingEcu = false
+        binding.brokenLink = false
 
         settingsViewModel.typefaceLiveData.observe(viewLifecycleOwner) {
             binding.font = it
@@ -413,11 +431,30 @@ open class DashboardFragment : AlbumArt() {
      * the rendered dial circles, accounting for each dial's scale and pivot.
      * Do not infer dial edges from the FragmentContainerView thirds.
      */
+    /**
+     * Match View.transformMatrixToGlobal on API 28 without calling its API 29 method.
+     * Parent scrolling, view position and the view's own transform are applied in
+     * the same order as Android's View implementation.
+     */
+    private fun transformToGlobalCompat(view: View, out: Matrix) {
+        if (Build.VERSION.SDK_INT >= 29) {
+            view.transformMatrixToGlobal(out)
+            return
+        }
+        val parent = view.parent
+        if (parent is View) {
+            transformToGlobalCompat(parent, out)
+            out.preTranslate(-parent.scrollX.toFloat(), -parent.scrollY.toFloat())
+        }
+        out.preTranslate(view.left.toFloat(), view.top.toFloat())
+        if (!view.matrix.isIdentity) out.preConcat(view.matrix)
+    }
+
     private fun alignDisplaysBetweenDials(): Boolean {
         if (!isAdded || !::binding.isInitialized || binding.dashContent.width <= 0) return false
         val container = binding.dashContent
         val toGlobal = Matrix()
-        container.transformMatrixToGlobal(toGlobal)
+        transformToGlobalCompat(container, toGlobal)
         val fromGlobal = Matrix()
         if (!toGlobal.invert(fromGlobal)) return false
 
@@ -429,7 +466,7 @@ open class DashboardFragment : AlbumArt() {
             val cy = dial.height / 2f
             val edges = floatArrayOf(cx - radius, cy, cx + radius, cy)
             val matrix = Matrix()
-            dial.transformMatrixToGlobal(matrix)
+            transformToGlobalCompat(dial, matrix)
             matrix.mapPoints(edges)
             fromGlobal.mapPoints(edges)
             return minOf(edges[0], edges[2]) to maxOf(edges[0], edges[2])

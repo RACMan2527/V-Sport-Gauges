@@ -139,6 +139,14 @@ The precise vehicle rotary mappings can vary by Android Auto receiver; the list 
 | Polling slider changes response time | This is expected: polling actually reschedules diagnostic requests |
 | Needle slider changes animation but not PID speed | This is expected: animation and polling are independent |
 
+## Connection indicators
+
+During startup, **Connecting to ECU** appears with a small cyan rotating spinner. The spinner and message are centered together and disappear as soon as the existing connection state reports connected.
+
+The amber **Broken Link** symbol at the lower left is visible while the startup ECU connection is being established. It disappears immediately when the first qualifying reading establishes the connection. Afterward, three consecutive unsuccessful Torque PID requests for an active gauge cause the indicator to appear; a successful response for that gauge clears its failure streak. The symbol disappears when no active gauge has a persistent request failure.
+
+The indicator reports detectable Torque service/PID request failures. It does not prove that Torque's adapter or ECU is connected, and valid zero readings alone do not trigger the warning. The existing **Connecting to ECU** text remains a startup-only message.
+
 ## 9. Feature status and scope
 
 This guide describes features **verified in the current `master` source**, including `DashboardFragment.kt`, `TorqueGauge.kt`, `TorqueLoadBar.kt`, `TorqueRefresher.kt`, `TorqueData.kt`, `DailyPeakStore.kt`, `AllTimePeakStore.kt`, `SettingsPIDFragment.kt` and the settings XML. It is **not** a claim of fresh in-vehicle testing.
