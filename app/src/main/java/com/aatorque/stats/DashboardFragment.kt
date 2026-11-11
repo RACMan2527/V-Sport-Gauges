@@ -359,6 +359,8 @@ open class DashboardFragment : AlbumArt() {
         // Keep the outer edges of the side gauge views on the dashboard boundaries.
         // Scaling around the default center pivot pushes those edges offscreen.
         binding.gaugeLeft.pivotX = 0f
+        binding.gaugeCenter.pivotX = binding.gaugeCenter.width / 2f
+        binding.gaugeCenter.post { binding.gaugeCenter.pivotX = binding.gaugeCenter.width / 2f }
         binding.gaugeRight.pivotX = binding.gaugeRight.width.toFloat()
         binding.gaugeRight.post { binding.gaugeRight.pivotX = binding.gaugeRight.width.toFloat() }
         // Scale all three gauges vertically about the center of their containers.
