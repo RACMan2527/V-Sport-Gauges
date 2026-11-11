@@ -182,39 +182,57 @@ class TorqueRefresher {
                 return
             }
             val date = LocalDate.now().toString()
-            try {
-                var rpmValid = false
-                service.runIfConnected { ts ->
-                    val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
-                    rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
-                }
-                if (!rpmValid) return
-                val pending = PendingMinimum(candidate, date)
-                pendingMinimums[gauge] = pending
-                pending.task = rpmValidationExecutor.schedule({
-                    try {
-                        if (pollingEnabled && activeService === service &&
-                            gauge in this.data.values && date == LocalDate.now().toString()) {
-                            service.runIfConnected { ts ->
-                                val rpm = ts.getPIDValuesAsDouble(arrayOf("0C")).firstOrNull()
-                                if (rpm != null && rpm.isFinite() && rpm > 300.0) {
-                                    val minimum = synchronized(pendingMinimums) { pending.lowest }
-                                    DailyPeakStore.recordMinimum(appContext, gauge.display, minimum, date)
-                                    handler.post { if (pollingEnabled) gauge.sendNotifyUpdate() }
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Timber.w(e, "RPM minimum validation failed; candidate rejected")
-                    } finally {
+            val pending = PendingMinimum(candidate, date)
+            pendingMinimums[gauge] = pending
+            // RPM IPC must not block the scheduled gauge polling thread.
+            pending.task = rpmValidationExecutor.submit {
+                try {
+                    var rpmValid = false
+                    service.runIfConnected { ts ->
+                        val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
+                        rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
+                    }
+                    if (!rpmValid || !pollingEnabled || activeService !== service ||
+                        gauge !in this.data.values || date != LocalDate.now().toString()) {
+                        Timber.w("Daily minimum initial RPM validation rejected for ${gauge.display.pid}")
                         synchronized(pendingMinimums) {
                             if (pendingMinimums[gauge] === pending) pendingMinimums.remove(gauge)
                         }
+                        return@submit
                     }
-                }, 5, TimeUnit.SECONDS)
-            } catch (e: Exception) {
-                pendingMinimums.remove(gauge)
-                Timber.w(e, "Initial RPM minimum validation failed; candidate rejected")
+                    // Start the five-second window only after a valid initial RPM check.
+                    synchronized(pendingMinimums) {
+                        if (pendingMinimums[gauge] !== pending) return@submit
+                        pending.task = rpmValidationExecutor.schedule({
+                            try {
+                                if (pollingEnabled && activeService === service &&
+                                    gauge in this.data.values && date == LocalDate.now().toString()) {
+                                    service.runIfConnected { ts ->
+                                        val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
+                                        if (rpm != null && rpm.isFinite() && rpm > 300.0) {
+                                            val minimum = synchronized(pendingMinimums) { pending.lowest }
+                                            DailyPeakStore.recordMinimum(appContext, gauge.display, minimum, date)
+                                            handler.post { if (pollingEnabled) gauge.sendNotifyUpdate() }
+                                        } else {
+                                            Timber.w("Daily minimum final RPM validation rejected for ${gauge.display.pid}")
+                                        }
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Timber.w(e, "RPM minimum validation failed; candidate rejected")
+                            } finally {
+                                synchronized(pendingMinimums) {
+                                    if (pendingMinimums[gauge] === pending) pendingMinimums.remove(gauge)
+                                }
+                            }
+                        }, 5, TimeUnit.SECONDS)
+                    }
+                } catch (e: Exception) {
+                    Timber.w(e, "Initial RPM minimum validation failed; candidate rejected")
+                    synchronized(pendingMinimums) {
+                        if (pendingMinimums[gauge] === pending) pendingMinimums.remove(gauge)
+                    }
+                }
             }
         }
     }
