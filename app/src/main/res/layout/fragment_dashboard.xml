@@ -471,23 +471,25 @@
                     app:layout_constraintGuide_begin="0dp"
                     app:layout_constraintGuide_percent="0.83333333" />
 
-            </androidx.constraintlayout.widget.ConstraintLayout>
-
-
-        </RelativeLayout>
-
         <ImageView
             android:id="@+id/brokenLinkIndicator"
             android:layout_width="24dp"
             android:layout_height="24dp"
             android:layout_marginStart="12dp"
-            android:layout_marginBottom="10dp"
+            android:layout_marginBottom="8dp"
             android:contentDescription="@string/broken_link_description"
             android:src="@drawable/broken_link"
             android:visibility="@{brokenLink ? View.VISIBLE : View.GONE}"
             android:elevation="5dp"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            app:layout_constraintBottom_toTopOf="@id/loadBar" />
+
+            </androidx.constraintlayout.widget.ConstraintLayout>
+
+
+        </RelativeLayout>
+
+
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </layout>
