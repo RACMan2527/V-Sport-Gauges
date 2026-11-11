@@ -25,6 +25,7 @@ import android.view.MotionEvent
 import android.view.ViewConfiguration
 import android.view.View
 import android.view.ViewGroup
+import android.view.ViewTreeObserver
 import android.os.Handler
 import android.os.Looper
 import android.widget.FrameLayout
@@ -366,12 +367,24 @@ open class DashboardFragment : AlbumArt() {
     }
 
 
-    private val displayAlignmentRunnable = Runnable { alignDisplaysBetweenDials() }
+    private var alignmentPreDrawListener: ViewTreeObserver.OnPreDrawListener? = null
 
     private fun scheduleDisplayAlignment() {
-        if (!::binding.isInitialized) return
-        binding.dashContent.removeCallbacks(displayAlignmentRunnable)
-        binding.dashContent.post(displayAlignmentRunnable)
+        if (!::binding.isInitialized || alignmentPreDrawListener != null) return
+        val container = binding.dashContent
+        val listener = object : ViewTreeObserver.OnPreDrawListener {
+            override fun onPreDraw(): Boolean {
+                if (alignDisplaysBetweenDials()) {
+                    if (container.viewTreeObserver.isAlive) {
+                        container.viewTreeObserver.removeOnPreDrawListener(this)
+                    }
+                    alignmentPreDrawListener = null
+                }
+                return true
+            }
+        }
+        alignmentPreDrawListener = listener
+        container.viewTreeObserver.addOnPreDrawListener(listener)
     }
 
     private fun applyRoundGaugeScale() {
@@ -400,13 +413,13 @@ open class DashboardFragment : AlbumArt() {
      * the rendered dial circles, accounting for each dial's scale and pivot.
      * Do not infer dial edges from the FragmentContainerView thirds.
      */
-    private fun alignDisplaysBetweenDials() {
-        if (!isAdded || !::binding.isInitialized || binding.dashContent.width <= 0) return
+    private fun alignDisplaysBetweenDials(): Boolean {
+        if (!isAdded || !::binding.isInitialized || binding.dashContent.width <= 0) return false
         val container = binding.dashContent
         val toGlobal = Matrix()
         container.transformMatrixToGlobal(toGlobal)
         val fromGlobal = Matrix()
-        if (!toGlobal.invert(fromGlobal)) return
+        if (!toGlobal.invert(fromGlobal)) return false
 
         fun dialEdges(gauge: View): Pair<Float, Float>? {
             val dial = gauge.findViewById<View>(R.id.dial) ?: return null
@@ -422,9 +435,9 @@ open class DashboardFragment : AlbumArt() {
             return minOf(edges[0], edges[2]) to maxOf(edges[0], edges[2])
         }
 
-        val left = dialEdges(binding.gaugeLeft) ?: return
-        val middle = dialEdges(binding.gaugeCenter) ?: return
-        val right = dialEdges(binding.gaugeRight) ?: return
+        val left = dialEdges(binding.gaugeLeft) ?: return false
+        val middle = dialEdges(binding.gaugeCenter) ?: return false
+        val right = dialEdges(binding.gaugeRight) ?: return false
         val leftGapCenter = (left.second + middle.first) / 2f
         val rightGapCenter = (middle.second + right.first) / 2f
 
@@ -441,6 +454,7 @@ open class DashboardFragment : AlbumArt() {
         }
         setGuide(binding.line25, leftGapCenter)
         setGuide(binding.line75, rightGapCenter)
+        return true
     }
 
     private fun configureGaugeScaleLongPress(gauge: View, allGauges: Boolean) {
