@@ -88,8 +88,8 @@ open class DashboardFragment : AlbumArt() {
 
     private fun updateConnectionIndicators() {
         binding.connectingEcu = currentConnectionStatus == ConnectStatus.CONNECTING_ECU
-        binding.brokenLink = currentConnectionStatus == ConnectStatus.CONNECTING_ECU ||
-            (currentConnectionStatus == ConnectStatus.CONNECTED && communicationFaultActive)
+        binding.brokenLink = currentConnectionStatus == ConnectStatus.CONNECTED &&
+            communicationFaultActive
     }
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
