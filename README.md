@@ -182,6 +182,20 @@ The interface took shape as a Cadillac-inspired instrument panel with configurab
 
 Versioned builds and separate test identities helped isolate experiments. The `master` branch became the production release line.
 
+### Introducing the Horizontal Performance Gauge — October 2026
+
+One of the first major additions that distinguished V-Sport Gauges from the original AA Torque application was the introduction of a **custom horizontal performance gauge**.
+
+The inspiration came from my earlier Cadillac CTS-V Coupe instrumentation project, where I had used DashCommand and DashXL to create a purpose-built performance dashboard. That experience established the design philosophy I wanted to carry forward into the Escalade: present meaningful engine information clearly, using an instrument layout that feels integrated with the vehicle.
+
+The horizontal gauge extended the traditional round-gauge layout by introducing a wide, continuously updating bar along the bottom of the dashboard. Originally developed to display engine load, it provided an immediately recognizable indication of engine demand while preserving the three prominent round gauges for horsepower, torque, oil pressure, or other selected parameters.
+
+Its design emphasized visual balance and readability, incorporating a graduated scale, configurable range, labeled values, distinctive bar styling, and careful integration with the existing dashboard.
+
+Initial development began in late October 2026, with the feature established in the 3.1 release series. It subsequently evolved to support independently configured dashboard PIDs, peak indicators, and additional display options.
+
+**The horizontal gauge represented a significant milestone:** V-Sport Gauges was no longer simply modifying the appearance of AA Torque's existing instruments. It was introducing new instrumentation inspired by the custom performance displays I had developed years earlier for my CTS-V.
+
 ---
 
 ## Phase 3 — Persistent Peaks and Gauge Refinements
