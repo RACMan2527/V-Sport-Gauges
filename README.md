@@ -334,6 +334,10 @@ Moved the `dashContent` layout up 10dp to raise the three round gauges and four 
 **3.5.17:** Settings exports now include the manually selected PID polling interval (50–500 ms). Import restores that interval, including live polling rescheduling. Older exports without the interval restore the 200 ms default. Gauge animation timing remains separate.
 
 
+### November 2026 | Version 3.5.19
+
+**3.5.19:** Restored PID polling settings now immediately update the visible settings slider after import, including when the settings screen stays open. Returning to settings also refreshes the displayed value from the saved polling interval.
+
 ---
 
 # My Development and Testing Environment
