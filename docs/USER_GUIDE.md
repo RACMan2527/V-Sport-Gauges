@@ -144,3 +144,8 @@ The precise vehicle rotary mappings can vary by Android Auto receiver; the list 
 This guide describes features **verified in the current `master` source**, including `DashboardFragment.kt`, `TorqueGauge.kt`, `TorqueLoadBar.kt`, `TorqueRefresher.kt`, `TorqueData.kt`, `DailyPeakStore.kt`, `AllTimePeakStore.kt`, `SettingsPIDFragment.kt` and the settings XML. It is **not** a claim of fresh in-vehicle testing.
 
 The original AA Torque features (themes, alarms, formulas, dashboard fields and chart views) remain available subject to their own configuration. For the history of additions, revisions and removed experiments, see the [development history](../README.md#the-development-of-v-sport-gauges).
+
+
+### Exporting and importing PID polling settings
+
+Starting in **3.5.17**, a settings export includes the manually selected **PID Polling Interval** as well as gauge animation settings. Importing the file restores the saved polling interval (for example, 125 ms) and applies it to active polling. Older exports that do not contain this setting restore the 200 ms default.
