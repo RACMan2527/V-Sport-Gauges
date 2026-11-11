@@ -405,3 +405,11 @@ Vehicle diagnostic data and calculated performance values are provided for infor
 ### November 2026 | Version 3.5.17
 
 **3.5.17:** Settings exports now include the manually selected PID polling interval (50–500 ms). Import restores that interval, including live polling rescheduling. Older exports without the interval restore the 200 ms default. Gauge animation timing remains separate.
+
+
+### Version 3.5.18 — Daily minimum validation correction
+
+- Request engine RPM using Torque's `0c,0` PID identifier for the two five-second-window validation checks.
+- Run the initial RPM request on a separate executor so it does not block normal gauge polling.
+- Allow both **MIN** and **BOTH** gauge selections to save validated daily minimums.
+- Preserve zero as a legitimate minimum when both RPM checks confirm the engine is running; retain existing pending-minimum cancellation when switching dashboards.
