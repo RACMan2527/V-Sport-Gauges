@@ -300,6 +300,17 @@ open class DashboardFragment : AlbumArt() {
         displays[3]!!.isBottomDisplay = true
         torqueChart = childFragmentManager.findFragmentById(R.id.chartFrag)!! as TorqueChart
         loadBar = childFragmentManager.findFragmentById(R.id.loadBar)!! as TorqueLoadBar
+        // Reposition the small displays whenever the measured dial geometry changes.
+        val geometryListener = View.OnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            scheduleDisplayAlignment()
+        }
+        listOf(binding.dashContent, binding.gaugeLeft, binding.gaugeCenter, binding.gaugeRight).forEach {
+            it.addOnLayoutChangeListener(geometryListener)
+        }
+        listOf(binding.gaugeLeft, binding.gaugeCenter, binding.gaugeRight).forEach { gauge ->
+            gauge.findViewById<View>(R.id.dial)?.addOnLayoutChangeListener(geometryListener)
+        }
+        scheduleDisplayAlignment()
         val filter = IntentFilter().apply { addAction("KEY_DOWN") }
         LocalBroadcastManager.getInstance(requireContext())
             .registerReceiver(object : BroadcastReceiver() {
@@ -355,6 +366,14 @@ open class DashboardFragment : AlbumArt() {
     }
 
 
+    private val displayAlignmentRunnable = Runnable { alignDisplaysBetweenDials() }
+
+    private fun scheduleDisplayAlignment() {
+        if (!::binding.isInitialized) return
+        binding.dashContent.removeCallbacks(displayAlignmentRunnable)
+        binding.dashContent.post(displayAlignmentRunnable)
+    }
+
     private fun applyRoundGaugeScale() {
         // Keep the outer edges of the side gauge views on the dashboard boundaries.
         // Scaling around the default center pivot pushes those edges offscreen.
@@ -373,7 +392,7 @@ open class DashboardFragment : AlbumArt() {
         binding.largeCenter = allRoundGaugesLarge || centerGaugeLarge
         binding.allRoundLarge = allRoundGaugesLarge
         // Wait until the scaled dial geometry has been laid out.
-        binding.dashContent.post { alignDisplaysBetweenDials() }
+        scheduleDisplayAlignment()
     }
 
     /**
