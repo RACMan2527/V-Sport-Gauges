@@ -85,11 +85,20 @@ open class DashboardFragment : AlbumArt() {
     private var dashboardTitle: String = ""
     private var currentConnectionStatus = ConnectStatus.CONNECTING_TORQUE
     private var communicationFaultActive = false
+    private var torqueStartupTimedOut = false
+    private val torqueStartupHandler = Handler(Looper.getMainLooper())
+    private val torqueStartupTimeout = Runnable {
+        if (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE) {
+            torqueStartupTimedOut = true
+            updateConnectionIndicators()
+        }
+    }
 
     private fun updateConnectionIndicators() {
         binding.connectingEcu = currentConnectionStatus == ConnectStatus.CONNECTING_ECU
-        binding.brokenLink = currentConnectionStatus == ConnectStatus.CONNECTED &&
-            communicationFaultActive
+        binding.brokenLink = (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE &&
+            torqueStartupTimedOut) ||
+            (currentConnectionStatus == ConnectStatus.CONNECTED && communicationFaultActive)
     }
     private var mStarted = false
     lateinit var binding: FragmentDashboardBinding
@@ -250,6 +259,10 @@ open class DashboardFragment : AlbumArt() {
         registerWithView{
             torqueRefresher.connectStatus.collect {
                 currentConnectionStatus = it
+                if (it != ConnectStatus.CONNECTING_TORQUE) {
+                    torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
+                    torqueStartupTimedOut = false
+                }
                 binding.status = when (it) {
                     ConnectStatus.CONNECTING_TORQUE -> R.string.status_connecting_torque
                     ConnectStatus.CONNECTING_ECU -> R.string.status_connecting_to_ecu
@@ -275,6 +288,9 @@ open class DashboardFragment : AlbumArt() {
         binding = FragmentDashboardBinding.inflate(inflater, container, false)
         binding.connectingEcu = false
         binding.brokenLink = false
+        torqueStartupTimedOut = false
+        torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
+        torqueStartupHandler.postDelayed(torqueStartupTimeout, 5_000L)
 
         settingsViewModel.typefaceLiveData.observe(viewLifecycleOwner) {
             binding.font = it
@@ -927,6 +943,10 @@ open class DashboardFragment : AlbumArt() {
     override fun onResume() {
         Timber.d("onResume")
         super.onResume()
+        if (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE && !torqueStartupTimedOut) {
+            torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
+            torqueStartupHandler.postDelayed(torqueStartupTimeout, 5_000L)
+        }
         lifecycleScope.launch {
             torqueRefresher.makeExecutors(torqueService)
         }
@@ -948,6 +968,7 @@ open class DashboardFragment : AlbumArt() {
         Timber.d("onPause")
         logoLongPressHandler.removeCallbacksAndMessages(null)
         gaugePressHandler.removeCallbacksAndMessages(null)
+        torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
         dismissRefreshIntervalOverlay(restore = true)
         dismissPollingIntervalOverlay(restore = true)
         super.onPause()
