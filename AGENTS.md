@@ -18,7 +18,7 @@ These are standing project requirements for any AI assistant modifying or review
 
 ## Documentation and releases
 
-8. For each version change, update the chronological release history in `README.md` with that version and its meaningful changes **in the same change set**. Do not leave the README version history behind the application version.
+8. Keep the README development history strictly chronological within its existing history section; never append revision notes after the document's closing sections. Public README entries highlight meaningful user-facing feature improvements only after the revision is successfully validated. Do not publish routine bug fixes, internal maintenance, diagnostic details, or unverified changes as release highlights. Track technical fixes in commit history instead. A version bump alone does not require a public README entry.
 9. Review `docs/USER_GUIDE.md` whenever user-facing controls, settings, indicators, gestures, appearance, or behavior change. Update affected instructions and illustrations in the same change set; do not change the guide for internal-only modifications without a reason.
 10. Keep public documentation factual and user-oriented. Do not describe internal build status, unverified testing, or conversational process as product features. Do not assert a release was successful until the corresponding workflow has actually completed successfully.
 11. Preserve the established GitHub repository identity `RACMan2527/V-Sport-Gauges` and its existing build and release mechanisms unless a change is explicitly authorized.
