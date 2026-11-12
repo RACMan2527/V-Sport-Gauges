@@ -49,7 +49,10 @@ class MainCarActivity : CarActivity() {
             val dashboard = supportFragmentManager.findFragmentByTag(FRAGMENT_CAR) as? DashboardFragment
             if (dashboard?.handleQuickKey(keyCode) == true) return true
         }
-        if (event?.action == KeyEvent.ACTION_DOWN) {
+        // Do not forward four-way controller toggles into the gauge UI.
+        // Only the legacy rotary key event is forwarded; ACTION_SCROLL
+        // rotation is handled directly by DashboardFragment.
+        if (event?.action == KeyEvent.ACTION_DOWN && keyCode == 281) {
             val intent = Intent("KEY_DOWN").apply {
                 Timber.i("Key down $keyCode")
                 putExtra("KEY_CODE", keyCode)
