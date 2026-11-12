@@ -1070,7 +1070,7 @@ open class DashboardFragment : AlbumArt() {
 
     private fun quickTouch() {
         quickHandler.removeCallbacks(quickTimeout)
-        quickHandler.postDelayed(quickTimeout, 10_000L)
+        quickHandler.postDelayed(quickTimeout, 5_000L)
     }
 
     private fun closeQuickControls() {
