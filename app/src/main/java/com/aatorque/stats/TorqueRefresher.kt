@@ -26,7 +26,8 @@ class TorqueRefresher {
     val data = HashMap<Int, TorqueData>()
     private val executor = ScheduledThreadPoolExecutor(7)
     private val rpmValidationExecutor = ScheduledThreadPoolExecutor(1)
-    private data class PendingMinimum(var lowest: Double, val date: String, var task: ScheduledFuture<*>? = null)
+    private data class PendingMinimum(val date: String, var lowest: Double? = null, var collecting: Boolean = false, var task: ScheduledFuture<*>? = null)
+    private var activeScreen: Int? = null
     private val pendingMinimums = ConcurrentHashMap<TorqueData, PendingMinimum>()
     val handler = Handler(Looper.getMainLooper())
     @Volatile private var pollingEnabled = false
@@ -82,7 +83,23 @@ class TorqueRefresher {
         SAMPLE_INTERVAL = prefs.getLong(KEY_INTERVAL_MS, DEFAULT_SAMPLE_INTERVAL).coerceIn(50L, 500L)
     }
 
+    private fun cancelPendingMinimums() {
+        synchronized(pendingMinimums) {
+            pendingMinimums.values.forEach { it.task?.cancel(false) }
+            pendingMinimums.clear()
+        }
+    }
+
     fun populateQuery(pos: Int, screen: Int, query: Display): TorqueData {
+        if (activeScreen != screen) {
+            cancelPendingMinimums()
+            activeScreen = screen
+        }
+        data[pos]?.let { old ->
+            synchronized(pendingMinimums) {
+                pendingMinimums.remove(old)?.task?.cancel(false)
+            }
+        }
         data[pos]?.stopRefreshing(true)
         val cacheItem = cache[screen]?.get(pos)
         val torqueData = if (cacheItem?.display?.equals(query) == true) {
@@ -191,17 +208,22 @@ class TorqueRefresher {
      * RPM is checked only at the beginning and end of the window.
      */
     private fun validateMinimumIfNeeded(service: TorqueService, gauge: TorqueData, candidate: Double) {
-        if (!pollingEnabled || !DailyPeakStore.isNewMinimum(appContext, gauge.display, candidate)) return
+        if (!pollingEnabled) return
         synchronized(pendingMinimums) {
+            // Existing windows consume only readings from this gauge's normal PID polling.
             val existing = pendingMinimums[gauge]
             if (existing != null) {
-                if (candidate < existing.lowest) existing.lowest = candidate
+                if (existing.collecting && candidate.isFinite()) {
+                    val previous = existing.lowest
+                    if (previous == null || candidate < previous) existing.lowest = candidate
+                }
                 return
             }
+            if (!DailyPeakStore.isNewMinimum(appContext, gauge.display, candidate)) return
             val date = LocalDate.now().toString()
-            val pending = PendingMinimum(candidate, date)
+            // The triggering reading is deliberately NOT a validated candidate.
+            val pending = PendingMinimum(date)
             pendingMinimums[gauge] = pending
-            // RPM IPC must not block the scheduled gauge polling thread.
             pending.task = rpmValidationExecutor.schedule(initialCheck@{
                 try {
                     var rpmValid = false
@@ -209,29 +231,37 @@ class TorqueRefresher {
                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                         rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
                     }
-                    if (!rpmValid || !pollingEnabled || activeService !== service ||
-                        gauge !in this.data.values || date != LocalDate.now().toString()) {
-                        Timber.w("Daily minimum initial RPM validation rejected for ${gauge.display.pid}")
-                        synchronized(pendingMinimums) {
-                            if (pendingMinimums[gauge] === pending) pendingMinimums.remove(gauge)
-                        }
-                        return@initialCheck
-                    }
-                    // Start the five-second window only after a valid initial RPM check.
                     synchronized(pendingMinimums) {
                         if (pendingMinimums[gauge] !== pending) return@initialCheck
+                        if (!rpmValid || !pollingEnabled || activeService !== service ||
+                            gauge !in data.values || date != LocalDate.now().toString()) {
+                            pendingMinimums.remove(gauge)
+                            return@initialCheck
+                        }
+                        // Only subsequent normal polling samples can initialize lowest.
+                        pending.collecting = true
                         pending.task = rpmValidationExecutor.schedule({
                             try {
-                                if (pollingEnabled && activeService === service &&
-                                    gauge in this.data.values && date == LocalDate.now().toString()) {
+                                // Atomically close the sampling window before the final RPM IPC.
+                                val minimum = synchronized(pendingMinimums) {
+                                    if (pendingMinimums[gauge] !== pending || !pending.collecting) null
+                                    else {
+                                        pending.collecting = false
+                                        pending.lowest
+                                    }
+                                }
+                                if (minimum != null) {
+                                    var finalRpmValid = false
                                     service.runIfConnected { ts ->
                                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
-                                        if (rpm != null && rpm.isFinite() && rpm > 300.0) {
-                                            val minimum = synchronized(pendingMinimums) { pending.lowest }
+                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
+                                    }
+                                    synchronized(pendingMinimums) {
+                                        if (finalRpmValid && pendingMinimums[gauge] === pending &&
+                                            pollingEnabled && activeService === service &&
+                                            gauge in data.values && date == LocalDate.now().toString()) {
                                             DailyPeakStore.recordMinimum(appContext, gauge.display, minimum, date)
                                             handler.post { if (pollingEnabled) gauge.sendNotifyUpdate() }
-                                        } else {
-                                            Timber.w("Daily minimum final RPM validation rejected for ${gauge.display.pid}")
                                         }
                                     }
                                 }
@@ -269,8 +299,7 @@ class TorqueRefresher {
         pollingEnabled = false
         failedPolls.clear()
         commFaultState.value = false
-        pendingMinimums.values.forEach { it.task?.cancel(false) }
-        pendingMinimums.clear()
+        cancelPendingMinimums()
         activeService = null
         Timber.i("Telling Torque refreshers to stop")
         for (td in data.values) {
