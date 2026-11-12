@@ -100,6 +100,20 @@ object DailyPeakStore {
         }
     }
 
+    /** Clear today's extrema for all PID identities, preserving the other direction. */
+    @Synchronized
+    fun resetToday(context: Context, resetMin: Boolean, resetMax: Boolean) {
+        val prefs = preferencesForToday(context)
+        val editor = prefs.edit()
+        prefs.all.keys.forEach { name ->
+            if ((resetMin && name.startsWith("min_")) ||
+                (resetMax && name.startsWith("max_"))) editor.remove(name)
+        }
+        editor.commit()
+        val prefixes = listOfNotNull(if (resetMin) "min_" else null, if (resetMax) "max_" else null)
+        blinkStates.keys.removeAll { identity -> prefixes.any { identity.startsWith(it) } }
+    }
+
     @Synchronized
     fun get(context: Context, display: Display, minimum: Boolean = false): Double? {
         if (display.pid.isBlank()) return null
