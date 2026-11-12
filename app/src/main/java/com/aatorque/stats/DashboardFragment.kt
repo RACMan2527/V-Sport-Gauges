@@ -364,8 +364,14 @@ open class DashboardFragment : AlbumArt() {
                     when (intent?.getIntExtra("KEY_CODE", 0)) {
                          KeyEvent.KEYCODE_DPAD_LEFT -> handleRotaryStep(-1)
                         KeyEvent.KEYCODE_DPAD_RIGHT -> handleRotaryStep(1)
-                        KeyEvent.KEYCODE_DPAD_UP -> handleRotaryStep(-1)
-                        KeyEvent.KEYCODE_DPAD_DOWN -> handleRotaryStep(1)
+                        // Up/down moves Android Auto focus. Do not switch dashboards
+                        // when the driver pulls/pushes the controller toward the AA menu.
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                            if (quickOverlay != null || quickSliderMode.isNotEmpty()) quickRotate(-1)
+                        }
+                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            if (quickOverlay != null || quickSliderMode.isNotEmpty()) quickRotate(1)
+                        }
                         281 -> handleRotaryStep(1) // KEYCODE_ROTARY_VOLUME
                     }
                 }
