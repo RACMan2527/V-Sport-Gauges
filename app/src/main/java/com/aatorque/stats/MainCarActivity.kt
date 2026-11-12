@@ -41,6 +41,14 @@ class MainCarActivity : CarActivity() {
     private var lastTheme: String? = null
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (event?.action == KeyEvent.ACTION_DOWN &&
+            (keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+             keyCode == KeyEvent.KEYCODE_ENTER ||
+             keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER ||
+             keyCode == KeyEvent.KEYCODE_BACK)) {
+            val dashboard = supportFragmentManager.findFragmentByTag(FRAGMENT_CAR) as? DashboardFragment
+            if (dashboard?.handleQuickKey(keyCode) == true) return true
+        }
         if (event?.action == KeyEvent.ACTION_DOWN) {
             val intent = Intent("KEY_DOWN").apply {
                 Timber.i("Key down $keyCode")
