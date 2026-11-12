@@ -74,6 +74,19 @@ open class DashboardFragment : AlbumArt() {
     var gaugeViews = arrayOfNulls<FragmentContainerView>(3)
 
     private var screensAnimating = false
+    private var quickOverlay: View? = null
+    private var quickPage = "main"
+    private var quickIndex = 0
+    private val quickHandler = Handler(Looper.getMainLooper())
+    private val quickTimeout = Runnable { closeQuickControls() }
+    private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "PID Polling",
+        "Screen Refresh", "Live Diagnostics", "Close Menu")
+    private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
+    private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
+    private var quickResetSelection = 0
+    private var quickSliderMode = ""
+    private var quickSliderControl: SeekBar? = null
+    private var quickSliderSave: View? = null
     private val gaugePressHandler = Handler(Looper.getMainLooper())
     private var allRoundGaugesLarge = false
     private var centerGaugeLarge = false
@@ -310,8 +323,7 @@ open class DashboardFragment : AlbumArt() {
         mBtnNext.setOnClickListener { setScreen(1) }
         mBtnPrev.setOnClickListener  { setScreen(-1) }
         binding.chartBtn.setOnClickListener { toggleShowChart(binding.showChart != true)  }
-        configureRefreshIntervalLongPress()
-        configurePollingIntervalLongPress()
+        configureQuickClockHold()
         mTitleElement = binding.textTitle
         mWrapper = binding.includeWrap
         mConStatus = binding.conStatus
@@ -321,8 +333,7 @@ open class DashboardFragment : AlbumArt() {
         allRoundGaugesLarge = requireContext().getSharedPreferences("round_gauge_display", Context.MODE_PRIVATE)
             .getBoolean("all_round_gauges_large", false)
         applyRoundGaugeScale()
-        configureGaugeScaleLongPress(binding.gaugeLeft, allGauges = true)
-        configureGaugeScaleLongPress(binding.gaugeCenter, allGauges = false)
+        // Gauge sizes are adjusted through Quick Controls.
 
         guages[0] = childFragmentManager.findFragmentById(R.id.gaugeLeft)!! as TorqueGauge
         guages[1] = childFragmentManager.findFragmentById(R.id.gaugeCenter)!! as TorqueGauge
@@ -351,8 +362,7 @@ open class DashboardFragment : AlbumArt() {
             .registerReceiver(object : BroadcastReceiver() {
                 override fun onReceive(p0: Context?, intent: Intent?) {
                     when (intent?.getIntExtra("KEY_CODE", 0)) {
-                        KeyEvent.KEYCODE_DPAD_CENTER -> toggleShowChart(binding.showChart != true)
-                        KeyEvent.KEYCODE_DPAD_LEFT -> handleRotaryStep(-1)
+                         KeyEvent.KEYCODE_DPAD_LEFT -> handleRotaryStep(-1)
                         KeyEvent.KEYCODE_DPAD_RIGHT -> handleRotaryStep(1)
                         KeyEvent.KEYCODE_DPAD_UP -> handleRotaryStep(-1)
                         KeyEvent.KEYCODE_DPAD_DOWN -> handleRotaryStep(1)
@@ -718,6 +728,7 @@ open class DashboardFragment : AlbumArt() {
         }
         mLayoutDashboard.addView(overlay, overlayParams)
         refreshIntervalOverlay = overlay
+        if (quickSliderMode == "refresh") { quickSliderControl = slider; quickSliderSave = saveButton }
     }
 
     private fun dismissRefreshIntervalOverlay(restore: Boolean) {
@@ -727,6 +738,7 @@ open class DashboardFragment : AlbumArt() {
         }
         (overlay.parent as? ViewGroup)?.removeView(overlay)
         refreshIntervalOverlay = null
+        if (quickSliderMode == "refresh") openQuickControls()
     }
     private fun configurePollingIntervalLongPress() {
         val clock = binding.dashboardClock
@@ -841,6 +853,7 @@ open class DashboardFragment : AlbumArt() {
             bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
         })
         pollingIntervalOverlay = overlay
+        if (quickSliderMode == "poll") { quickSliderControl = slider; quickSliderSave = save }
     }
 
     private fun dismissPollingIntervalOverlay(restore: Boolean) {
@@ -850,6 +863,7 @@ open class DashboardFragment : AlbumArt() {
         }
         (overlay.parent as? ViewGroup)?.removeView(overlay)
         pollingIntervalOverlay = null
+        if (quickSliderMode == "poll") openQuickControls()
     }
 
     private fun setupConfiguredBar(screenIndex: Int, settings: UserPreference) {
@@ -970,6 +984,7 @@ open class DashboardFragment : AlbumArt() {
         gaugePressHandler.removeCallbacksAndMessages(null)
         torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
         dismissRefreshIntervalOverlay(restore = true)
+        closeQuickControls()
         dismissPollingIntervalOverlay(restore = true)
         super.onPause()
         torqueRefresher.stopExecutors()
@@ -1020,8 +1035,229 @@ open class DashboardFragment : AlbumArt() {
         binding.backgroundResource = resource
     }
 
+
+    fun handleQuickKey(keyCode: Int): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (quickOverlay == null && quickSliderMode.isEmpty()) return false
+            quickBack()
+            return true
+        }
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+            keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            if (quickSliderMode.isNotEmpty()) quickSliderSave?.performClick()
+            else if (quickOverlay == null) openQuickControls()
+            else quickSelect()
+            return true
+        }
+        return false
+    }
+
+    private fun configureQuickClockHold() {
+        val clock = binding.dashboardClock
+        val action = Runnable { openQuickControls() }
+        clock.setOnTouchListener { view, event ->
+            when (event.actionMasked) {
+                MotionEvent.ACTION_DOWN -> {
+                    logoLongPressHandler.removeCallbacks(action)
+                    logoLongPressHandler.postDelayed(action, 3_000L)
+                }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
+                    logoLongPressHandler.removeCallbacks(action)
+            }
+            true
+        }
+    }
+
+    private fun quickTouch() {
+        quickHandler.removeCallbacks(quickTimeout)
+        quickHandler.postDelayed(quickTimeout, 10_000L)
+    }
+
+    private fun closeQuickControls() {
+        quickHandler.removeCallbacks(quickTimeout)
+        quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        quickOverlay = null
+        quickSliderMode = ""
+        quickSliderControl = null
+        quickSliderSave = null
+        dismissPollingIntervalOverlay(true)
+        dismissRefreshIntervalOverlay(true)
+    }
+
+    private fun openQuickControls(page: String = "main") {
+        quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        quickOverlay = null
+        quickPage = page
+        quickIndex = 0
+        quickSliderMode = ""
+        renderQuickControls()
+    }
+
+    private fun quickBack() {
+        if (quickSliderMode.isNotEmpty()) {
+            if (quickSliderMode == "poll") dismissPollingIntervalOverlay(true)
+            else dismissRefreshIntervalOverlay(true)
+            openQuickControls()
+        } else if (quickPage == "main") closeQuickControls()
+        else openQuickControls(if (quickPage == "confirm") "reset" else "main")
+    }
+
+    private fun quickRotate(direction: Int) {
+        quickTouch()
+        if (quickSliderMode.isNotEmpty()) {
+            quickSliderControl?.let { it.progress = (it.progress + direction * 5).coerceIn(0, it.max) }
+            return
+        }
+        val count = when (quickPage) {
+            "main" -> quickMain.size
+            "reset" -> quickReset.size
+            "sizes" -> quickSizes.size
+            "confirm" -> 2
+            else -> 1
+        }
+        quickIndex = (quickIndex + direction + count) % count
+        renderQuickControls()
+    }
+
+    private fun quickSelect() {
+        quickTouch()
+        when (quickPage) {
+            "main" -> when (quickIndex) {
+                0 -> openQuickControls("reset")
+                1 -> openQuickControls("sizes")
+                2 -> openQuickSlider(true)
+                3 -> openQuickSlider(false)
+                4 -> openQuickControls("diagnostics")
+                else -> closeQuickControls()
+            }
+            "reset" -> if (quickIndex == 3) openQuickControls()
+                else { quickResetSelection = quickIndex; openQuickControls("confirm") }
+            "confirm" -> {
+                if (quickIndex == 0) DailyPeakStore.resetToday(requireContext(),
+                    resetMin = quickResetSelection != 0, resetMax = quickResetSelection != 1)
+                openQuickControls("reset")
+            }
+            "sizes" -> when (quickIndex) {
+                0 -> changeQuickSize(true)
+                1 -> changeQuickSize(false)
+                else -> openQuickControls()
+            }
+            else -> openQuickControls()
+        }
+    }
+
+    private fun changeQuickSize(all: Boolean) {
+        val nextAll = if (all) !allRoundGaugesLarge else false
+        val nextCenter = if (all) false else !allRoundGaugesLarge && !centerGaugeLarge
+        lifecycleScope.launch {
+            requireContext().dataStore.updateData { current ->
+                current.toBuilder().setCenterGaugeLarge(nextCenter).build()
+            }
+            requireContext().getSharedPreferences("round_gauge_display", Context.MODE_PRIVATE)
+                .edit().putBoolean("all_round_gauges_large", nextAll).apply()
+            allRoundGaugesLarge = nextAll
+            centerGaugeLarge = nextCenter
+            applyRoundGaugeScale()
+            renderQuickControls()
+        }
+    }
+
+    private fun openQuickSlider(polling: Boolean) {
+        quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        quickOverlay = null
+        quickSliderMode = if (polling) "poll" else "refresh"
+        if (polling) showPollingIntervalSlider() else showRefreshIntervalSlider()
+        quickTouch()
+    }
+
+    private fun renderQuickControls() {
+        if (!isAdded || quickSliderMode.isNotEmpty() || !::binding.isInitialized) return
+        val context = requireContext()
+        fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
+        quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        val overlay = FrameLayout(context).apply {
+            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            isClickable = true
+            setOnClickListener { quickBack() }
+        }
+        val panel = LinearLayout(context).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(32, 37, 44))
+                cornerRadius = dp(12).toFloat()
+            }
+            isClickable = true
+        }
+        fun row(label: String, selected: Boolean = false, action: () -> Unit) {
+            val view = TextView(context).apply {
+                text = label
+                textSize = 17f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(9), dp(14), dp(9))
+                background = GradientDrawable().apply {
+                    setColor(if (selected) Color.rgb(57, 85, 115) else Color.rgb(40, 46, 54))
+                    cornerRadius = dp(5).toFloat()
+                }
+                isClickable = true
+                setOnClickListener { quickTouch(); action() }
+            }
+            panel.addView(view, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
+        }
+        val heading = when (quickPage) {
+            "main" -> "QUICK CONTROLS"
+            "reset" -> "DAILY MIN/MAX RESET"
+            "sizes" -> "GAUGE SIZES"
+            "confirm" -> "CONFIRM RESET"
+            else -> "LIVE DIAGNOSTICS"
+        }
+        row(heading) { quickTouch() }
+        when (quickPage) {
+            "main" -> quickMain.forEachIndexed { i, label ->
+                row(label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "reset" -> quickReset.forEachIndexed { i, label ->
+                row(label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "sizes" -> quickSizes.forEachIndexed { i, label ->
+                val suffix = when (i) {
+                    0 -> if (allRoundGaugesLarge) " - 110%" else " - 100%"
+                    1 -> if (centerGaugeLarge) " - 110%" else " - 100%"
+                    else -> ""
+                }
+                row(label + suffix, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "confirm" -> {
+                row("Clear today's " + listOf("MAX", "MIN", "MIN and MAX")[quickResetSelection] + "?") {}
+                row("CONFIRM", quickIndex == 0) { quickIndex = 0; quickSelect() }
+                row("CANCEL", quickIndex == 1) { quickIndex = 1; quickSelect() }
+            }
+            else -> {
+                listOf("Connection: " + currentConnectionStatus.name,
+                    "Communication fault: " + communicationFaultActive,
+                    "PID polling: " + TorqueRefresher.SAMPLE_INTERVAL + " ms",
+                    "Screen refresh: " + TorqueRefresher.REFRESH_INTERVAL + " ms",
+                    "Active PID slots: " + torqueRefresher.data.size,
+                    "Version: " + BuildConfig.VERSION_NAME).forEach { row(it) {} }
+                row("BACK") { openQuickControls() }
+            }
+        }
+        overlay.addView(panel, FrameLayout.LayoutParams(
+            minOf(dp(490), resources.displayMetrics.widthPixels - dp(32)), -2, Gravity.CENTER))
+        mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
+            startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+        })
+        quickOverlay = overlay
+        quickTouch()
+    }
+
     private fun handleRotaryStep(direction: Int) {
-        setScreen(direction)
+        if (quickOverlay != null || quickSliderMode.isNotEmpty()) quickRotate(direction)
+        else setScreen(direction)
     }
 
     fun configureRotaryInput() {
