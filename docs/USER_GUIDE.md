@@ -1,18 +1,35 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.7.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.7.6** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
 
-## Quick Controls (3.7.0 — pending in-vehicle verification)
+## Quick Controls and Live Diagnostics (3.7.6 — pending in-vehicle verification)
 
-Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it; rotate to highlight a choice and press to select. When the menu is closed, rotation continues to switch dashboards as before. The existing finger swipe direction is unchanged.
+Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it, rotate to highlight an item, and press to select. When the menu is closed, rotation continues to switch dashboards. The test screen can open Quick Controls with a three-second clock hold and supports tapping menu entries.
 
-The test screen can open the same menu by holding the clock for three seconds. Tap the menu entries to test without the vehicle wheel. The menu automatically closes after ten seconds of inactivity, cancelling unconfirmed changes. Back returns to the previous popup; only one popup is shown at a time.
+The main menu offers **Daily MIN/MAX Reset**, **Gauge Sizes**, **PID Polling**, **Screen Refresh**, **Live Diagnostics**, and **Close Menu**. Reset offers MAX, MIN, or both with confirmation, without clearing all-time peaks. Gauge Sizes controls the normal and enlarged round-gauge layouts. PID Polling and Screen Refresh open their existing adjustment sliders.
 
-The main menu contains Daily MIN/MAX Reset, Gauge Sizes, PID Polling, Screen Refresh, Live Diagnostics, and Close Menu. Reset offers MAX, MIN, and Both separately with a confirmation step. Reset affects all shared PID identities for the current day; it does not clear all-time peaks. Gauge Sizes replaces the left and center gauge long holds. PID Polling and Screen Refresh reuse the existing slider dialogs. Live Diagnostics shows connection status, communication fault state, configured polling and refresh intervals, active PID slots, and application version; these are diagnostic values, not measured ECU latency or per-PID throughput.
+**Timeout behavior:** Ordinary Quick Controls pages close after **five seconds** without interaction. **Live Diagnostics stays open until you explicitly exit** using BACK or the controller select action. It does not time out.
 
-**Verification status:** The feature is implemented in source but has not yet been verified in the Escalade. The physical controller press event, overlay rotary focus, and APK build still require testing.
+### Live Diagnostics display
+
+Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile panel. Values refresh approximately once per second while the panel is open. No extra ECU requests are issued.
+
+| Display | What it reports |
+| --- | --- |
+| **PID Polling Target** | Configured PID request interval, in milliseconds; a target, not a measured rate |
+| **Actual PID Rate** | Number of successful accepted PID polls per second across active gauge requests, measured over the preceding display interval |
+| **Screen Refresh** | Configured gauge animation interval, in milliseconds; not the Android Auto screen frame rate |
+| **ECU Response** | Elapsed time for the most recently completed existing PID request, in milliseconds |
+| **PID Failures** | Cumulative failed poll results counted while polling is enabled; **not exclusively timeouts** |
+| **Last PID Age** | Time elapsed since the most recent accepted successful PID reading; a dash appears until one is received |
+
+The connection label uses the **existing application ECU connection flag**; diagnostics does not independently determine ECU connectivity or change the connection-state logic. The panel also displays **Torque Connection** and **Data Stream** summary labels. A Data Stream label of **Monitoring** is not proof of fresh ECU data; use Actual PID Rate and Last PID Age for that assessment.
+
+The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
+
+**Verification status:** This describes the implementation in the 3.7.6 source. APK compilation, Android Auto layout, rotary-controller behavior, and in-vehicle measurement accuracy have not yet been independently verified.
 
 ## 1. Understand the round gauges
 
@@ -97,9 +114,9 @@ Press the rotary controller to open Quick Controls, rotate to choose an item, an
 
 **Daily MIN/MAX Reset** clears today's MAX, MIN, or both, across all dashboards sharing PID identities. Reset requires confirmation and does not affect saved all-time peaks.
 
-**Live Diagnostics** displays read-only connection state, communication fault, configured polling and refresh values, active PID slots, and app version.
+**Live Diagnostics** shows six live measurement tiles for polling target, actual PID rate, screen refresh setting, ECU response, PID failures, and last PID age. It also shows the existing connection-state summaries. It does not show the application version.
 
-The popup closes after ten seconds without interaction. A timeout cancels unconfirmed resets and unsaved slider adjustments.
+Ordinary Quick Controls pages close after five seconds without interaction. Live Diagnostics remains open until explicitly dismissed. A timeout cancels unconfirmed resets and unsaved slider adjustments.
 
 ## 5. Change dashboards and views
 
