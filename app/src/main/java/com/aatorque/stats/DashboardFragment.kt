@@ -708,6 +708,7 @@ open class DashboardFragment : AlbumArt() {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                 val value = 50 + progress
                 valueLabel.text = "Gauge refresh: $value ms"
+                if (quickSliderMode == "refresh") quickTouch()
                 TorqueRefresher.REFRESH_INTERVAL = value.toLong()
             }
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
@@ -836,7 +837,8 @@ open class DashboardFragment : AlbumArt() {
         panel.addView(buttons, LinearLayout.LayoutParams(-1, -2))
         slider.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
-                if (!fromUser) return
+                if (!fromUser && quickSliderMode != "poll") return
+                if (quickSliderMode == "poll") quickTouch()
                 val value = 50 + progress
                 valueLabel.text = "PID polling: $value ms"
                 TorqueRefresher.setGlobalPollingInterval(context, value.toLong())
@@ -983,8 +985,8 @@ open class DashboardFragment : AlbumArt() {
         logoLongPressHandler.removeCallbacksAndMessages(null)
         gaugePressHandler.removeCallbacksAndMessages(null)
         torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
-        dismissRefreshIntervalOverlay(restore = true)
         closeQuickControls()
+        dismissRefreshIntervalOverlay(restore = true)
         dismissPollingIntervalOverlay(restore = true)
         super.onPause()
         torqueRefresher.stopExecutors()
