@@ -39,8 +39,28 @@ class TorqueRefresher {
     private val commFaultState = MutableStateFlow(false)
     val communicationFault = commFaultState.asStateFlow()
 
+    // Passive diagnostics: no extra PID requests and no changes to scheduling.
+    data class DiagnosticsSnapshot(
+        val successfulPolls: Long,
+        val failedPolls: Long,
+        val lastResponseMs: Long,
+        val lastSuccessAtMs: Long
+    )
+    private val diagSuccess = java.util.concurrent.atomic.AtomicLong()
+    private val diagFailures = java.util.concurrent.atomic.AtomicLong()
+    private val diagLastResponseMs = java.util.concurrent.atomic.AtomicLong(-1L)
+    private val diagLastSuccessAtMs = java.util.concurrent.atomic.AtomicLong(0L)
+    fun diagnosticsSnapshot(): DiagnosticsSnapshot = DiagnosticsSnapshot(
+        diagSuccess.get(), diagFailures.get(),
+        diagLastResponseMs.get(), diagLastSuccessAtMs.get()
+    )
+
     private fun markPollResult(gauge: TorqueData, successful: Boolean) {
         if (!pollingEnabled) return
+        if (successful) {
+            diagSuccess.incrementAndGet()
+            diagLastSuccessAtMs.set(android.os.SystemClock.elapsedRealtime())
+        } else diagFailures.incrementAndGet()
         if (successful) failedPolls.remove(gauge)
         else failedPolls.compute(gauge) { _, count -> ((count ?: 0) + 1).coerceAtMost(3) }
         commFaultState.value = data.values.any { (failedPolls[it] ?: 0) >= 3 }
@@ -157,12 +177,15 @@ class TorqueRefresher {
 
     fun doRefresh(service: TorqueService, torqueData: TorqueData) {
         val queried = service.runIfConnected { ts ->
+            val requestStarted = android.os.SystemClock.elapsedRealtime()
             val value = try {
                 ts.getPIDValuesAsDouble(arrayOf(torqueData.pid!!))[0]
             } catch (e: ArrayIndexOutOfBoundsException) {
                 Timber.e("Torque returned invalid data for ${torqueData.pid}")
                 markPollResult(torqueData, false)
                 return@runIfConnected
+            } finally {
+                diagLastResponseMs.set(android.os.SystemClock.elapsedRealtime() - requestStarted)
             }
             if (!torqueData.updateReading(value)) {
                 return@runIfConnected
