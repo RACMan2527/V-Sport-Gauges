@@ -1177,6 +1177,8 @@ open class DashboardFragment : AlbumArt() {
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         val overlay = FrameLayout(context).apply {
             setBackgroundColor(Color.argb(170, 0, 0, 0))
+            // Gauges can have their own Z elevation; keep the modal above them.
+            elevation = dp(100).toFloat()
             isClickable = true
             setOnClickListener { quickBack() }
         }
@@ -1251,6 +1253,7 @@ open class DashboardFragment : AlbumArt() {
             topToTop = ConstraintLayout.LayoutParams.PARENT_ID
             bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
         })
+        overlay.bringToFront()
         quickOverlay = overlay
         quickTouch()
     }
