@@ -46,9 +46,9 @@ A candidate daily minimum is not accepted immediately. The app checks that **RPM
 
 Daily records are scoped to the **local calendar date** and the PID/conversion. They do not replace the saved all-time maximum.
 
-### Daily record notification (3.6.4)
+### Daily record notification
 
-After an accepted daily MIN or MAX improves an existing daily record, the round gauge's unit label blinks for **10 seconds** (half a second visible, half a second hidden). A subsequent accepted record restarts the 10-second interval. The first record of a new day establishes the baseline without blinking. This notification does not alter the live numeric value, needle, daily triangles, or all-time `PEAK:` label.
+Daily MIN/MAX records continue updating with every accepted improvement. The round gauge's unit label blinks for **3 seconds** (half a second visible, half a second hidden) only when the record improves by at least **5% of that gauge's configured range** relative to the last notification baseline, and at least **60 seconds** have passed since that PID/direction last blinked. The first observed record establishes a baseline without blinking. Improvements during cooldown are recorded but do not queue a later notification; a subsequent qualifying record change is needed. MIN and MAX are gated independently, and dashboards sharing a PID/conversion share notification state during the app session. This notification does not alter the live numeric value, needle, daily triangles, or all-time `PEAK:` label.
 
 ## 2. Horizontal gauge — one per dashboard
 
