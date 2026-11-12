@@ -362,17 +362,9 @@ open class DashboardFragment : AlbumArt() {
             .registerReceiver(object : BroadcastReceiver() {
                 override fun onReceive(p0: Context?, intent: Intent?) {
                     when (intent?.getIntExtra("KEY_CODE", 0)) {
-                         KeyEvent.KEYCODE_DPAD_LEFT -> handleRotaryStep(-1)
-                        KeyEvent.KEYCODE_DPAD_RIGHT -> handleRotaryStep(1)
-                        // Up/down moves Android Auto focus. Do not switch dashboards
-                        // when the driver pulls/pushes the controller toward the AA menu.
-                        KeyEvent.KEYCODE_DPAD_UP -> {
-                            if (quickOverlay != null || quickSliderMode.isNotEmpty()) quickRotate(-1)
-                        }
-                        KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            if (quickOverlay != null || quickSliderMode.isNotEmpty()) quickRotate(1)
-                        }
-                        281 -> handleRotaryStep(1) // KEYCODE_ROTARY_VOLUME
+                        // Four-way DPAD toggles belong to Android Auto, not V-Sport Gauges.
+                        // Physical wheel rotation is handled by ACTION_SCROLL below.
+                        281 -> handleRotaryStep(1) // Legacy rotary key event
                     }
                 }
             }, filter)
