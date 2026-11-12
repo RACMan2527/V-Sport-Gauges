@@ -78,7 +78,9 @@ open class DashboardFragment : AlbumArt() {
     private var quickPage = "main"
     private var quickIndex = 0
     private val quickHandler = Handler(Looper.getMainLooper())
-    private val quickTimeout = Runnable { closeQuickControls() }
+    private val quickTimeout = Runnable {
+        if (quickPage != "diagnostics") closeQuickControls()
+    }
     private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "PID Polling",
         "Screen Refresh", "Live Diagnostics", "Close Menu")
     private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
@@ -1070,7 +1072,8 @@ open class DashboardFragment : AlbumArt() {
 
     private fun quickTouch() {
         quickHandler.removeCallbacks(quickTimeout)
-        quickHandler.postDelayed(quickTimeout, 5_000L)
+        // Keep diagnostics open until the user explicitly exits it.
+        if (quickPage != "diagnostics") quickHandler.postDelayed(quickTimeout, 5_000L)
     }
 
     private fun closeQuickControls() {
@@ -1142,6 +1145,7 @@ open class DashboardFragment : AlbumArt() {
                 1 -> changeQuickSize(false)
                 else -> openQuickControls()
             }
+            "diagnostics" -> openQuickControls()
             else -> openQuickControls()
         }
     }
