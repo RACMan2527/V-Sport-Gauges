@@ -83,37 +83,23 @@ On the Android phone, open **V-Sport Gauges → Settings → Appearance**.
 - The **V-Series logo in the dashboard header is visible only with the Cadillac V-Sport theme**. Changing the font alone does not show or hide the logo.
 - Theme and font choices are saved in the app's existing settings and are included in normal settings export/import. An imported configuration restores its saved selections.
 
-The Cadillac V-Sport theme does not place a logo inside the round gauges. Its header logo can be held for three seconds to open the gauge-refresh slider. With any other theme, the logo is hidden and that logo-based shortcut is unavailable; the refresh interval remains configurable in phone settings.
+The Cadillac V-Sport theme does not place a logo inside the round gauges. The logo is decorative; gauge refresh is accessible from Quick Controls and phone settings.
 
-## 4. Adjust the gauges live on Android Auto
+## 4. Adjust gauges through Quick Controls
 
-The two three-second press-and-hold gestures change **different** behaviors. The V-Series logo gesture is available **only with the Cadillac V-Sport theme**, because other themes hide the logo. Both sliders operate over **50–500 ms** and are also represented in the phone's settings.
+Press the rotary controller to open Quick Controls, rotate to choose an item, and press to select. In the test screen, hold the clock for three seconds to open the same menu, then tap items. The previous logo and round-gauge long holds are no longer assigned.
 
-| Press and hold for 3 seconds | On-screen panel | What it changes | Initial default |
-| --- | --- | --- | --- |
-| **V-Series logo in the header** | **Gauge Refresh Interval** | Animated needle transition duration; **not** ECU polling | **300 ms** |
-| **Clock in the header** | **PID Polling Interval** | How frequently the app requests diagnostic data from Torque/ECU | **200 ms** |
+**PID Polling** opens the existing 50–500 ms polling slider (default 200 ms). It controls the request interval, not necessarily the measured per-PID update rate.
 
-**Using the logo slider:** move the slider to preview the animation timing immediately. Press **SAVE** to persist it, or **CANCEL** (or tap outside) to restore the value from before the panel opened.
+**Screen Refresh** opens the existing 50–500 ms gauge animation slider (default 300 ms). It changes needle transition timing, not ECU polling. SAVE retains a value and CANCEL restores the previous one.
 
-**Using the clock slider:** moving it immediately changes and reschedules polling; the value is written to preferences as you move it. Press **SAVE** to retain the value or **CANCEL** (or tap outside) to restore the starting value. Leaving the dashboard also closes an open slider and restores its initial value.
+**Gauge Sizes** selects all round gauges or the center gauge. The three modes are all normal (100%), center enlarged (110%), and all enlarged (110%). The horizontal gauge is not scaled.
 
-**Practical distinction:** a smoother-looking needle does not prove the ECU is being polled more often. Lower polling intervals increase diagnostic request frequency and may not be sustainable with every adapter and PID set.
+**Daily MIN/MAX Reset** clears today's MAX, MIN, or both, across all dashboards sharing PID identities. Reset requires confirmation and does not affect saved all-time peaks.
 
-The earlier **automatic polling calibration and Calibration Results screen were removed**; do not look for them in the current release.
+**Live Diagnostics** displays read-only connection state, communication fault, configured polling and refresh values, active PID slots, and app version.
 
-### Enlarge the round gauges on Android Auto
-
-Press and hold the **center of the left or middle round gauge for 3 seconds** to change the gauge size. There are three mutually exclusive modes: **all normal**, **center enlarged**, and **all enlarged**. The selected mode is saved and restored after restarting the app.
-
-| Current mode | Hold left gauge (3 seconds) | Hold middle gauge (3 seconds) |
-| --- | --- | --- |
-| All normal (100%) | All enlarged (110%) | Center enlarged |
-| Center enlarged | All enlarged (110%) | All normal (100%) |
-| All enlarged (110%) | All normal (100%) | All normal (100%) |
-
-The whole round gauge is scaled, including its needle, ticks, numeric reading, daily and all-time peak triangles, and temporary `PEAK:` text. The horizontal gauge does not scale. The round gauges and four smaller display fields have also been moved 10dp upward together, while the horizontal gauge retains its position.
-
+The popup closes after ten seconds without interaction. A timeout cancels unconfirmed resets and unsaved slider adjustments.
 
 ## 5. Change dashboards and views
 
