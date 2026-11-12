@@ -86,6 +86,32 @@ open class DashboardFragment : AlbumArt() {
     private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
     private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
     private var quickResetSelection = 0
+    private val diagnosticsHandler = Handler(Looper.getMainLooper())
+    private var diagnosticsValueViews: List<TextView> = emptyList()
+    private var diagnosticsLastCount = 0L
+    private var diagnosticsLastSampleMs = 0L
+    private val diagnosticsRefresh = object : Runnable {
+        override fun run() {
+            if (quickPage != "diagnostics" || quickOverlay == null || !isAdded) return
+            val snapshot = torqueRefresher.diagnosticsSnapshot()
+            val now = android.os.SystemClock.elapsedRealtime()
+            val elapsed = now - diagnosticsLastSampleMs
+            val rate = if (elapsed > 0) (snapshot.successfulPolls - diagnosticsLastCount) * 1000.0 / elapsed else 0.0
+            diagnosticsLastCount = snapshot.successfulPolls
+            diagnosticsLastSampleMs = now
+            val age = if (snapshot.lastSuccessAtMs > 0L) "${now - snapshot.lastSuccessAtMs} ms" else "—"
+            val values = listOf(
+                "${TorqueRefresher.SAMPLE_INTERVAL} ms",
+                String.format(java.util.Locale.US, "%.1f /sec", rate),
+                "${TorqueRefresher.REFRESH_INTERVAL} ms",
+                if (snapshot.lastResponseMs >= 0) "${snapshot.lastResponseMs} ms" else "—",
+                snapshot.failedPolls.toString(),
+                age
+            )
+            diagnosticsValueViews.forEachIndexed { index, view -> view.text = values[index] }
+            diagnosticsHandler.postDelayed(this, 1_000L)
+        }
+    }
     private var quickSliderMode = ""
     private var quickSliderControl: SeekBar? = null
     private var quickSliderSave: View? = null
@@ -1077,6 +1103,8 @@ open class DashboardFragment : AlbumArt() {
     }
 
     private fun closeQuickControls() {
+        diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
+        diagnosticsValueViews = emptyList()
         quickHandler.removeCallbacks(quickTimeout)
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         quickOverlay = null
@@ -1088,6 +1116,8 @@ open class DashboardFragment : AlbumArt() {
     }
 
     private fun openQuickControls(page: String = "main") {
+        diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
+        diagnosticsValueViews = emptyList()
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         quickOverlay = null
         quickPage = page
@@ -1240,13 +1270,54 @@ open class DashboardFragment : AlbumArt() {
                 row("CANCEL", quickIndex == 1) { quickIndex = 1; quickSelect() }
             }
             else -> {
-                listOf("Connection: " + currentConnectionStatus.name,
-                    "Communication fault: " + communicationFaultActive,
-                    "PID polling: " + TorqueRefresher.SAMPLE_INTERVAL + " ms",
-                    "Screen refresh: " + TorqueRefresher.REFRESH_INTERVAL + " ms",
-                    "Active PID slots: " + torqueRefresher.data.size,
-                    "Version: " + BuildConfig.VERSION_NAME).forEach { row(it) {} }
+                val state = TextView(context).apply {
+                    text = "ECU: " + currentConnectionStatus.name
+                    setTextColor(Color.rgb(83, 220, 143))
+                    textSize = 15f
+                    setPadding(dp(12), dp(5), dp(12), dp(12))
+                }
+                panel.addView(state)
+                val labels = listOf("PID Polling Target", "Actual PID Rate",
+                    "Screen Refresh", "ECU Response", "PID Failures", "Last PID Age")
+                val valueViews = mutableListOf<TextView>()
+                labels.chunked(2).forEach { pair ->
+                    val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+                    pair.forEach { label ->
+                        val tile = LinearLayout(context).apply {
+                            orientation = LinearLayout.VERTICAL
+                            setPadding(dp(10), dp(8), dp(10), dp(8))
+                            background = GradientDrawable().apply {
+                                setColor(Color.rgb(32, 47, 63))
+                                cornerRadius = dp(7).toFloat()
+                            }
+                        }
+                        tile.addView(TextView(context).apply {
+                            text = label
+                            textSize = 11f
+                            setTextColor(Color.rgb(170, 200, 225))
+                        })
+                        val value = TextView(context).apply {
+                            text = "—"
+                            textSize = 18f
+                            setTextColor(Color.WHITE)
+                        }
+                        valueViews.add(value)
+                        tile.addView(value)
+                        line.addView(tile, LinearLayout.LayoutParams(0, -2, 1f).apply {
+                            setMargins(dp(3), dp(3), dp(3), dp(3))
+                        })
+                    }
+                    panel.addView(line)
+                }
+                diagnosticsValueViews = valueViews
+                row("Torque Connection: " + currentConnectionStatus.name) {}
+                row("Data Stream: " + if (communicationFaultActive) "Fault" else "Monitoring") {}
                 row("BACK") { openQuickControls() }
+                val snapshot = torqueRefresher.diagnosticsSnapshot()
+                diagnosticsLastCount = snapshot.successfulPolls
+                diagnosticsLastSampleMs = android.os.SystemClock.elapsedRealtime()
+                diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
+                diagnosticsHandler.post(diagnosticsRefresh)
             }
         }
         overlay.addView(panel, FrameLayout.LayoutParams(
