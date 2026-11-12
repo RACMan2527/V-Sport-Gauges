@@ -1,8 +1,18 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.6.4** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.7.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
+
+## Quick Controls (3.7.0 — pending in-vehicle verification)
+
+Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it; rotate to highlight a choice and press to select. When the menu is closed, rotation continues to switch dashboards as before. The existing finger swipe direction is unchanged.
+
+The test screen can open the same menu by holding the clock for three seconds. Tap the menu entries to test without the vehicle wheel. The menu automatically closes after ten seconds of inactivity, cancelling unconfirmed changes. Back returns to the previous popup; only one popup is shown at a time.
+
+The main menu contains Daily MIN/MAX Reset, Gauge Sizes, PID Polling, Screen Refresh, Live Diagnostics, and Close Menu. Reset offers MAX, MIN, and Both separately with a confirmation step. Reset affects all shared PID identities for the current day; it does not clear all-time peaks. Gauge Sizes replaces the left and center gauge long holds. PID Polling and Screen Refresh reuse the existing slider dialogs. Live Diagnostics shows connection status, communication fault state, configured polling and refresh intervals, active PID slots, and application version; these are diagnostic values, not measured ECU latency or per-PID throughput.
+
+**Verification status:** The feature is implemented in source but has not yet been verified in the Escalade. The physical controller press event, overlay rotary focus, and APK build still require testing.
 
 ## 1. Understand the round gauges
 
