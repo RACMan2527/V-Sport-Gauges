@@ -29,6 +29,44 @@ object DailyPeakStore {
         return prefs
     }
 
+
+    // Notification gating is session-local; persisted daily extrema remain authoritative.
+    // Shared PID/conversion identity prevents dashboard switches from rearming notifications.
+    private data class BlinkState(var baseline: Double, var lastBlinkAt: Long = -1L)
+    private val blinkStates = mutableMapOf<String, BlinkState>()
+    private var blinkDate = LocalDate.now().toString()
+    private const val BLINK_COOLDOWN_MS = 60_000L
+    private const val BLINK_RANGE_FRACTION = 0.05
+
+    @Synchronized
+    fun shouldBlink(
+        display: Display, minimum: Boolean, currentRecord: Double?,
+        recordImproved: Boolean, nowMs: Long = android.os.SystemClock.elapsedRealtime()
+    ): Boolean {
+        val today = LocalDate.now().toString()
+        if (blinkDate != today) {
+            blinkStates.clear()
+            blinkDate = today
+        }
+        if (currentRecord == null || !currentRecord.isFinite() || display.pid.isBlank()) return false
+        val direction = if (minimum) "min" else "max"
+        val identity = direction + "_" + key(display)
+        val state = blinkStates[identity]
+        if (state == null) {
+            blinkStates[identity] = BlinkState(currentRecord)
+            return false
+        }
+        if (!recordImproved) return false
+        val range = display.maxValue.toDouble() - display.minValue.toDouble()
+        if (!range.isFinite() || range <= 0.0) return false
+        val change = if (minimum) state.baseline - currentRecord else currentRecord - state.baseline
+        if (change < range * BLINK_RANGE_FRACTION) return false
+        if (state.lastBlinkAt >= 0L && nowMs - state.lastBlinkAt < BLINK_COOLDOWN_MS) return false
+        state.baseline = currentRecord
+        state.lastBlinkAt = nowMs
+        return true
+    }
+
     @Synchronized
     fun isNewMinimum(context: Context, display: Display, reading: Double): Boolean {
         if (!reading.isFinite() || display.pid.isBlank() ||
