@@ -327,7 +327,7 @@ class TorqueGauge : Fragment() {
     private fun startUnitBlink() {
         if (!::binding.isInitialized || mClock.unit.isEmpty()) return
         unitBlinkTask?.let(unitBlinkHandler::removeCallbacks)
-        unitBlinkUntil = android.os.SystemClock.uptimeMillis() + 10_000L
+        unitBlinkUntil = android.os.SystemClock.uptimeMillis() + 3_000L
         binding.unitOverlay.alpha = 1f
         val task = object : Runnable {
             override fun run() {
@@ -427,9 +427,11 @@ class TorqueGauge : Fragment() {
         val latestMin = DailyPeakStore.get(requireContext(), data.display, true)
         val newMax = dailyMaxSeen != null && latestMax != null && latestMax > dailyMaxSeen!!
         val newMin = dailyMinSeen != null && latestMin != null && latestMin < dailyMinSeen!!
+        val blinkMax = DailyPeakStore.shouldBlink(data.display, false, latestMax, newMax)
+        val blinkMin = DailyPeakStore.shouldBlink(data.display, true, latestMin, newMin)
         dailyMaxSeen = latestMax
         dailyMinSeen = latestMin
-        if (newMax || newMin) startUnitBlink()
+        if (blinkMax || blinkMin) startUnitBlink()
         if (data.display.maxValuesActive != MaxControl.OFF) {
             val possibleValue =
                 if (data.display.maxValuesActive == MaxControl.MAX) data.maxValue else data.minValue
