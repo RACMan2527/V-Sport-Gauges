@@ -24,7 +24,9 @@ object DailyPeakStore {
         val prefs = context.applicationContext.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val today = LocalDate.now().toString()
         if (prefs.getString("date", null) != today) {
+            val oldDate = prefs.getString("date", null)
             prefs.edit().clear().putString("date", today).commit()
+            if (oldDate != null) DiagnosticLog.event("DAILY_ROLLOVER", "old=$oldDate new=$today")
         }
         return prefs
     }
@@ -84,6 +86,7 @@ object DailyPeakStore {
         val previous = prefs.getString(name, null)?.toDoubleOrNull()
         if (previous == null || reading > previous) {
             prefs.edit().putString(name, reading.toString()).apply()
+            DiagnosticLog.event("DAILY_MAX", "pid=${display.pid} old=$previous new=$reading horizontal=$horizontalBar")
         }
     }
 
@@ -97,6 +100,7 @@ object DailyPeakStore {
         val previous = prefs.getString(name, null)?.toDoubleOrNull()
         if (previous == null || reading < previous) {
             prefs.edit().putString(name, reading.toString()).apply()
+            DiagnosticLog.event("DAILY_MIN", "pid=${display.pid} old=$previous new=$reading")
         }
     }
 
@@ -109,7 +113,9 @@ object DailyPeakStore {
             if ((resetMin && name.startsWith("min_")) ||
                 (resetMax && name.startsWith("max_"))) editor.remove(name)
         }
+        val removed = prefs.all.keys.count { (resetMin && it.startsWith("min_")) || (resetMax && it.startsWith("max_")) }
         editor.commit()
+        DiagnosticLog.event("DAILY_RESET", "min=$resetMin max=$resetMax removed=$removed")
         val prefixes = listOfNotNull(if (resetMin) "min_" else null, if (resetMax) "max_" else null)
         blinkStates.keys.removeAll { identity -> prefixes.any { identity.startsWith(it) } }
     }
