@@ -24,6 +24,7 @@ object DiagnosticLog {
     private const val KEEP_FILES = 8
     private const val MAX_PENDING = 512
     private val pending = AtomicInteger()
+    private val eventSequence = java.util.concurrent.atomic.AtomicLong()
     private val worker = Executors.newSingleThreadExecutor { task ->
         Thread(task, "V-Sport-Diagnostic-Log").apply { isDaemon = true }
     }
@@ -46,7 +47,8 @@ object DiagnosticLog {
             pending.decrementAndGet()
             return
         }
-        val line = "${ZonedDateTime.now().format(timestamp)} " +
+        val eventId = eventSequence.incrementAndGet()
+        val line = "${ZonedDateTime.now().format(timestamp)} seq=$eventId " +
             kind.replace(Regex("[^A-Za-z0-9_]"), "_") + " " +
             detail.replace('\n', ' ').replace('\r', ' ').take(1200) + "\n"
         worker.execute {
