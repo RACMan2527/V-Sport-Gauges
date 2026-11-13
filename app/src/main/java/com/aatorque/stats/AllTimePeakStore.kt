@@ -59,7 +59,7 @@ object AllTimePeakStore {
             .edit()
             .putString(key(pid), value.toString())
             .apply()
-        if (previous != value) DiagnosticLog.event("PEAK_UPDATE", "pid=$pid old=$previous new=$value")
+        if (previous != value) DiagnosticLog.recordChange("PEAK_UPDATE", pid, previous, value)
     }
 
     fun reset(context: Context, pid: String) {
