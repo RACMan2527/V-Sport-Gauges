@@ -23,6 +23,14 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         Timber.plant(logTree)
+        DiagnosticLog.initialize(this)
+        Timber.plant(object : Timber.Tree() {
+            override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
+                if (priority >= android.util.Log.WARN) {
+                    DiagnosticLog.event("APP_WARNING", "priority=$priority tag=$tag message=$message")
+                }
+            }
+        })
         fixAndroid14Perms()
     }
     

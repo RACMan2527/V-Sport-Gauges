@@ -60,7 +60,10 @@ class TorqueRefresher {
         if (successful) {
             diagSuccess.incrementAndGet()
             diagLastSuccessAtMs.set(android.os.SystemClock.elapsedRealtime())
-        } else diagFailures.incrementAndGet()
+        } else {
+            diagFailures.incrementAndGet()
+            DiagnosticLog.event("PID_POLL_FAILURE", "pid=${gauge.pid} label=${gauge.display.label}")
+        }
         if (successful) failedPolls.remove(gauge)
         else failedPolls.compute(gauge) { _, count -> ((count ?: 0) + 1).coerceAtMost(3) }
         commFaultState.value = data.values.any { (failedPolls[it] ?: 0) >= 3 }
@@ -183,11 +186,14 @@ class TorqueRefresher {
             } catch (e: ArrayIndexOutOfBoundsException) {
                 Timber.e("Torque returned invalid data for ${torqueData.pid}")
                 markPollResult(torqueData, false)
+                DiagnosticLog.event("PID_RESPONSE_MISSING", "pid=${torqueData.pid}")
                 return@runIfConnected
             } finally {
                 diagLastResponseMs.set(android.os.SystemClock.elapsedRealtime() - requestStarted)
             }
             if (!torqueData.updateReading(value)) {
+                DiagnosticLog.event("PID_REJECTED", "pid=${torqueData.pid} raw=$value")
+                markPollResult(torqueData, false)
                 return@runIfConnected
             }
             markPollResult(torqueData, true)
@@ -238,13 +244,17 @@ class TorqueRefresher {
             if (existing != null) {
                 if (existing.collecting && candidate.isFinite()) {
                     val previous = existing.lowest
-                    if (previous == null || candidate < previous) existing.lowest = candidate
+                    if (previous == null || candidate < previous) {
+                        existing.lowest = candidate
+                        DiagnosticLog.event("MIN_CANDIDATE", "pid=${gauge.pid} value=$candidate")
+                    }
                 }
                 return
             }
             if (!DailyPeakStore.isNewMinimum(appContext, gauge.display, candidate)) return
             val date = LocalDate.now().toString()
             // The triggering reading is deliberately NOT a validated candidate.
+            DiagnosticLog.event("MIN_TRIGGER", "pid=${gauge.pid} candidate=$candidate")
             val pending = PendingMinimum(date)
             pendingMinimums[gauge] = pending
             pending.task = rpmValidationExecutor.schedule(initialCheck@{
@@ -253,11 +263,13 @@ class TorqueRefresher {
                     service.runIfConnected { ts ->
                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                         rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
+                        DiagnosticLog.event("MIN_RPM_INITIAL", "pid=${gauge.pid} rpm=$rpm valid=$rpmValid ecu=${ts.isConnectedToECU}")
                     }
                     synchronized(pendingMinimums) {
                         if (pendingMinimums[gauge] !== pending) return@initialCheck
                         if (!rpmValid || !pollingEnabled || activeService !== service ||
                             gauge !in data.values || date != LocalDate.now().toString()) {
+                            DiagnosticLog.event("MIN_REJECT", "pid=${gauge.pid} reason=initial_rpm_or_state rpmValid=$rpmValid")
                             pendingMinimums.remove(gauge)
                             return@initialCheck
                         }
@@ -278,11 +290,14 @@ class TorqueRefresher {
                                     service.runIfConnected { ts ->
                                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                                         finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
+                                        DiagnosticLog.event("MIN_RPM_FINAL", "pid=${gauge.pid} rpm=$rpm valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum")
                                     }
                                     synchronized(pendingMinimums) {
+                                        if (!finalRpmValid) DiagnosticLog.event("MIN_REJECT", "pid=${gauge.pid} value=$minimum reason=final_rpm")
                                         if (finalRpmValid && pendingMinimums[gauge] === pending &&
                                             pollingEnabled && activeService === service &&
                                             gauge in data.values && date == LocalDate.now().toString()) {
+                                            DiagnosticLog.event("MIN_ACCEPT", "pid=${gauge.pid} value=$minimum")
                                             DailyPeakStore.recordMinimum(appContext, gauge.display, minimum, date)
                                             handler.post { if (pollingEnabled) gauge.sendNotifyUpdate() }
                                         }
