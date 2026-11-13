@@ -353,6 +353,11 @@ Moved the `dashContent` layout up 10dp to raise the three round gauges and four 
 
 **3.7.6:** Added an on-screen **Live Diagnostics** panel accessible from Quick Controls. Six live readouts show the configured PID polling target, actual accepted PID rate, screen refresh interval, latest ECU response time, cumulative PID failures, and age of the most recent successful reading. The panel uses existing polling measurements rather than generating additional ECU requests and stays open until explicitly dismissed.
 
+
+### November 2026 | Version 3.8.0 — Persistent Diagnostic Logging
+
+**3.8.0:** Added **automatic persistent diagnostic logs** to help investigate gauge readings, PID communication, and daily record behavior after a drive. Timestamped logs are written to **Downloads/V-Sport Gauges** on the Android phone without requiring a manual export. They capture connection changes, PID failures, daily MIN validation, daily MIN/MAX and all-time PEAK record events, dashboard changes, and selected settings changes. Repeated high-frequency events are summarized to keep the logs manageable. See the [User Guide](docs/USER_GUIDE.md#persistent-diagnostic-logs) for log location and contents.
+
 ---
 
 # My Development and Testing Environment
