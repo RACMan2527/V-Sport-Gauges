@@ -63,7 +63,7 @@ class TorqueRefresher {
             diagLastSuccessAtMs.set(android.os.SystemClock.elapsedRealtime())
         } else {
             diagFailures.incrementAndGet()
-            DiagnosticLog.event("PID_POLL_FAILURE", "${diagnosticPid(gauge)} label=${gauge.display.label}")
+            DiagnosticLog.event("PID_POLL_FAILURE", diagnosticPid(gauge))
         }
         if (successful) failedPolls.remove(gauge)
         else failedPolls.compute(gauge) { _, count -> ((count ?: 0) + 1).coerceAtMost(3) }
