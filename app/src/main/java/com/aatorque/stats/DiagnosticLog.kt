@@ -119,6 +119,7 @@ object DiagnosticLog {
         }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
     private fun writeMediaStore(context: Context, line: String) {
         val resolver = context.contentResolver
         val bytes = line.toByteArray(Charsets.UTF_8)
@@ -140,6 +141,7 @@ object DiagnosticLog {
         } ?: throw IllegalStateException("Unable to append Downloads log")
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
     private fun trimMediaStore(context: Context) {
         val resolver = context.contentResolver
         val entries = mutableListOf<Pair<String, Uri>>()
