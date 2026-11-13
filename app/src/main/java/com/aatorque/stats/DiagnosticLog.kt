@@ -41,6 +41,35 @@ object DiagnosticLog {
         event("APP_START", "version=${BuildConfig.VERSION_NAME}")
     }
 
+    // Aggregate rapidly changing record values without blocking gauge polling.
+    private data class RecordAggregate(val kind: String, val pid: String, val first: Double?, var last: Double, var count: Int, var lastMs: Long)
+    private val aggregates = mutableMapOf<String, RecordAggregate>()
+    private const val AGGREGATE_MS = 10_000L
+
+    @Synchronized
+    fun recordChange(kind: String, pid: String, old: Double?, new: Double) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val key = "$kind|$pid"
+        val existing = aggregates[key]
+        if (existing != null && now - existing.lastMs < AGGREGATE_MS) {
+            existing.last = new
+            existing.count++
+            existing.lastMs = now
+            return
+        }
+        if (existing != null) event(existing.kind, "pid=${existing.pid} old=${existing.first} new=${existing.last} changes=${existing.count} aggregated=true")
+        aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now)
+        event(kind, "pid=$pid old=$old new=$new changes=1")
+    }
+
+    @Synchronized
+    fun flushRecords() {
+        aggregates.values.filter { it.count > 1 }.forEach {
+            event(it.kind, "pid=${it.pid} old=${it.first} new=${it.last} changes=${it.count} aggregated=true")
+        }
+        aggregates.clear()
+    }
+
     fun event(kind: String, detail: String = "") {
         val context = app ?: return
         if (pending.incrementAndGet() > MAX_PENDING) {
