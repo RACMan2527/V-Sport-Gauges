@@ -11,6 +11,7 @@ import java.io.File
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Append-only diagnostics in Downloads. No disk I/O on PID polling threads.
@@ -21,6 +22,8 @@ object DiagnosticLog {
     private const val SUBFOLDER = "V-Sport Gauges"
     private const val MAX_BYTES = 5L * 1024 * 1024
     private const val KEEP_FILES = 8
+    private const val MAX_PENDING = 512
+    private val pending = AtomicInteger()
     private val worker = Executors.newSingleThreadExecutor { task ->
         Thread(task, "V-Sport-Diagnostic-Log").apply { isDaemon = true }
     }
@@ -39,6 +42,10 @@ object DiagnosticLog {
 
     fun event(kind: String, detail: String = "") {
         val context = app ?: return
+        if (pending.incrementAndGet() > MAX_PENDING) {
+            pending.decrementAndGet()
+            return
+        }
         val line = "${ZonedDateTime.now().format(timestamp)} " +
             kind.replace(Regex("[^A-Za-z0-9_]"), "_") + " " +
             detail.replace('\n', ' ').replace('\r', ' ').take(1200) + "\n"
@@ -51,6 +58,8 @@ object DiagnosticLog {
                 }
             } catch (e: Exception) {
                 Log.w("V-Sport-Diagnostic-Log", "Log write failed: ${e.message}")
+            } finally {
+                pending.decrementAndGet()
             }
         }
     }
