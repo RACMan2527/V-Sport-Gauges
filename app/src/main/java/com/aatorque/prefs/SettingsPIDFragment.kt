@@ -1,5 +1,7 @@
 package com.aatorque.prefs
 
+import com.aatorque.stats.DiagnosticLog
+
 import android.content.ComponentName
 import android.content.ServiceConnection
 import android.graphics.Color
@@ -297,6 +299,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
 
         val minVal = coerce(minValuePref.text, 0)
         val maxVal = coerce(maxValuePref.text, 100)
+        val oldMode = display.maxMarksActive
+        val oldPid = display.pid
         var display = display.toBuilder().setDisabled(
             !enabledPref.isChecked
         ).setPid(
@@ -335,6 +339,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
             display = display.setIcon(imagePref.value)
         }
         val context = requireContext()
+        if (oldMode != display.maxMarksActive) DiagnosticLog.event("MINMAX_MODE_CHANGE", "screen=$screen pid=${display.pid} old=$oldMode new=${display.maxMarksActive}")
+        if (oldPid != display.pid) DiagnosticLog.event("PID_ASSIGNMENT", "screen=$screen old=$oldPid new=${display.pid}")
         GlobalScope.launch(Dispatchers.IO) {
             context.dataStore.updateData {
                     currentSettings ->
