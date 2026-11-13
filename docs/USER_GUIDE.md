@@ -1,10 +1,10 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.8.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.8.1** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
 
-## Quick Controls and Live Diagnostics (3.7.6 — pending in-vehicle verification)
+## Quick Controls and Live Diagnostics
 
 Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it, rotate to highlight an item, and press to select. When the menu is closed, rotation continues to switch dashboards. The test screen can open Quick Controls with a three-second clock hold and supports tapping menu entries.
 
@@ -29,11 +29,9 @@ The connection label uses the **existing application ECU connection flag**; diag
 
 The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
 
-**Verification status:** This describes the implementation in the 3.7.6 source. APK compilation, Android Auto layout, rotary-controller behavior, and in-vehicle measurement accuracy have not yet been independently verified.
-
 ## Persistent diagnostic logs
 
-V-Sport Gauges automatically writes timestamped diagnostic logs to **Downloads/V-Sport Gauges** on the phone, using filenames `V-Sport-Gauges-*.log`. No folder selection or manual export is required. Logs capture PID failures, correlated daily MIN validation, daily MIN/MAX and all-time PEAK record changes, resets, gauge size changes, dashboard changes, connection status changes, and selected configuration changes. Rapid MAX/PEAK updates are aggregated to reduce logging overhead. The writer runs in the background and does not add ECU requests. Each file is limited to approximately 5 MB and the eight most recent log files are retained. On Android versions before 10, public Downloads write access may require the platform storage permission.
+V-Sport Gauges automatically writes timestamped diagnostic logs to **Downloads/V-Sport Gauges** on the phone, using filenames `V-Sport-Gauges-*.log`. No folder selection or manual export is required. Logs capture PID failures, correlated daily MIN validation, daily MIN/MAX and all-time PEAK record changes, resets, gauge size changes, dashboard changes, connection status changes, and selected configuration changes. Rapid MAX/PEAK updates and repeated invalid-RPM daily MIN rejections are summarized to reduce logging overhead. The writer runs in the background and does not add ECU requests. Each file is limited to approximately 5 MB and the eight most recent log files are retained. On Android versions before 10, public Downloads write access may require the platform storage permission.
 
 ## 1. Understand the round gauges
 
@@ -122,6 +120,11 @@ Press the rotary controller to open Quick Controls, rotate to choose an item, an
 
 Ordinary Quick Controls pages close after five seconds without interaction. Live Diagnostics remains open until explicitly dismissed. A timeout cancels unconfirmed resets and unsaved slider adjustments.
 
+
+### Exporting and importing PID polling settings
+
+Settings export includes the manually selected **PID Polling Interval** as well as gauge animation settings. Import restores the saved polling interval and applies it to active polling. Older exports without this setting use the 200 ms default. The polling slider reflects the restored value after import.
+
 ## 5. Change dashboards and views
 
 - **Swipe horizontally** across the dashboard to switch between configured dashboards.
@@ -170,14 +173,6 @@ The indicator reports detectable Torque service/PID request failures. It does no
 
 ## 9. Feature status and scope
 
-This guide describes features **verified in the current `master` source**, including `DashboardFragment.kt`, `TorqueGauge.kt`, `TorqueLoadBar.kt`, `TorqueRefresher.kt`, `TorqueData.kt`, `DailyPeakStore.kt`, `AllTimePeakStore.kt`, `SettingsPIDFragment.kt` and the settings XML. It is **not** a claim of fresh in-vehicle testing.
+This guide covers the application's controls and features, including `DashboardFragment.kt`, `TorqueGauge.kt`, `TorqueLoadBar.kt`, `TorqueRefresher.kt`, `TorqueData.kt`, `DailyPeakStore.kt`, `AllTimePeakStore.kt`, `SettingsPIDFragment.kt` and the settings XML.
 
 The original AA Torque features (themes, alarms, formulas, dashboard fields and chart views) remain available subject to their own configuration. For the history of additions, revisions and removed experiments, see the [development history](../README.md#the-development-of-v-sport-gauges).
-
-
-### Exporting and importing PID polling settings
-
-Starting in **3.5.17**, a settings export includes the manually selected **PID Polling Interval** as well as gauge animation settings. Importing the file restores the saved polling interval (for example, 125 ms) and applies it to active polling. Older exports that do not contain this setting restore the 200 ms default.
-
-
-After importing settings, the PID polling slider immediately reflects the restored value, even when the settings screen was already open.
