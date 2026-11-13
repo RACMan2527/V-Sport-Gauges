@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.7.7** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.8.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
 
@@ -33,7 +33,7 @@ The diagnostics screen deliberately **does not display the application version**
 
 ## Persistent diagnostic logs
 
-V-Sport Gauges automatically writes timestamped diagnostic logs to **Downloads/V-Sport Gauges** on the phone, using filenames `V-Sport-Gauges-*.log`. No folder selection or manual export is required. Logs capture rejected PID readings, poll failures, and daily MIN validation with unique validation IDs, initial and final RPM values, RPM request durations, elapsed validation time, sample counts, and cancellation or rejection reasons. The writer runs in the background and does not add ECU requests. Each file is limited to approximately 5 MB and the eight most recent log files are retained. On Android versions before 10, public Downloads write access may require the platform storage permission.
+V-Sport Gauges automatically writes timestamped diagnostic logs to **Downloads/V-Sport Gauges** on the phone, using filenames `V-Sport-Gauges-*.log`. No folder selection or manual export is required. Logs capture PID failures, correlated daily MIN validation, daily MIN/MAX and all-time PEAK record changes, resets, gauge size changes, dashboard changes, connection status changes, and selected configuration changes. Rapid MAX/PEAK updates are aggregated to reduce logging overhead. The writer runs in the background and does not add ECU requests. Each file is limited to approximately 5 MB and the eight most recent log files are retained. On Android versions before 10, public Downloads write access may require the platform storage permission.
 
 ## 1. Understand the round gauges
 
