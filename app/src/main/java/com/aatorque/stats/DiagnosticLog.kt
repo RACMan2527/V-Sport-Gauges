@@ -17,7 +17,7 @@ import java.util.concurrent.Executors
  * Android 10+ uses MediaStore; older Android uses public Downloads.
  */
 object DiagnosticLog {
-    private const val PREFIX = "V-Sport-Gauges-"
+    private const val PREFIX = "V-Sport-Gauges-"\n    private const val SUBFOLDER = "V-Sport Gauges"
     private const val MAX_BYTES = 5L * 1024 * 1024
     private const val KEEP_FILES = 8
     private val worker = Executors.newSingleThreadExecutor { task ->
@@ -61,7 +61,7 @@ object DiagnosticLog {
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, newName())
                 put(MediaStore.Downloads.MIME_TYPE, "text/plain")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/")
+                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + SUBFOLDER + "/")
             }
             currentUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
                 ?: throw IllegalStateException("Unable to create Downloads log")
@@ -100,7 +100,7 @@ object DiagnosticLog {
 
     @Suppress("DEPRECATION")
     private fun writeLegacy(line: String) {
-        val dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), SUBFOLDER)
         if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("Downloads unavailable")
         if (currentFile == null || bytesWritten + line.toByteArray().size > MAX_BYTES) {
             currentFile = File(dir, newName())
