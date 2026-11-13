@@ -311,8 +311,8 @@ open class DashboardFragment : AlbumArt() {
                     val elapsed = android.os.SystemClock.elapsedRealtime() - connectionLogStartMs
                     DiagnosticLog.event("CONNECTION_STATE", "old=$currentConnectionStatus new=$it elapsedMs=$elapsed")
                     if (it == ConnectStatus.CONNECTING_ECU) DiagnosticLog.event("ECU_CONNECT_WAIT", "elapsedMs=$elapsed")
-                    if (it == ConnectStatus.CONNECTED) DiagnosticLog.event("ECU_CONNECTED", "elapsedMs=$elapsed")
-                    if (currentConnectionStatus == ConnectStatus.CONNECTED && it != ConnectStatus.CONNECTED) DiagnosticLog.event("ECU_DISCONNECTED", "elapsedMs=$elapsed new=$it")
+                    if (it == ConnectStatus.CONNECTED) DiagnosticLog.event("GAUGE_DATA_CONNECTED", "elapsedMs=$elapsed")
+                    if (currentConnectionStatus == ConnectStatus.CONNECTED && it != ConnectStatus.CONNECTED) DiagnosticLog.event("GAUGE_DATA_DISCONNECTED", "elapsedMs=$elapsed new=$it")
                 }
                 currentConnectionStatus = it
                 if (it != ConnectStatus.CONNECTING_TORQUE) {
