@@ -90,7 +90,7 @@ object DiagnosticLog {
                     aggregates.remove(key)
                 }
             }
-        }, AGGREGATE_MS, 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
+        }, 1000L, 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
     }
 
     // Engine-off MIN rejections are frequent. Persist the first occurrence and
