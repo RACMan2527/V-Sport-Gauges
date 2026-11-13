@@ -265,7 +265,6 @@ class TorqueRefresher {
             val date = LocalDate.now().toString()
             // The triggering reading is deliberately NOT a validated candidate.
             val pending = PendingMinimum(date, minSequence.incrementAndGet(), android.os.SystemClock.elapsedRealtime())
-            DiagnosticLog.event("MIN_TRIGGER", "id=${pending.id} ${diagnosticPid(gauge)} candidate=$candidate")
             pendingMinimums[gauge] = pending
             pending.task = rpmValidationExecutor.schedule(initialCheck@{
                 try {
@@ -274,17 +273,19 @@ class TorqueRefresher {
                     val initialQueried = service.runIfConnected { ts ->
                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                         rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
-                        DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
+                        if (rpmValid) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
                     }
-                    if (!initialQueried) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} error=torque_unbound")
+
                     synchronized(pendingMinimums) {
                         if (pendingMinimums[gauge] !== pending) return@initialCheck
                         if (!rpmValid || !pollingEnabled || activeService !== service ||
                             gauge !in data.values || date != LocalDate.now().toString()) {
-                            DiagnosticLog.event("MIN_REJECT", "id=${pending.id} ${diagnosticPid(gauge)} reason=initial_rpm_or_state rpmValid=$rpmValid")
+                            if (!rpmValid) DiagnosticLog.repeatedMinReject(gauge.display.pid.toString(), "initial_rpm_invalid", "id=${pending.id} ${diagnosticPid(gauge)} rpmValid=false")
+                            else DiagnosticLog.event("MIN_REJECT", "id=${pending.id} ${diagnosticPid(gauge)} reason=initial_state_changed")
                             pendingMinimums.remove(gauge)
                             return@initialCheck
                         }
+                        DiagnosticLog.event("MIN_TRIGGER", "id=${pending.id} ${diagnosticPid(gauge)} candidate=$candidate")
                         // Only subsequent normal polling samples can initialize lowest.
                         pending.collecting = true
                         pending.task = rpmValidationExecutor.schedule({
