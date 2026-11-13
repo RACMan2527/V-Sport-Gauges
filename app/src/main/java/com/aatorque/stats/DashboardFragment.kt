@@ -579,6 +579,7 @@ open class DashboardFragment : AlbumArt() {
                                 ).edit().putBoolean("all_round_gauges_large", nextAll).apply()
                                 allRoundGaugesLarge = nextAll
                                 centerGaugeLarge = nextCenter
+                                DiagnosticLog.event("GAUGE_SIZE", "source=long_press all=$nextAll center=$nextCenter")
                                 applyRoundGaugeScale()
                             }
                         }
@@ -1191,6 +1192,7 @@ open class DashboardFragment : AlbumArt() {
                 .edit().putBoolean("all_round_gauges_large", nextAll).apply()
             allRoundGaugesLarge = nextAll
             centerGaugeLarge = nextCenter
+            DiagnosticLog.event("GAUGE_SIZE", "source=quick_settings all=$nextAll center=$nextCenter")
             applyRoundGaugeScale()
             renderQuickControls()
         }
