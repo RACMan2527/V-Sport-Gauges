@@ -293,70 +293,65 @@ This extended the original all-time peak idea into a more useful record of **tod
 
 ---
 
-## Phase 10 — RPM-Qualified Daily Minimums
-### November 2026 | Version 3.5.3
+## Phase 10 — Making Daily Records Useful on the Road
+### November 2026 | Versions 3.5.3–3.6.6
 
-Daily minimum recording raised a specific concern: oil pressure can be low while an engine is starting, and a transient startup reading should not automatically become the day's minimum.
+Recording a high or low is only useful if it represents the engine actually running. As daily MIN tracking evolved, that became particularly important for oil pressure: the reading naturally falls toward zero when the engine stops, but an engine-off zero is not a meaningful running minimum.
 
-**3.5.3** introduced a deliberately simple qualification: check that engine RPM is above **300**, wait **five seconds**, and confirm RPM is still above **300** before accepting a daily minimum. The implementation does not attempt to prove continuous engine operation between those two checks.
+The daily MIN feature therefore uses a simple two-part check: engine speed must be above **300 RPM** when a candidate minimum appears and again **five seconds later** before the minimum is accepted. A **cyan triangle** marks the daily low; a separate marker identifies the daily high. Round gauges can show **MIN, MAX, both, or neither**, while the horizontal gauge retains its own daily MAX indicator.
 
-The daily MIN uses a cyan triangle, while the horizontal bar retains its own daily MAX tracking independently of round-gauge MIN/MAX/OFF selection.
+### Refining the instrument panel
 
-By this point, the application combined Cadillac-inspired instrumentation, independent polling and animation controls, persistent all-time and daily peak tracking, diagnostic plausibility checks, clock and compass information, and per-dashboard horizontal gauges.
+**3.5.4–3.5.6** brought a dedicated About screen and selectable **Cadillac V-Sport** theme and **Cadillac Escalade** font. The V-Series emblem in the header is associated with the Cadillac theme, giving the display a more distinct identity without changing the underlying gauge data.
 
-**V-Sport Gauges remains an ongoing project, guided by testing in the Escalade rather than feature additions alone.**
+**3.5.7–3.5.8** introduced larger round-gauge layouts and refined the positioning of the four smaller data views between them. The dashboard can present all three gauges at normal size, enlarge only the center, or enlarge all three. The horizontal gauge retains its own proportions. The current sizing controls are described in the [User Guide](docs/USER_GUIDE.md#4-adjust-gauges-through-quick-controls).
 
-### Subsequent releases
+**3.5.17** added the manually selected PID polling interval to settings export and import, so an established configuration can be carried between installations without resetting that adjustment.
 
-New versions will be documented **below this section in release order** only when they introduce a confirmed, meaningful user-facing capability. Routine fixes and internal changes belong in Git commit history, not this README.
+### Notifications that matter
 
-### November 2026 | Versions 3.5.4–3.5.6
+**3.6.4–3.6.6** added and refined a visual notification for new daily records. Rather than drawing attention to every incremental change as an engine warms up or load increases, the round gauge's unit label signals a new high or low only after a meaningful improvement: **5% of the configured gauge range**, subject to a **60-second interval** for that PID and direction. The record itself still updates as readings improve. The notification does not interrupt the live number, needle, or all-time `PEAK:` display.
 
-**3.5.4:** Redesigned the settings Info screen as a scrollable About V-Sport Gauges page, using the existing V-Series logo, dynamic version display, corrected project and upstream credits, and links to the repository, releases, and development history.
+This phase made the daily markers more than decorative pointers: they became a way to review a drive without letting ordinary fluctuations dominate the display.
 
-**3.5.6:** Added a selectable **Cadillac V-Sport** theme that inherits the existing Audi TT gauge appearance, while keeping Audi TT available. Added a separate **Cadillac Escalade** font selection using the existing Volkswagen Thesis typeface, without removing the Volkswagen option. The V-Series header logo now appears **only** when Cadillac V-Sport is the selected theme; the logo is displayed in the dashboard header. Both selections use the existing settings persistence and protobuf export/import format.
+---
 
-### November 2026 | Version 3.5.7
+## Phase 11 — Quick Controls: Adjusting the Dashboard from the Driver's Seat
+### November 2026 | Version 3.7.0
 
-**3.5.7:** Added three-second holds on the **left and middle round gauges** to select persistent all-normal, center-enlarged, or all-enlarged display modes. Scaling applies to the complete round gauge, including peak triangles and `PEAK:` labels; the horizontal gauge is not scaled.
+As the dashboard gained more options, repeatedly returning to the phone's settings became less appealing. **Quick Controls** brought the most useful adjustments onto the Android Auto display itself.
 
-Moved the `dashContent` layout up 10dp to raise the three round gauges and four small displays together, restoring the original per-gauge offsets and compensating the horizontal bar to keep it in place. See the [User Guide](docs/USER_GUIDE.md#4-adjust-gauges-through-quick-controls) for current controls.
+Using the vehicle's rotary controller, the driver can open a menu over the current dashboard and select **Daily MIN/MAX Reset**, **Gauge Sizes**, **PID Polling**, or **Screen Refresh**. Daily records can be reset without disturbing all-time peaks. Gauge sizing and the two timing controls can be adjusted without navigating through the phone's full settings screens.
 
+The menu is designed for brief interaction: ordinary pages close after five seconds without input. The phone's test screen also provides a three-second clock hold to open Quick Controls.
 
-### November 2026 | Version 3.5.8
+This was an important shift in how V-Sport Gauges operates. The screen was no longer just a place to *view* engine information; it became a place to *manage* the instrumentation.
 
-**3.5.8:** Refined the four small trip/data views so their horizontal centers are calculated from the actual round-gauge dial edges and scaling, rather than fixed offsets. Alignment adapts to all-normal, center-enlarged, and all-enlarged round-gauge layouts; enlarged outer gauges are positioned against the dashboard edges.
+---
 
-### November 2026 | Version 3.5.10
+## Phase 12 — Live Diagnostics: Seeing How the Gauges Are Performing
+### November 2026 | Version 3.7.6
 
-**3.5.10:** Added independent daily MIN and MAX marker selections for round gauges, including the ability to show either or both. The horizontal gauge retains an optional daily MAX indicator without a MIN option.
+A gauge can look convincing while the underlying data is delayed, intermittent, or unavailable. **Live Diagnostics** was introduced to make the data path more visible without requiring a separate debugging session.
 
-### November 2026 | Version 3.5.17
+Accessible through Quick Controls, the diagnostic panel presents six measurements: **PID polling target**, **actual accepted PID rate**, **screen refresh interval**, **latest ECU response time**, **PID failures**, and **age of the last successful reading**. Connection and data-stream labels provide additional context.
 
-**3.5.17:** Settings exports include the manually selected PID polling interval (50–500 ms), which can be restored on import. Gauge animation timing remains separate.
+The distinction between a *configured* polling interval and the *rate actually achieved* is particularly useful. It helps explain why a gauge may respond differently from what its settings suggest. The panel observes existing activity rather than issuing extra ECU requests.
 
+Unlike the brief Quick Controls pages, **Live Diagnostics remains displayed until explicitly dismissed**, allowing the readings to be observed over time.
 
-### November 2026 | Version 3.6.4
+---
 
-**3.6.4:** Introduced a visual daily MIN/MAX record notification using the round gauge's unit label, without interrupting the live reading, needle, or independent all-time `PEAK:` display. Later refinements limit repeated notifications to meaningful record improvements.
+## Phase 13 — Persistent Diagnostic Logging: Understanding What Happened During a Drive
+### November 2026 | Version 3.8.0
 
+Live Diagnostics answers an immediate question: *What is the app doing right now?* Persistent logging addresses the next one: *What happened a few minutes ago, when a reading changed unexpectedly?*
 
-### November 2026 | Version 3.6.6
+**3.8.0** introduced **automatic, timestamped diagnostic logs** saved to **Downloads/V-Sport Gauges** on the Android phone. There is no need to start a recording or manually export a file before driving.
 
-**3.6.6:** Refined daily MIN/MAX notifications to make them meaningful during normal driving. Record improvements continue to update the daily markers, while the unit-label notification uses a **5% of gauge range** threshold and a **60-second** interval between notifications for the same PID and direction. The first record establishes the baseline without flashing.
+The logs provide a record of events that can be difficult to catch on the screen: PID request failures, Torque and ECU connection changes, daily MIN qualification, daily MIN/MAX and all-time PEAK changes, dashboard changes, and selected adjustments. Repetitive high-frequency events are summarized so the useful sequence is easier to follow.
 
-### November 2026 | Version 3.7.0 — Quick Controls
-
-**3.7.0:** Introduced **Quick Controls** directly on the Android Auto dashboard, operated with the vehicle's rotary controller. The menu brings together daily MIN/MAX reset, round-gauge sizing, PID polling, and screen refresh adjustments without returning to phone settings. The test screen also provides access through a three-second clock hold. The current menu closes ordinary pages after five seconds of inactivity.
-
-### November 2026 | Version 3.7.6 — Live Diagnostics
-
-**3.7.6:** Added an on-screen **Live Diagnostics** panel accessible from Quick Controls. Six live readouts show the configured PID polling target, actual accepted PID rate, screen refresh interval, latest ECU response time, cumulative PID failures, and age of the most recent successful reading. The panel uses existing polling measurements rather than generating additional ECU requests and stays open until explicitly dismissed.
-
-
-### November 2026 | Version 3.8.0 — Persistent Diagnostic Logging
-
-**3.8.0:** Added **automatic persistent diagnostic logs** to help investigate gauge readings, PID communication, and daily record behavior after a drive. Timestamped logs are written to **Downloads/V-Sport Gauges** on the Android phone without requiring a manual export. They capture connection changes, PID failures, daily MIN validation, daily MIN/MAX and all-time PEAK record events, dashboard changes, and selected settings changes. Repeated high-frequency events are summarized to keep the logs manageable. See the [User Guide](docs/USER_GUIDE.md#persistent-diagnostic-logs) for log location and contents.
+Together, the live panel and persistent logs provide two complementary views: one for understanding the system *as it runs*, and another for investigating an event *after it occurs*. See the [User Guide](docs/USER_GUIDE.md#persistent-diagnostic-logs) for where to find the files and what they contain.
 
 ---
 
