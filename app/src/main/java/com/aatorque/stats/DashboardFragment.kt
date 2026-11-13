@@ -128,10 +128,12 @@ open class DashboardFragment : AlbumArt() {
     private var loggedDashboardIndex: Int? = null
     private var communicationFaultActive = false
     private var torqueStartupTimedOut = false
+    private val connectionLogStartMs = android.os.SystemClock.elapsedRealtime()
     private val torqueStartupHandler = Handler(Looper.getMainLooper())
     private val torqueStartupTimeout = Runnable {
         if (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE) {
             torqueStartupTimedOut = true
+            DiagnosticLog.event("TORQUE_CONNECT_TIMEOUT", "elapsedMs=${android.os.SystemClock.elapsedRealtime() - connectionLogStartMs} timeoutMs=5000")
             updateConnectionIndicators()
         }
     }
@@ -305,7 +307,13 @@ open class DashboardFragment : AlbumArt() {
         }
         registerWithView{
             torqueRefresher.connectStatus.collect {
-                if (currentConnectionStatus != it) DiagnosticLog.event("CONNECTION_STATE", "old=$currentConnectionStatus new=$it")
+                if (currentConnectionStatus != it) {
+                    val elapsed = android.os.SystemClock.elapsedRealtime() - connectionLogStartMs
+                    DiagnosticLog.event("CONNECTION_STATE", "old=$currentConnectionStatus new=$it elapsedMs=$elapsed")
+                    if (it == ConnectStatus.CONNECTING_ECU) DiagnosticLog.event("ECU_CONNECT_WAIT", "elapsedMs=$elapsed")
+                    if (it == ConnectStatus.CONNECTED) DiagnosticLog.event("ECU_CONNECTED", "elapsedMs=$elapsed")
+                    if (currentConnectionStatus == ConnectStatus.CONNECTED && it != ConnectStatus.CONNECTED) DiagnosticLog.event("ECU_DISCONNECTED", "elapsedMs=$elapsed new=$it")
+                }
                 currentConnectionStatus = it
                 if (it != ConnectStatus.CONNECTING_TORQUE) {
                     torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
@@ -1031,6 +1039,7 @@ open class DashboardFragment : AlbumArt() {
         super.onDestroy()
         torqueService.onDestroy(requireContext())
         torqueService.requestQuit(requireContext())
+        DiagnosticLog.endSession()
     }
 
     override suspend fun onMediaChanged(medadata: MediaMetadata?) {
