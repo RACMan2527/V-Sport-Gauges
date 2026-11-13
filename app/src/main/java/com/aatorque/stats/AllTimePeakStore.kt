@@ -54,16 +54,20 @@ object AllTimePeakStore {
 
     fun set(context: Context, pid: String, value: Double) {
         if (!value.isFinite()) return
+        val previous = get(context, pid)
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(key(pid), value.toString())
             .apply()
+        if (previous != value) DiagnosticLog.event("PEAK_UPDATE", "pid=$pid old=$previous new=$value")
     }
 
     fun reset(context: Context, pid: String) {
+        val previous = get(context, pid)
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
             .edit()
             .remove(key(pid))
             .apply()
+        if (previous != null) DiagnosticLog.event("PEAK_RESET", "pid=$pid old=$previous")
     }
 }
