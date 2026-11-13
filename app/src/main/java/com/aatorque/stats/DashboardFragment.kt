@@ -125,6 +125,7 @@ open class DashboardFragment : AlbumArt() {
     private var refreshIntervalInitialValue = 300
     private var dashboardTitle: String = ""
     private var currentConnectionStatus = ConnectStatus.CONNECTING_TORQUE
+    private var loggedDashboardIndex: Int? = null
     private var communicationFaultActive = false
     private var torqueStartupTimedOut = false
     private val torqueStartupHandler = Handler(Looper.getMainLooper())
@@ -202,6 +203,11 @@ open class DashboardFragment : AlbumArt() {
             data -> data.collect {
                 TorqueRefresher.REFRESH_INTERVAL = (if (it.refreshIntervalMs == 0) 300 else it.refreshIntervalMs).toLong()
                 val screenIndex = abs(it.currentScreen) % it.screensCount
+                if (loggedDashboardIndex != screenIndex) {
+                    DiagnosticLog.flushRecords()
+                    DiagnosticLog.event("DASHBOARD_CHANGE", "old=$loggedDashboardIndex new=$screenIndex")
+                    loggedDashboardIndex = screenIndex
+                }
                 val screens = it.screensList[screenIndex]
                 val showChartChanged = binding.showChart != it.showChart
                 dashboardTitle = screens.title
@@ -299,6 +305,7 @@ open class DashboardFragment : AlbumArt() {
         }
         registerWithView{
             torqueRefresher.connectStatus.collect {
+                if (currentConnectionStatus != it) DiagnosticLog.event("CONNECTION_STATE", "old=$currentConnectionStatus new=$it")
                 currentConnectionStatus = it
                 if (it != ConnectStatus.CONNECTING_TORQUE) {
                     torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
@@ -714,6 +721,7 @@ open class DashboardFragment : AlbumArt() {
             setOnClickListener {
                 val value = 50 + slider.progress
                 TorqueRefresher.REFRESH_INTERVAL = value.toLong()
+                DiagnosticLog.event("REFRESH_INTERVAL", "old=$refreshIntervalInitialValue new=$value")
                 val appContext = context.applicationContext
                 lifecycleScope.launch {
                     appContext.dataStore.updateData { current ->
