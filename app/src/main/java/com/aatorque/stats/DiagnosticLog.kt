@@ -54,12 +54,10 @@ object DiagnosticLog {
         if (existing != null && now - existing.lastMs < AGGREGATE_MS) {
             existing.last = new
             existing.count++
-            existing.lastMs = now
             return
         }
         if (existing != null) event(existing.kind, "pid=${existing.pid} old=${existing.first} new=${existing.last} changes=${existing.count} aggregated=true")
         aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now)
-        event(kind, "pid=$pid old=$old new=$new changes=1")
     }
 
     @Synchronized
