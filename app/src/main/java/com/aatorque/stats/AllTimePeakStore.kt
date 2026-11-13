@@ -52,14 +52,14 @@ object AllTimePeakStore {
         return legacyValue
     }
 
-    fun set(context: Context, pid: String, value: Double) {
+    fun set(context: Context, pid: String, value: Double, label: String? = null) {
         if (!value.isFinite()) return
         val previous = get(context, pid)
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
             .edit()
             .putString(key(pid), value.toString())
             .apply()
-        if (previous != value) DiagnosticLog.recordChange("PEAK_UPDATE", pid, previous, value)
+        if (previous != value) DiagnosticLog.recordChange("PEAK_UPDATE", pid, previous, value, label)
     }
 
     fun reset(context: Context, pid: String) {
