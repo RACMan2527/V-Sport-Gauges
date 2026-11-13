@@ -22,6 +22,8 @@ class TorqueService {
     val onConnect = ArrayList<(ITorqueService) -> Unit>()
     val conLock = ReentrantLock()
     var hasBound = false
+    private var connectStartedMs = 0L
+    private fun elapsedMs() = android.os.SystemClock.elapsedRealtime() - connectStartedMs
     private var appContext: Context? = null
     private var simulationReceiverRegistered = false
     private val simulationReceiver = object : android.content.BroadcastReceiver() {
@@ -60,6 +62,7 @@ class TorqueService {
             try {
                 val svc = ITorqueService.Stub.asInterface(service)
                 torqueService = svc
+                DiagnosticLog.event("TORQUE_CONNECTED", "elapsedMs=${elapsedMs()} component=$arg0")
                 applySimulationSetting()
                 torqueService = svc
                 conLock.withLock {
@@ -69,6 +72,7 @@ class TorqueService {
                     onConnect.clear()
                 }
             } catch (e: DeadObjectException) {
+                DiagnosticLog.event("TORQUE_DISCONNECTED", "elapsedMs=${elapsedMs()} reason=dead_object")
                 Timber.e("Disconnected from service", e)
                 torqueService = null
                 forceReconnect?.invoke()
@@ -81,6 +85,7 @@ class TorqueService {
          * @param name
          */
         override fun onServiceDisconnected(name: ComponentName) {
+            DiagnosticLog.event("TORQUE_DISCONNECTED", "elapsedMs=${elapsedMs()} component=$name")
             torqueService = null
         }
     }
@@ -124,7 +129,10 @@ class TorqueService {
         }
         val intent = Intent()
         intent.setClassName("org.prowl.torque", "org.prowl.torque.remote.TorqueService")
+        connectStartedMs = android.os.SystemClock.elapsedRealtime()
+        DiagnosticLog.event("TORQUE_CONNECT_ATTEMPT", "elapsedMs=0")
         hasBound = context.bindService(intent, torqueConnection, Activity.BIND_AUTO_CREATE)
+        if (!hasBound) DiagnosticLog.event("TORQUE_CONNECT_FAILURE", "elapsedMs=${elapsedMs()} reason=bind_failed")
         torqueConnection.forceReconnect = {
             onDestroy(context)
             context.bindService(intent, torqueConnection, Activity.BIND_AUTO_CREATE)
