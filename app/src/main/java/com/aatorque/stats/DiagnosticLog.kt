@@ -17,7 +17,8 @@ import java.util.concurrent.Executors
  * Android 10+ uses MediaStore; older Android uses public Downloads.
  */
 object DiagnosticLog {
-    private const val PREFIX = "V-Sport-Gauges-"\n    private const val SUBFOLDER = "V-Sport Gauges"
+    private const val PREFIX = "V-Sport-Gauges-"
+    private const val SUBFOLDER = "V-Sport Gauges"
     private const val MAX_BYTES = 5L * 1024 * 1024
     private const val KEEP_FILES = 8
     private val worker = Executors.newSingleThreadExecutor { task ->
