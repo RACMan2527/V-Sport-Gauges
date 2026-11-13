@@ -409,7 +409,7 @@ class TorqueGauge : Fragment() {
                     ?.let { AllTimePeakStore.get(requireContext(), it) }
                 if (previous == null || data.lastData > previous) {
                     data.display.pid.takeIf { it.isNotBlank() }?.let {
-                        AllTimePeakStore.set(requireContext(), it, data.lastData)
+                        AllTimePeakStore.set(requireContext(), it, data.lastData, data.display.label)
                     }
                     if (allTimePeakEnabled) {
                         mAllTime.setSpeedAt(data.lastData.toFloat())

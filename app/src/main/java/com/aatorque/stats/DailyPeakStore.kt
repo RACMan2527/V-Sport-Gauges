@@ -86,7 +86,7 @@ object DailyPeakStore {
         val previous = prefs.getString(name, null)?.toDoubleOrNull()
         if (previous == null || reading > previous) {
             prefs.edit().putString(name, reading.toString()).apply()
-            DiagnosticLog.recordChange("DAILY_MAX", display.pid, previous, reading)
+            DiagnosticLog.recordChange("DAILY_MAX", display.pid, previous, reading, display.label)
         }
     }
 
@@ -100,7 +100,7 @@ object DailyPeakStore {
         val previous = prefs.getString(name, null)?.toDoubleOrNull()
         if (previous == null || reading < previous) {
             prefs.edit().putString(name, reading.toString()).apply()
-            DiagnosticLog.event("DAILY_MIN", "pid=${display.pid} old=$previous new=$reading")
+            DiagnosticLog.event("DAILY_MIN", "gauge=\"${display.label}\" pid=${display.pid} old=$previous new=$reading")
         }
     }
 

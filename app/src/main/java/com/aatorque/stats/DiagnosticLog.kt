@@ -42,30 +42,94 @@ object DiagnosticLog {
     }
 
     // Aggregate rapidly changing record values without blocking gauge polling.
-    private data class RecordAggregate(val kind: String, val pid: String, val first: Double?, var last: Double, var count: Int, var lastMs: Long)
+    private data class RecordAggregate(val kind: String, val pid: String, val first: Double?, var last: Double, var count: Int, var lastMs: Long, var label: String?)
     private val aggregates = mutableMapOf<String, RecordAggregate>()
     private const val AGGREGATE_MS = 10_000L
 
     @Synchronized
-    fun recordChange(kind: String, pid: String, old: Double?, new: Double) {
+    fun recordChange(kind: String, pid: String, old: Double?, new: Double, label: String? = null) {
         val now = android.os.SystemClock.elapsedRealtime()
         val key = "$kind|$pid"
         val existing = aggregates[key]
         if (existing != null && now - existing.lastMs < AGGREGATE_MS) {
             existing.last = new
             existing.count++
+            if (label != null) existing.label = label
             return
         }
-        if (existing != null) event(existing.kind, "pid=${existing.pid} old=${existing.first} new=${existing.last} changes=${existing.count} aggregated=true")
-        aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now)
+        if (existing != null) emitRecord(existing)
+        aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now, label)
+    }
+
+    private fun emitRecord(record: RecordAggregate) {
+        event(record.kind, "gauge=${record.label ?: "unknown"} pid=${record.pid} old=${record.first} new=${record.last} changes=${record.count} aggregated=${record.count > 1}")
     }
 
     @Synchronized
     fun flushRecords() {
-        aggregates.values.filter { it.count > 1 }.forEach {
-            event(it.kind, "pid=${it.pid} old=${it.first} new=${it.last} changes=${it.count} aggregated=true")
-        }
+        aggregates.values.forEach(::emitRecord)
         aggregates.clear()
+    }
+
+    // Records are emitted when the aggregation window expires, even without
+    // another reading. This worker never performs PID requests.
+    private val aggregateFlushWorker = Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "V-Sport-Record-Flush").apply { isDaemon = true }
+    }
+    init {
+        aggregateFlushWorker.scheduleWithFixedDelay({
+            synchronized(this) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                if (now >= nextMinFlushMs) {
+                    flushMinRejects()
+                    nextMinFlushMs = now + MIN_SUMMARY_MS
+                }
+                val expired = aggregates.filterValues { now - it.lastMs >= AGGREGATE_MS }
+                expired.forEach { (key, value) ->
+                    emitRecord(value)
+                    aggregates.remove(key)
+                }
+            }
+        }, 1000L, 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
+    }
+
+    // Engine-off MIN rejections are frequent. Persist the first occurrence and
+    // interval counts independently of Android Auto shutdown callbacks.
+    private data class MinRejectAggregate(var count: Int, var firstMs: Long, var lastMs: Long)
+    private val minRejects = mutableMapOf<String, MinRejectAggregate>()
+    private const val MIN_SUMMARY_MS = 5_000L
+    private var nextMinFlushMs = android.os.SystemClock.elapsedRealtime() + MIN_SUMMARY_MS
+
+    @Synchronized
+    fun repeatedMinReject(pid: String, reason: String, detail: String) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val key = "$pid|$reason"
+        val existing = minRejects[key]
+        if (existing == null) {
+            minRejects[key] = MinRejectAggregate(0, now, now)
+            event("MIN_REJECT", "$detail reason=$reason")
+        } else {
+            existing.count++
+            existing.lastMs = now
+        }
+    }
+
+    @Synchronized
+    private fun flushMinRejects() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        minRejects.forEach { (key, item) ->
+            if (item.count > 0) {
+                event("MIN_REJECT_SUMMARY", "key=$key repeated=${item.count} durationMs=${now - item.firstMs}")
+                item.count = 0
+                item.firstMs = now
+            }
+        }
+    }
+
+    fun endSession() {
+        flushRecords()
+        flushMinRejects()
+        event("APP_STOP")
     }
 
     fun event(kind: String, detail: String = "") {
@@ -93,6 +157,7 @@ object DiagnosticLog {
         }
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
     private fun writeMediaStore(context: Context, line: String) {
         val resolver = context.contentResolver
         val bytes = line.toByteArray(Charsets.UTF_8)
@@ -114,6 +179,7 @@ object DiagnosticLog {
         } ?: throw IllegalStateException("Unable to append Downloads log")
     }
 
+    @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
     private fun trimMediaStore(context: Context) {
         val resolver = context.contentResolver
         val entries = mutableListOf<Pair<String, Uri>>()
