@@ -42,30 +42,56 @@ object DiagnosticLog {
     }
 
     // Aggregate rapidly changing record values without blocking gauge polling.
-    private data class RecordAggregate(val kind: String, val pid: String, val first: Double?, var last: Double, var count: Int, var lastMs: Long)
+    private data class RecordAggregate(val kind: String, val pid: String, val first: Double?, var last: Double, var count: Int, var lastMs: Long, var label: String?)
     private val aggregates = mutableMapOf<String, RecordAggregate>()
     private const val AGGREGATE_MS = 10_000L
 
     @Synchronized
-    fun recordChange(kind: String, pid: String, old: Double?, new: Double) {
+    fun recordChange(kind: String, pid: String, old: Double?, new: Double, label: String? = null) {
         val now = android.os.SystemClock.elapsedRealtime()
         val key = "$kind|$pid"
         val existing = aggregates[key]
         if (existing != null && now - existing.lastMs < AGGREGATE_MS) {
             existing.last = new
             existing.count++
+            if (label != null) existing.label = label
             return
         }
-        if (existing != null) event(existing.kind, "pid=${existing.pid} old=${existing.first} new=${existing.last} changes=${existing.count} aggregated=true")
-        aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now)
+        if (existing != null) emitRecord(existing)
+        aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now, label)
+    }
+
+    private fun emitRecord(record: RecordAggregate) {
+        event(record.kind, "gauge=${record.label ?: "unknown"} pid=${record.pid} old=${record.first} new=${record.last} changes=${record.count} aggregated=${record.count > 1}")
     }
 
     @Synchronized
     fun flushRecords() {
-        aggregates.values.filter { it.count > 1 }.forEach {
-            event(it.kind, "pid=${it.pid} old=${it.first} new=${it.last} changes=${it.count} aggregated=true")
-        }
+        aggregates.values.forEach(::emitRecord)
         aggregates.clear()
+    }
+
+    // Records are emitted when the aggregation window expires, even without
+    // another reading. This worker never performs PID requests.
+    private val aggregateFlushWorker = Executors.newSingleThreadScheduledExecutor { task ->
+        Thread(task, "V-Sport-Record-Flush").apply { isDaemon = true }
+    }
+    init {
+        aggregateFlushWorker.scheduleWithFixedDelay({
+            synchronized(this) {
+                val now = android.os.SystemClock.elapsedRealtime()
+                val expired = aggregates.filterValues { now - it.lastMs >= AGGREGATE_MS }
+                expired.forEach { (key, value) ->
+                    emitRecord(value)
+                    aggregates.remove(key)
+                }
+            }
+        }, AGGREGATE_MS, 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
+    }
+
+    fun endSession() {
+        flushRecords()
+        event("APP_STOP")
     }
 
     fun event(kind: String, detail: String = "") {
