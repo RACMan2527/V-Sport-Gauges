@@ -340,6 +340,19 @@ Moved the `dashContent` layout up 10dp to raise the three round gauges and four 
 
 **3.6.4:** Introduced a visual daily MIN/MAX record notification using the round gauge's unit label, without interrupting the live reading, needle, or independent all-time `PEAK:` display. Later refinements limit repeated notifications to meaningful record improvements.
 
+
+### November 2026 | Version 3.6.6
+
+**3.6.6:** Refined daily MIN/MAX notifications to make them meaningful during normal driving. Record improvements continue to update the daily markers, while the unit-label notification uses a **5% of gauge range** threshold and a **60-second** interval between notifications for the same PID and direction. The first record establishes the baseline without flashing.
+
+### November 2026 | Version 3.7.0 — Quick Controls
+
+**3.7.0:** Introduced **Quick Controls** directly on the Android Auto dashboard, operated with the vehicle's rotary controller. The menu brings together daily MIN/MAX reset, round-gauge sizing, PID polling, and screen refresh adjustments without returning to phone settings. The test screen also provides access through a three-second clock hold. The current menu closes ordinary pages after five seconds of inactivity.
+
+### November 2026 | Version 3.7.6 — Live Diagnostics
+
+**3.7.6:** Added an on-screen **Live Diagnostics** panel accessible from Quick Controls. Six live readouts show the configured PID polling target, actual accepted PID rate, screen refresh interval, latest ECU response time, cumulative PID failures, and age of the most recent successful reading. The panel uses existing polling measurements rather than generating additional ECU requests and stays open until explicitly dismissed.
+
 ---
 
 # My Development and Testing Environment
