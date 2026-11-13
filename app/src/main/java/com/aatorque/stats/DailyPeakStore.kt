@@ -86,7 +86,7 @@ object DailyPeakStore {
         val previous = prefs.getString(name, null)?.toDoubleOrNull()
         if (previous == null || reading > previous) {
             prefs.edit().putString(name, reading.toString()).apply()
-            DiagnosticLog.event("DAILY_MAX", "pid=${display.pid} old=$previous new=$reading horizontal=$horizontalBar")
+            DiagnosticLog.recordChange("DAILY_MAX", display.pid, previous, reading)
         }
     }
 
