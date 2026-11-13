@@ -80,6 +80,10 @@ object DiagnosticLog {
         aggregateFlushWorker.scheduleWithFixedDelay({
             synchronized(this) {
                 val now = android.os.SystemClock.elapsedRealtime()
+                if (now >= nextMinFlushMs) {
+                    flushMinRejects()
+                    nextMinFlushMs = now + MIN_SUMMARY_MS
+                }
                 val expired = aggregates.filterValues { now - it.lastMs >= AGGREGATE_MS }
                 expired.forEach { (key, value) ->
                     emitRecord(value)
@@ -89,8 +93,42 @@ object DiagnosticLog {
         }, AGGREGATE_MS, 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
     }
 
+    // Engine-off MIN rejections are frequent. Persist the first occurrence and
+    // interval counts independently of Android Auto shutdown callbacks.
+    private data class MinRejectAggregate(var count: Int, var firstMs: Long, var lastMs: Long)
+    private val minRejects = mutableMapOf<String, MinRejectAggregate>()
+    private const val MIN_SUMMARY_MS = 5_000L
+    private var nextMinFlushMs = android.os.SystemClock.elapsedRealtime() + MIN_SUMMARY_MS
+
+    @Synchronized
+    fun repeatedMinReject(pid: String, reason: String, detail: String) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val key = "$pid|$reason"
+        val existing = minRejects[key]
+        if (existing == null) {
+            minRejects[key] = MinRejectAggregate(0, now, now)
+            event("MIN_REJECT", "$detail reason=$reason")
+        } else {
+            existing.count++
+            existing.lastMs = now
+        }
+    }
+
+    @Synchronized
+    private fun flushMinRejects() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        minRejects.forEach { (key, item) ->
+            if (item.count > 0) {
+                event("MIN_REJECT_SUMMARY", "key=$key repeated=${item.count} durationMs=${now - item.firstMs}")
+                item.count = 0
+                item.firstMs = now
+            }
+        }
+    }
+
     fun endSession() {
         flushRecords()
+        flushMinRejects()
         event("APP_STOP")
     }
 
