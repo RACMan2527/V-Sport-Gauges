@@ -31,7 +31,11 @@ The diagnostics screen deliberately **does not display the application version**
 
 **Verification status:** This describes the implementation in the 3.7.6 source. APK compilation, Android Auto layout, rotary-controller behavior, and in-vehicle measurement accuracy have not yet been independently verified.
 
-## Persistent diagnostic logs\n\nV-Sport Gauges automatically writes timestamped diagnostic logs to the phone's **Downloads** folder, using filenames `V-Sport-Gauges-*.log`. No folder selection or manual export is required. Logs capture rejected PID readings, poll failures, and daily MIN validation with initial and final RPM values. The writer runs in the background and does not add ECU requests. Each file is limited to approximately 5 MB and the eight most recent log files are retained. On Android versions before 10, public Downloads write access may require the platform storage permission.\n\n## 1. Understand the round gauges
+## Persistent diagnostic logs
+
+V-Sport Gauges automatically writes timestamped diagnostic logs to **Downloads/V-Sport Gauges** on the phone, using filenames `V-Sport-Gauges-*.log`. No folder selection or manual export is required. Logs capture rejected PID readings, poll failures, and daily MIN validation with initial and final RPM values. The writer runs in the background and does not add ECU requests. Each file is limited to approximately 5 MB and the eight most recent log files are retained. On Android versions before 10, public Downloads write access may require the platform storage permission.
+
+## 1. Understand the round gauges
 
 ![Schematic round torque gauge with peak markers](images/gauge-examples.svg)
 
