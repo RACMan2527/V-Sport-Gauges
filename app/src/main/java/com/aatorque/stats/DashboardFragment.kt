@@ -79,10 +79,10 @@ open class DashboardFragment : AlbumArt() {
     private var quickIndex = 0
     private val quickHandler = Handler(Looper.getMainLooper())
     private val quickTimeout = Runnable {
-        if (quickPage != "diagnostics" && quickPage != "tank_preview") closeQuickControls()
+        if (quickPage != "diagnostics") closeQuickControls()
     }
     private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "PID Polling",
-        "Screen Refresh", "Live Diagnostics", "Preview Tank Summary", "Close Menu")
+        "Screen Refresh", "Live Diagnostics", "Close Menu")
     private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
     private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
     private var quickResetSelection = 0
@@ -1117,7 +1117,7 @@ open class DashboardFragment : AlbumArt() {
     private fun quickTouch() {
         quickHandler.removeCallbacks(quickTimeout)
         // Keep diagnostics open until the user explicitly exits it.
-        if (quickPage != "diagnostics" && quickPage != "tank_preview") quickHandler.postDelayed(quickTimeout, 5_000L)
+        if (quickPage != "diagnostics") quickHandler.postDelayed(quickTimeout, 5_000L)
     }
 
     private fun closeQuickControls() {
@@ -1179,8 +1179,7 @@ open class DashboardFragment : AlbumArt() {
                 2 -> openQuickSlider(true)
                 3 -> openQuickSlider(false)
                 4 -> openQuickControls("diagnostics")
-                5 -> openQuickControls("tank_preview")
-                6 -> closeQuickControls()
+                5 -> closeQuickControls()
                 else -> closeQuickControls()
             }
             "reset" -> if (quickIndex == 3) openQuickControls()
@@ -1196,7 +1195,6 @@ open class DashboardFragment : AlbumArt() {
                 else -> openQuickControls()
             }
             "diagnostics" -> openQuickControls()
-            "tank_preview" -> closeQuickControls()
             else -> openQuickControls()
         }
     }
@@ -1268,7 +1266,6 @@ open class DashboardFragment : AlbumArt() {
             "reset" -> "DAILY MIN/MAX RESET"
             "sizes" -> "GAUGE SIZES"
             "confirm" -> "CONFIRM RESET"
-            "tank_preview" -> "LAST TANK SUMMARY · PREVIEW"
             else -> "LIVE DIAGNOSTICS"
         }
         row(heading) { quickTouch() }
@@ -1286,31 +1283,6 @@ open class DashboardFragment : AlbumArt() {
                     else -> ""
                 }
                 row(label + suffix, i == quickIndex) { quickIndex = i; quickSelect() }
-            }
-            "tank_preview" -> {
-                fun summary(label: String, value: String, emphasized: Boolean = false) {
-                    val line = LinearLayout(context).apply {
-                        orientation = LinearLayout.HORIZONTAL
-                        gravity = Gravity.CENTER_VERTICAL
-                        setPadding(dp(12), dp(if (emphasized) 14 else 8), dp(12), dp(if (emphasized) 14 else 8))
-                    }
-                    line.addView(TextView(context).apply {
-                        text = label
-                        textSize = if (emphasized) 23f else 16f
-                        setTextColor(if (emphasized) Color.rgb(232, 61, 61) else Color.WHITE)
-                    }, LinearLayout.LayoutParams(0, -2, 1f))
-                    line.addView(TextView(context).apply {
-                        text = value
-                        textSize = if (emphasized) 29f else 17f
-                        setTextColor(Color.WHITE)
-                    })
-                    panel.addView(line)
-                }
-                summary("Tank MPG", "19.8 MPG", true)
-                summary("Distance", "385.2 mi")
-                summary("Fuel Consumed", "19.5 gal")
-                summary("Driving Time", "8h 42m")
-                row("OK", true) { closeQuickControls() }
             }
             "confirm" -> {
                 row("Clear today's " + listOf("MAX", "MIN", "MIN and MAX")[quickResetSelection] + "?") {}
