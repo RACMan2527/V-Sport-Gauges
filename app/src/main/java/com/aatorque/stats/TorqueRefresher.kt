@@ -269,9 +269,11 @@ class TorqueRefresher {
             pending.task = rpmValidationExecutor.schedule(initialCheck@{
                 try {
                     var rpmValid = false
+                    var initialRpm: Double? = null
                     val initialStarted = android.os.SystemClock.elapsedRealtime()
                     val initialQueried = service.runIfConnected { ts ->
                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
+                        initialRpm = rpm
                         rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
                         if (rpmValid) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
                     }
@@ -300,15 +302,17 @@ class TorqueRefresher {
                                 }
                                 if (minimum != null) {
                                     var finalRpmValid = false
+                                    var finalRpm: Double? = null
                                     val finalStarted = android.os.SystemClock.elapsedRealtime()
                                     val finalQueried = service.runIfConnected { ts ->
                                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
-                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
+                                        finalRpm = rpm
+                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm != initialRpm
                                         DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum samples=${pending.samples} elapsedMs=${android.os.SystemClock.elapsedRealtime() - pending.startMs} durationMs=${android.os.SystemClock.elapsedRealtime() - finalStarted}")
                                     }
                                     if (!finalQueried) DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} error=torque_unbound")
                                     synchronized(pendingMinimums) {
-                                        if (!finalRpmValid) DiagnosticLog.event("MIN_REJECT", "id=${pending.id} ${diagnosticPid(gauge)} value=$minimum reason=final_rpm")
+                                        if (!finalRpmValid) DiagnosticLog.event("MIN_REJECT", "id=${pending.id} ${diagnosticPid(gauge)} value=$minimum reason=${if (initialRpm != null && finalRpm == initialRpm) "unchanged_rpm" else "final_rpm"}")
                                         if (finalRpmValid && (pendingMinimums[gauge] !== pending || !pollingEnabled || activeService !== service || gauge !in data.values || date != LocalDate.now().toString())) DiagnosticLog.event("MIN_REJECT", "id=${pending.id} ${diagnosticPid(gauge)} reason=state_changed")
                                         if (finalRpmValid && pendingMinimums[gauge] === pending &&
                                             pollingEnabled && activeService === service &&
