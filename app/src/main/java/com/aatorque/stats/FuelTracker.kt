@@ -48,7 +48,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
     } catch (_: Exception) {
         JSONObject().put("schema", 1).put("initialized", false)
             .put("miles", 0.0).put("gallons", 0.0).put("seconds", 0L)
-            .put("fuelRateValid", true).put("completed", JSONArray())
+            .put("fuelRateValid", true).put("fuelRateSeen", false).put("completed", JSONArray())
     }
 
     private fun save() {
@@ -165,6 +165,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             state.put("miles", state.optDouble("miles") + speed * delta / 3600.0 * 0.621371192)
             if (speed > 0.5) state.put("seconds", state.optLong("seconds") + delta.toLong())
             if (rate != null) {
+                if (rate > 0.0) state.put("fuelRateSeen", true)
                 state.put("gallons", state.optDouble("gallons") + rate * delta / 3600.0 / 3.785411784)
             } else state.put("fuelRateValid", false)
         }
@@ -206,7 +207,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             state.put("initialized", true)
             DiagnosticLog.event("FUEL_TRACKER_INITIALIZED", "id=$id before=$before after=$after")
         } else {
-            val gallons = if (state.optBoolean("fuelRateValid", true))
+            val gallons = if (state.optBoolean("fuelRateValid", true) && state.optBoolean("fuelRateSeen", false))
                 state.optDouble("gallons") else null
             val finished = JSONObject().put("id", id)
                 .put("miles", state.optDouble("miles"))
@@ -224,6 +225,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         state.put("gallons", 0.0)
         state.put("seconds", 0L)
         state.put("fuelRateValid", true)
+        state.put("fuelRateSeen", false)
         save()
     }
 }
