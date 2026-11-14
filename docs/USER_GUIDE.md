@@ -8,7 +8,7 @@ This is the **how-to guide** for the features added to the original AA Torque ap
 
 Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it, rotate to highlight an item, and press to select. When the menu is closed, rotation continues to switch dashboards. The test screen can open Quick Controls with a three-second clock hold and supports tapping menu entries.
 
-The main menu offers **Daily MIN/MAX Reset**, **Gauge Sizes**, **PID Polling**, **Screen Refresh**, **Live Diagnostics**, and **Close Menu**.
+The main menu offers **Daily MIN/MAX Reset**, **Gauge Sizes**, **PID Polling**, **Screen Refresh**, **Live Diagnostics**, and **Close Menu**. Reset offers MAX, MIN, or both with confirmation, without clearing all-time peaks. Gauge Sizes controls the normal and enlarged round-gauge layouts. PID Polling and Screen Refresh open their existing adjustment sliders.
 
 **Timeout behavior:** Ordinary Quick Controls pages close after **five seconds** without interaction. **Live Diagnostics stays open until you explicitly exit** using BACK or the controller select action. It does not time out.
 
