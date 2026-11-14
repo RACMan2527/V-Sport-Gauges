@@ -72,7 +72,10 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         }
     }
 
-    private var downloadsUri: Uri? = null
+    // Persist the MediaStore identity across app restarts. Never create another
+    // Downloads entry merely because a previously created entry is not visible.
+    private val exportPrefs = app.getSharedPreferences("fuel_tracker_export", Context.MODE_PRIVATE)
+    private var downloadsUri: Uri? = exportPrefs.getString("downloads_uri", null)?.let(Uri::parse)
     private fun mirrorToDownloads(bytes: ByteArray) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             val dir = File(Environment.getExternalStoragePublicDirectory(
@@ -82,28 +85,52 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             return
         }
         val resolver = app.contentResolver
+        val relativePath = Environment.DIRECTORY_DOWNLOADS + "/V-Sport Gauges/"
         if (downloadsUri == null) {
+            // Search by name, then normalize the folder path. An exact-path
+            // query can miss an existing item on some MediaStore providers.
+            val matches = mutableListOf<Uri>()
             resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.Downloads._ID),
-                "${MediaStore.Downloads.DISPLAY_NAME}=? AND ${MediaStore.Downloads.RELATIVE_PATH}=?",
-                arrayOf("Fuel-Tracker.json", "Download/V-Sport Gauges/"), null
+                arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.RELATIVE_PATH),
+                "${MediaStore.Downloads.DISPLAY_NAME}=?",
+                arrayOf("Fuel-Tracker.json"), null
             )?.use { cursor ->
-                if (cursor.moveToFirst()) {
-                    downloadsUri = ContentUris.withAppendedId(
-                        MediaStore.Downloads.EXTERNAL_CONTENT_URI, cursor.getLong(0))
+                val idIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads._ID)
+                val pathIndex = cursor.getColumnIndexOrThrow(MediaStore.Downloads.RELATIVE_PATH)
+                while (cursor.moveToNext()) {
+                    val folder = cursor.getString(pathIndex)?.trim('/') ?: ""
+                    if (folder == relativePath.trim('/')) {
+                        matches.add(ContentUris.withAppendedId(
+                            MediaStore.Downloads.EXTERNAL_CONTENT_URI, cursor.getLong(idIndex)))
+                    }
                 }
+            } ?: throw IllegalStateException("Cannot query existing fuel tracker export")
+            if (matches.size > 1) {
+                throw IllegalStateException("Multiple fuel tracker exports; refusing to create another")
             }
-        }
-        if (downloadsUri == null) {
-            val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, "Fuel-Tracker.json")
-                put(MediaStore.Downloads.MIME_TYPE, "application/json")
-                put(MediaStore.Downloads.RELATIVE_PATH,
-                    Environment.DIRECTORY_DOWNLOADS + "/V-Sport Gauges/")
+            downloadsUri = matches.singleOrNull()
+            if (downloadsUri == null) {
+                // On an upgrade, an old export may be invisible to MediaStore.
+                // Do not silently create a numbered duplicate in that case.
+                val existing = File(Environment.getExternalStoragePublicDirectory(
+                    Environment.DIRECTORY_DOWNLOADS), "V-Sport Gauges/Fuel-Tracker.json")
+                if (exportPrefs.getBoolean("export_created", false) || existing.exists()) {
+                    throw IllegalStateException("Existing fuel tracker export cannot be resolved")
+                }
+                val values = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, "Fuel-Tracker.json")
+                    put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                    put(MediaStore.Downloads.RELATIVE_PATH, relativePath)
+                }
+                downloadsUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+                    ?: throw IllegalStateException("Cannot create fuel tracker export")
             }
-            downloadsUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            exportPrefs.edit()
+                .putString("downloads_uri", downloadsUri.toString())
+                .putBoolean("export_created", true)
+                .apply()
         }
-        val uri = downloadsUri ?: throw IllegalStateException("Cannot create fuel tracker export")
+        val uri = downloadsUri ?: throw IllegalStateException("Cannot resolve fuel tracker export")
         resolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
             ?: throw IllegalStateException("Cannot write fuel tracker export")
     }
