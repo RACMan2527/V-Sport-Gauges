@@ -1,0 +1,181 @@
+package com.aatorque.stats
+
+import android.content.Context
+import android.os.SystemClock
+import android.util.AtomicFile
+import org.json.JSONArray
+import org.json.JSONObject
+import org.prowl.torque.remote.ITorqueService
+import java.io.File
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
+import kotlin.math.abs
+
+/**
+ * Independent tank accounting. Reads standard OBD PIDs using Torque's API; it never
+ * modifies the gauge polling schedule. No simulated or invented tank statistics.
+ *
+ * 012F fuel level (%), 010D vehicle speed (km/h), 015E engine fuel rate (L/h).
+ * If fuel rate is unavailable, distance/time remain valid but MPG and gallons
+ * are deliberately unavailable. No assumption about the vehicle's tank capacity.
+ */
+class FuelTracker(context: Context, private val service: TorqueService) {
+    data class Summary(val id: Long, val miles: Double, val gallons: Double?,
+                       val seconds: Long, val mpg: Double?)
+    private val app = context.applicationContext
+    private val file = AtomicFile(File(app.filesDir, "Fuel-Tracker.json"))
+    private val executor = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "V-Sport-Fuel-Tracker").apply { isDaemon = true }
+    }
+    private var task: ScheduledFuture<*>? = null
+    private var state = load()
+    private var lastSampleMs = 0L
+    private var candidate: Double? = null
+    private var candidateCount = 0
+    private var previousLevel: Double? = null
+    @Volatile private var latest: Summary? = null
+
+    private fun load(): JSONObject = try {
+        val bytes = file.openRead().use { it.readBytes() }
+        JSONObject(String(bytes, Charsets.UTF_8))
+    } catch (_: Exception) {
+        JSONObject().put("schema", 1).put("initialized", false)
+            .put("miles", 0.0).put("gallons", 0.0).put("seconds", 0L)
+            .put("fuelRateValid", true).put("completed", JSONArray())
+    }
+
+    private fun save() {
+        val bytes = state.toString(2).toByteArray(Charsets.UTF_8)
+        val stream = file.startWrite()
+        try { stream.write(bytes); file.finishWrite(stream) }
+        catch (e: Exception) { file.failWrite(stream); throw e }
+    }
+
+    @Synchronized fun start() {
+        if (task != null) return
+        task = executor.scheduleWithFixedDelay({
+            try { sample() }
+            catch (e: Exception) {
+                DiagnosticLog.event("FUEL_TRACKER_ERROR", e.javaClass.simpleName + " " + e.message)
+            }
+        }, 0L, 2L, TimeUnit.SECONDS)
+    }
+
+    @Synchronized fun stop() {
+        task?.cancel(false)
+        task = null
+        lastSampleMs = 0L
+        candidate = null
+        candidateCount = 0
+    }
+
+    @Synchronized fun close() {
+        stop()
+        executor.shutdown()
+    }
+
+    @Synchronized fun pendingSummary(): Summary? = latest ?: run {
+        val obj = state.optJSONObject("pending") ?: return@run null
+        summaryFromJson(obj).also { latest = it }
+    }
+
+    @Synchronized fun acknowledge(id: Long) {
+        if (state.optJSONObject("pending")?.optLong("id") == id) {
+            state.remove("pending")
+            save()
+            latest = null
+            DiagnosticLog.event("FUEL_TANK_ACKNOWLEDGED", "id=$id")
+        }
+    }
+
+    private fun summaryFromJson(o: JSONObject): Summary {
+        val gallons = if (o.isNull("gallons") || !o.has("gallons")) null else o.getDouble("gallons")
+        return Summary(o.getLong("id"), o.getDouble("miles"), gallons,
+            o.getLong("seconds"), gallons?.takeIf { it > 0.0 }?.let { o.getDouble("miles") / it })
+    }
+
+    private fun read(ts: ITorqueService, pid: String): Double? = try {
+        val v = ts.getPIDValuesAsDouble(arrayOf(pid)).firstOrNull()
+        v?.takeIf { it.isFinite() && it >= 0.0 }
+    } catch (_: Exception) { null }
+
+    @Synchronized private fun sample() {
+        val now = SystemClock.elapsedRealtime()
+        val ts = service.torqueService ?: run { lastSampleMs = 0L; return }
+        if (!ts.isConnectedToECU) { lastSampleMs = 0L; return }
+        val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
+            ?: run { lastSampleMs = 0L; return }
+        val speed = read(ts, "0d,0")?.takeIf { it <= 250.0 }
+        val rate = read(ts, "5e,0")?.takeIf { it <= 400.0 }
+        val delta = if (lastSampleMs == 0L) 0.0
+            else ((now - lastSampleMs) / 1000.0).coerceIn(0.0, 4.0)
+        lastSampleMs = now
+
+        // Only count connected, continuous readings; no extrapolation over gaps.
+        if (state.optBoolean("initialized") && delta > 0 && speed != null) {
+            state.put("miles", state.optDouble("miles") + speed * delta / 3600.0 * 0.621371192)
+            if (speed > 0.5) state.put("seconds", state.optLong("seconds") + delta.toLong())
+            if (rate != null) {
+                state.put("gallons", state.optDouble("gallons") + rate * delta / 3600.0 / 3.785411784)
+            } else state.put("fuelRateValid", false)
+        }
+
+        // The low-water reference is durable across ignition and app restarts.
+        // Reject transient increases: at least 12 percentage points, five
+        // consecutive stable samples, and vehicle stationary.
+        val low = state.optDouble("lowLevel", level).coerceIn(0.0, 100.0)
+        if (!state.has("lowLevel") || level < low - 1.0) {
+            state.put("lowLevel", level)
+            candidate = null
+            candidateCount = 0
+        } else if (level >= low + 12.0 && speed != null && speed < 1.0) {
+            if (candidate == null || abs(level - candidate!!) > 3.0) {
+                candidate = level
+                candidateCount = 1
+            } else candidateCount++
+            if (candidateCount >= 5) {
+                onRefill(level, low)
+                candidate = null
+                candidateCount = 0
+            }
+        } else {
+            candidate = null
+            candidateCount = 0
+        }
+        // Avoid a write on every 2s poll; save approximately every 30 seconds.
+        if (now - lastPersistMs > 30_000L) {
+            save()
+            lastPersistMs = now
+        }
+    }
+
+    private var lastPersistMs = 0L
+
+    private fun onRefill(after: Double, before: Double) {
+        val id = System.currentTimeMillis()
+        if (!state.optBoolean("initialized")) {
+            state.put("initialized", true)
+            DiagnosticLog.event("FUEL_TRACKER_INITIALIZED", "id=$id before=$before after=$after")
+        } else {
+            val gallons = if (state.optBoolean("fuelRateValid", true))
+                state.optDouble("gallons") else null
+            val finished = JSONObject().put("id", id)
+                .put("miles", state.optDouble("miles"))
+                .put("gallons", gallons ?: JSONObject.NULL)
+                .put("seconds", state.optLong("seconds"))
+                .put("beforeLevel", before).put("afterLevel", after)
+            state.getJSONArray("completed").put(finished)
+            state.put("pending", finished)
+            latest = summaryFromJson(finished)
+            DiagnosticLog.event("FUEL_TANK_COMPLETED",
+                "id=$id miles=${latest!!.miles} gallons=${latest!!.gallons} seconds=${latest!!.seconds}")
+        }
+        state.put("lowLevel", after)
+        state.put("miles", 0.0)
+        state.put("gallons", 0.0)
+        state.put("seconds", 0L)
+        state.put("fuelRateValid", true)
+        save()
+    }
+}
