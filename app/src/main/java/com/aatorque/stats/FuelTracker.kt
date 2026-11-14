@@ -46,7 +46,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         val bytes = file.openRead().use { it.readBytes() }
         JSONObject(String(bytes, Charsets.UTF_8))
     } catch (_: Exception) {
-        JSONObject().put("schema", 1).put("initialized", false)
+        JSONObject().put("schema", 1)
             .put("miles", 0.0).put("gallons", 0.0).put("seconds", 0L)
             .put("fuelRateValid", true).put("fuelRateSeen", false).put("completed", JSONArray())
     }
@@ -161,7 +161,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         lastSampleMs = now
 
         // Only count connected, continuous readings; no extrapolation over gaps.
-        if (state.optBoolean("initialized") && delta > 0 && speed != null) {
+        if (delta > 0 && speed != null) {
             state.put("miles", state.optDouble("miles") + speed * delta / 3600.0 * 0.621371192)
             if (speed > 0.5) state.put("seconds", state.optLong("seconds") + delta.toLong())
             if (rate != null) {
@@ -203,23 +203,18 @@ class FuelTracker(context: Context, private val service: TorqueService) {
 
     private fun onRefill(after: Double, before: Double) {
         val id = System.currentTimeMillis()
-        if (!state.optBoolean("initialized")) {
-            state.put("initialized", true)
-            DiagnosticLog.event("FUEL_TRACKER_INITIALIZED", "id=$id before=$before after=$after")
-        } else {
-            val gallons = if (state.optBoolean("fuelRateValid", true) && state.optBoolean("fuelRateSeen", false))
-                state.optDouble("gallons") else null
-            val finished = JSONObject().put("id", id)
-                .put("miles", state.optDouble("miles"))
-                .put("gallons", gallons ?: JSONObject.NULL)
-                .put("seconds", state.optLong("seconds"))
-                .put("beforeLevel", before).put("afterLevel", after)
-            state.getJSONArray("completed").put(finished)
-            state.put("pending", finished)
-            latest = summaryFromJson(finished)
-            DiagnosticLog.event("FUEL_TANK_COMPLETED",
-                "id=$id miles=${latest!!.miles} gallons=${latest!!.gallons} seconds=${latest!!.seconds}")
-        }
+        val gallons = if (state.optBoolean("fuelRateValid", true) && state.optBoolean("fuelRateSeen", false))
+            state.optDouble("gallons") else null
+        val finished = JSONObject().put("id", id)
+            .put("miles", state.optDouble("miles"))
+            .put("gallons", gallons ?: JSONObject.NULL)
+            .put("seconds", state.optLong("seconds"))
+            .put("beforeLevel", before).put("afterLevel", after)
+        state.getJSONArray("completed").put(finished)
+        state.put("pending", finished)
+        latest = summaryFromJson(finished)
+        DiagnosticLog.event("FUEL_TANK_COMPLETED",
+            "id=$id miles=${latest!!.miles} gallons=${latest!!.gallons} seconds=${latest!!.seconds}")
         state.put("lowLevel", after)
         state.put("miles", 0.0)
         state.put("gallons", 0.0)
