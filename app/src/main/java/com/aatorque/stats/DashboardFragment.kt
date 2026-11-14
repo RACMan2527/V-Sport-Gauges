@@ -82,7 +82,7 @@ open class DashboardFragment : AlbumArt() {
         if (quickPage != "diagnostics" && quickPage != "tank_preview") closeQuickControls()
     }
     private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "PID Polling",
-        "Screen Refresh", "Live Diagnostics", "Close Menu", "Preview Tank Summary")
+        "Screen Refresh", "Live Diagnostics", "Preview Tank Summary", "Close Menu")
     private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
     private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
     private var quickResetSelection = 0
@@ -1179,8 +1179,8 @@ open class DashboardFragment : AlbumArt() {
                 2 -> openQuickSlider(true)
                 3 -> openQuickSlider(false)
                 4 -> openQuickControls("diagnostics")
-                5 -> closeQuickControls()
-                6 -> openQuickControls("tank_preview")
+                5 -> openQuickControls("tank_preview")
+                6 -> closeQuickControls()
                 else -> closeQuickControls()
             }
             "reset" -> if (quickIndex == 3) openQuickControls()
