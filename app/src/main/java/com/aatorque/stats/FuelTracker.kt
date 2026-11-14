@@ -1,6 +1,12 @@
 package com.aatorque.stats
 
 import android.content.Context
+import android.content.ContentValues
+import android.content.ContentUris
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
+import android.net.Uri
 import android.os.SystemClock
 import android.util.AtomicFile
 import org.json.JSONArray
@@ -50,6 +56,48 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         val stream = file.startWrite()
         try { stream.write(bytes); file.finishWrite(stream) }
         catch (e: Exception) { file.failWrite(stream); throw e }
+        // The private atomic copy is authoritative; the Downloads copy is a
+        // readable companion to the diagnostic logs, never the only copy.
+        try { mirrorToDownloads(bytes) }
+        catch (e: Exception) {
+            DiagnosticLog.event("FUEL_TRACKER_EXPORT_ERROR", e.javaClass.simpleName)
+        }
+    }
+
+    private var downloadsUri: Uri? = null
+    private fun mirrorToDownloads(bytes: ByteArray) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            val dir = File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_DOWNLOADS), "V-Sport Gauges")
+            if (!dir.exists()) dir.mkdirs()
+            File(dir, "Fuel-Tracker.json").writeBytes(bytes)
+            return
+        }
+        val resolver = app.contentResolver
+        if (downloadsUri == null) {
+            resolver.query(MediaStore.Downloads.EXTERNAL_CONTENT_URI,
+                arrayOf(MediaStore.Downloads._ID),
+                "${MediaStore.Downloads.DISPLAY_NAME}=? AND ${MediaStore.Downloads.RELATIVE_PATH}=?",
+                arrayOf("Fuel-Tracker.json", "Download/V-Sport Gauges/"), null
+            )?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    downloadsUri = ContentUris.withAppendedId(
+                        MediaStore.Downloads.EXTERNAL_CONTENT_URI, cursor.getLong(0))
+                }
+            }
+        }
+        if (downloadsUri == null) {
+            val values = ContentValues().apply {
+                put(MediaStore.Downloads.DISPLAY_NAME, "Fuel-Tracker.json")
+                put(MediaStore.Downloads.MIME_TYPE, "application/json")
+                put(MediaStore.Downloads.RELATIVE_PATH,
+                    Environment.DIRECTORY_DOWNLOADS + "/V-Sport Gauges/")
+            }
+            downloadsUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+        }
+        val uri = downloadsUri ?: throw IllegalStateException("Cannot create fuel tracker export")
+        resolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
+            ?: throw IllegalStateException("Cannot write fuel tracker export")
     }
 
     @Synchronized fun start() {
