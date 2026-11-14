@@ -4,6 +4,15 @@
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
 
+
+## Automatic Fuel Tank Tracking (3.9.0 — awaiting vehicle verification)
+
+The app independently samples standard ECU fuel level (PID 012F), vehicle speed (010D), and engine fuel rate (015E) through Torque Pro. It tracks distance from speed and elapsed time, and fuel consumed from the fuel-rate reading when available. It does **not** use Torque Pro's trip MPG or trip-distance counters. Fuel consumption and MPG display as **Unavailable** when a valid fuel-rate stream has not been established. The accuracy and availability of these PIDs on the Escalade must be confirmed in the vehicle.
+
+A refuel candidate requires a sustained fuel-level increase of at least 12 percentage points over the previously recorded low level while stationary, with five stable readings approximately two seconds apart. The first detected refill initializes the tank tracker without a popup; an initialization event is written to diagnostics. Each subsequent validated refill completes the tank, saves its distance, driving time, fuel used when available, and MPG when available, and queues the automatic **Last Tank** popup. The popup appears when the gauges screen is active, remains until **OK**, and is deferred while the dashboard is not foreground.
+
+The authoritative tracker state is saved atomically in app-private storage; a readable copy named `Fuel-Tracker.json` is written to **Downloads / V-Sport Gauges**, alongside the diagnostic logs. Tank history is retained in its `completed` array. Do not delete the private app data if you want to retain tracker state. The Downloads copy is an export, not an automatic restore source. Fuel-level-based refill detection cannot reconstruct a refill that happened before any lower fuel level was observed.
+
 ## Quick Controls and Live Diagnostics
 
 Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it, rotate to highlight an item, and press to select. When the menu is closed, rotation continues to switch dashboards. The test screen can open Quick Controls with a three-second clock hold and supports tapping menu entries.
