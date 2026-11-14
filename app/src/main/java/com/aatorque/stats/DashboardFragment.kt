@@ -62,6 +62,92 @@ open class DashboardFragment : AlbumArt() {
 
     val torqueRefresher = TorqueRefresher()
     private val torqueService = TorqueService()
+    private val fuelTracker by lazy { FuelTracker(requireContext(), torqueService) }
+    private var tankSummaryOverlay: View? = null
+    private val tankSummaryHandler = Handler(Looper.getMainLooper())
+    private val tankSummaryCheck = object : Runnable {
+        override fun run() {
+            if (isResumed && tankSummaryOverlay == null && quickOverlay == null) {
+                fuelTracker.pendingSummary()?.let { showTankSummary(it) }
+            }
+            tankSummaryHandler.postDelayed(this, 2_000L)
+        }
+    }
+
+    private fun showTankSummary(summary: FuelTracker.Summary) {
+        if (!isAdded || !isResumed || tankSummaryOverlay != null) return
+        val ctx = requireContext()
+        val density = resources.displayMetrics.density
+        fun dp(value: Int) = (value * density + 0.5f).toInt()
+        val overlay = FrameLayout(ctx).apply {
+            setBackgroundColor(Color.argb(225, 0, 0, 0))
+            isClickable = true
+        }
+        val panel = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(32, 37, 44))
+                cornerRadius = dp(12).toFloat()
+            }
+        }
+        fun row(label: String, value: String, large: Boolean = false) {
+            val line = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+            }
+            line.addView(TextView(ctx).apply {
+                text = label
+                textSize = if (large) 22f else 16f
+                setTextColor(if (large) Color.rgb(232, 61, 61) else Color.WHITE)
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            line.addView(TextView(ctx).apply {
+                text = value
+                textSize = if (large) 27f else 17f
+                setTextColor(Color.WHITE)
+            })
+            panel.addView(line)
+        }
+        val hours = summary.seconds / 3600
+        val minutes = (summary.seconds % 3600) / 60
+        row("LAST TANK", "")
+        row("Tank MPG", summary.mpg?.let { String.format(java.util.Locale.US, "%.1f MPG", it) } ?: "Unavailable", true)
+        row("Distance", String.format(java.util.Locale.US, "%.1f mi", summary.miles))
+        row("Fuel Consumed", summary.gallons?.let { String.format(java.util.Locale.US, "%.1f gal", it) } ?: "Unavailable")
+        row("Driving Time", "${hours}h ${minutes}m")
+        val ok = TextView(ctx).apply {
+            text = "OK"
+            textSize = 20f
+            gravity = Gravity.CENTER
+            setTextColor(Color.WHITE)
+            setPadding(dp(15), dp(12), dp(15), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(57, 85, 115))
+                cornerRadius = dp(6).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                fuelTracker.acknowledge(summary.id)
+                (overlay.parent as? ViewGroup)?.removeView(overlay)
+                tankSummaryOverlay = null
+            }
+        }
+        panel.addView(ok)
+        overlay.addView(panel, FrameLayout.LayoutParams(
+            minOf(dp(490), resources.displayMetrics.widthPixels - dp(32)),
+            -2, Gravity.CENTER))
+        mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
+            startToStart = ConstraintLayout.LayoutParams.PARENT_ID
+            endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
+            topToTop = ConstraintLayout.LayoutParams.PARENT_ID
+            bottomToBottom = ConstraintLayout.LayoutParams.PARENT_ID
+        })
+        tankSummaryOverlay = overlay
+        ok.requestFocus()
+    }
+
 
     private lateinit var mBtnNext: ImageButton
     private lateinit var mBtnPrev: ImageButton
@@ -187,6 +273,7 @@ open class DashboardFragment : AlbumArt() {
         val context = requireContext()
         torqueRefresher.initialize(context)
         torqueService.startTorque(context)
+        fuelTracker.start()
         val registerWithView = { call: suspend (Flow<UserPreference>) -> Unit ->
             lifecycleScope.launch {
                 viewReady.await()
@@ -1002,6 +1089,8 @@ open class DashboardFragment : AlbumArt() {
     override fun onResume() {
         Timber.d("onResume")
         super.onResume()
+        tankSummaryHandler.removeCallbacks(tankSummaryCheck)
+        tankSummaryHandler.post(tankSummaryCheck)
         if (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE && !torqueStartupTimedOut) {
             torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
             torqueStartupHandler.postDelayed(torqueStartupTimeout, 5_000L)
@@ -1024,6 +1113,9 @@ open class DashboardFragment : AlbumArt() {
     }
 
     override fun onPause() {
+        tankSummaryHandler.removeCallbacks(tankSummaryCheck)
+        tankSummaryOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
+        tankSummaryOverlay = null
         Timber.d("onPause")
         logoLongPressHandler.removeCallbacksAndMessages(null)
         gaugePressHandler.removeCallbacksAndMessages(null)
@@ -1036,6 +1128,7 @@ open class DashboardFragment : AlbumArt() {
     }
 
     override fun onDestroy() {
+        fuelTracker.close()
         super.onDestroy()
         torqueService.onDestroy(requireContext())
         torqueService.requestQuit(requireContext())
