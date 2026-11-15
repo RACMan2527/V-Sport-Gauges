@@ -14,8 +14,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Append-only diagnostics in Downloads. No disk I/O on PID polling threads.
- * Android 10+ uses MediaStore; older Android uses public Downloads.
+ * Append-only diagnostics in Documents/V-Sport Gauges/Logs. No disk I/O on PID polling threads.
+ * Android 10+ uses MediaStore; older Android uses public Documents.
  */
 object DiagnosticLog {
     private const val PREFIX = "V-Sport-Gauges-"
@@ -163,12 +163,12 @@ object DiagnosticLog {
         val bytes = line.toByteArray(Charsets.UTF_8)
         if (currentUri == null || bytesWritten + bytes.size > MAX_BYTES) {
             val values = ContentValues().apply {
-                put(MediaStore.Downloads.DISPLAY_NAME, newName())
-                put(MediaStore.Downloads.MIME_TYPE, "text/plain")
-                put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/" + SUBFOLDER + "/")
+                put(MediaStore.Files.FileColumns.DISPLAY_NAME, newName())
+                put(MediaStore.Files.FileColumns.MIME_TYPE, "text/plain")
+                put(MediaStore.Files.FileColumns.RELATIVE_PATH, PublicDocuments.LOGS)
             }
-            currentUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
-                ?: throw IllegalStateException("Unable to create Downloads log")
+            currentUri = resolver.insert(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
+                ?: throw IllegalStateException("Unable to create Documents log")
             bytesWritten = 0L
             trimMediaStore(context)
         }
@@ -176,7 +176,7 @@ object DiagnosticLog {
             it.write(bytes)
             it.flush()
             bytesWritten += bytes.size
-        } ?: throw IllegalStateException("Unable to append Downloads log")
+        } ?: throw IllegalStateException("Unable to append Documents log")
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
@@ -185,7 +185,7 @@ object DiagnosticLog {
         val entries = mutableListOf<Pair<String, Uri>>()
         resolver.query(
             MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-            arrayOf(MediaStore.Downloads._ID, MediaStore.Downloads.DISPLAY_NAME),
+            arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Downloads.DISPLAY_NAME),
             "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
             arrayOf("$PREFIX%.log"), null
         )?.use { cursor ->
@@ -205,8 +205,8 @@ object DiagnosticLog {
 
     @Suppress("DEPRECATION")
     private fun writeLegacy(line: String) {
-        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS), SUBFOLDER)
-        if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("Downloads unavailable")
+        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "V-Sport Gauges/Logs")
+        if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("Documents unavailable")
         if (currentFile == null || bytesWritten + line.toByteArray().size > MAX_BYTES) {
             currentFile = File(dir, newName())
             bytesWritten = 0L
