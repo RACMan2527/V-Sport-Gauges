@@ -278,7 +278,7 @@ class TorqueRefresher {
                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                         initialRpm = rpm
                         initialRpmUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
-                        rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && initialRpmUpdate > 0L
+                        rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 && initialRpmUpdate > 0L
                         if (rpmValid) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
                     }
 
@@ -312,7 +312,7 @@ class TorqueRefresher {
                                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                                         finalRpm = rpm
                                         val finalUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
-                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 &&
+                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 &&
                                             rpm != initialRpm && finalUpdate > 0L && finalUpdate != initialRpmUpdate
                                         DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum samples=${pending.samples} elapsedMs=${android.os.SystemClock.elapsedRealtime() - pending.startMs} durationMs=${android.os.SystemClock.elapsedRealtime() - finalStarted}")
                                     }
