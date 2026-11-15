@@ -14,12 +14,10 @@ import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 
 /**
- * Independent tank accounting. Reads standard OBD PIDs using Torque's API; it never
- * modifies the gauge polling schedule. No simulated or invented tank statistics.
- *
- * 012F fuel level (%), 010D vehicle speed (km/h), 015E engine fuel rate (L/h).
- * If fuel rate is unavailable, distance/time remain valid but MPG and gallons
- * are deliberately unavailable. No assumption about the vehicle's tank capacity.
+ * Tank accounting from verified Torque trip PIDs ONLY:
+ * ff1204 distance (km), ff1205 MPG (US), ff1266 time (seconds).
+ * 012F fuel level is used solely for refill detection; no 010D or 015E.
+ * Cached Torque trip values are read without requesting extra ECU polls.
  */
 class FuelTracker(context: Context, private val service: TorqueService) {
     data class Summary(val id: Long, val miles: Double, val gallons: Double?,
@@ -33,6 +31,9 @@ class FuelTracker(context: Context, private val service: TorqueService) {
     private var task: ScheduledFuture<*>? = null
     private var state = load().also { writeHistory(it) }
     private var lastSampleMs = 0L
+    private var previousTripMiles: Double? = null
+    private var previousTripGallons: Double? = null
+    private var previousTripSeconds: Double? = null
     private var candidate: Double? = null
     private var candidateCount = 0
     private var candidateBaseline: Double? = null
@@ -134,7 +135,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             catch (e: Exception) {
                 DiagnosticLog.event("FUEL_TRACKER_ERROR", e.javaClass.simpleName + " " + e.message)
             }
-        }, 0L, 2L, TimeUnit.SECONDS)
+        }, 0L, 30L, TimeUnit.SECONDS)
     }
 
     @Synchronized fun stop() {
@@ -143,6 +144,9 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         // Persist the latest confirmed baseline and tank counters on normal stop.
         save()
         lastSampleMs = 0L
+        previousTripMiles = null
+        previousTripGallons = null
+        previousTripSeconds = null
         candidate = null
         candidateCount = 0
         candidateBaseline = null
@@ -200,21 +204,43 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         }
         val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
             ?: run { lastSampleMs = 0L; return }
-        val speed = read(ts, "0d,0")?.takeIf { it <= 250.0 }
-        val rate = read(ts, "5e,0")?.takeIf { it <= 400.0 }
-        val delta = if (lastSampleMs == 0L) 0.0
-            else ((now - lastSampleMs) / 1000.0).coerceIn(0.0, 4.0)
-        lastSampleMs = now
+        // These are the same raw Torque trip values displayed on the dashboards.
+        val tripKm = read(ts, "ff1204,0")
+        val tripMpg = read(ts, "ff1205,0")?.takeIf { it > 0.0 && it < 1000.0 }
+        val tripSeconds = read(ts, "ff1266,0")
+        val tripMiles = tripKm?.times(0.621371192)
+        val tripGallons = if (tripMiles != null && tripMpg != null) tripMiles / tripMpg else null
 
-        // Only count connected, continuous readings; no extrapolation over gaps.
-        if (delta > 0 && speed != null) {
-            state.put("miles", state.optDouble("miles") + speed * delta / 3600.0 * 0.621371192)
-            if (speed > 0.5) state.put("seconds", state.optLong("seconds") + delta.toLong())
-            if (rate != null) {
-                if (rate > 0.0) state.put("fuelRateSeen", true)
-                state.put("gallons", state.optDouble("gallons") + rate * delta / 3600.0 / 3.785411784)
-            } else state.put("fuelRateValid", false)
+        if (tripMiles != null && tripSeconds != null) {
+            val oldMiles = previousTripMiles
+            val oldSeconds = previousTripSeconds
+            val oldGallons = previousTripGallons
+            val reset = (oldMiles != null && tripMiles + 0.01 < oldMiles) ||
+                (oldSeconds != null && tripSeconds + 0.5 < oldSeconds)
+            if (reset) {
+                DiagnosticLog.event("FUEL_TRIP_RESET", "Torque trip distance/time reset")
+            } else if (oldMiles != null && oldSeconds != null) {
+                val milesDelta = (tripMiles - oldMiles).coerceAtLeast(0.0)
+                val secondsDelta = (tripSeconds - oldSeconds).coerceAtLeast(0.0)
+                state.put("miles", state.optDouble("miles") + milesDelta)
+                state.put("seconds", state.optLong("seconds") + secondsDelta.toLong())
+                if (tripGallons != null && oldGallons != null) {
+                    val gallonsDelta = tripGallons - oldGallons
+                    if (gallonsDelta >= 0.0) {
+                        state.put("gallons", state.optDouble("gallons") + gallonsDelta)
+                        state.put("fuelRateSeen", true)
+                    } else if (gallonsDelta < -0.02) {
+                        DiagnosticLog.event("FUEL_TRIP_GALLONS_DECREASE", "delta=$gallonsDelta")
+                    }
+                } else if (milesDelta > 0.0) {
+                    state.put("fuelRateValid", false)
+                }
+            }
+            previousTripMiles = tripMiles
+            previousTripGallons = tripGallons
+            previousTripSeconds = tripSeconds
         }
+        lastSampleMs = now
 
         // Refill detection is independent of RPM and survives application restarts.
         // A source timestamp must advance; five cached API returns are not five samples.
