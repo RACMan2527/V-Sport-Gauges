@@ -46,6 +46,22 @@ object PublicDocuments {
             .putString(expectedName, uri.toString()).commit()
     }
 
+    fun linkedFuelDocument(context: Context, name: String): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(name, null) != null
+
+    fun initialFuelDocument(name: String): ByteArray {
+        require(name in fuelNames)
+        return if (name == "Fuel-Tracker.json") {
+            org.json.JSONObject().put("schema", 2).put("miles", 0.0)
+                .put("gallons", 0.0).put("seconds", 0L)
+                .put("fuelRateValid", true).put("fuelRateSeen", false)
+                .put("completed", org.json.JSONArray()).toString(2).toByteArray(Charsets.UTF_8)
+        } else {
+            "Fuel-Up ID,Date (UTC),Miles,Gallons,MPG,Driving Seconds,Fuel Before (%),Fuel After (%)\r\n"
+                .toByteArray(Charsets.UTF_8)
+        }
+    }
+
     fun readFuelDocument(context: Context, name: String): ByteArray? {
         require(name in fuelNames)
         val uriText = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
