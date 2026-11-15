@@ -35,6 +35,7 @@ import com.aatorque.stats.BuildConfig
 import com.aatorque.stats.CreditsFragment
 import com.aatorque.stats.R
 import com.aatorque.stats.TorqueRefresher
+import com.aatorque.stats.PublicDocuments
 import com.google.android.material.snackbar.Snackbar
 import com.google.protobuf.InvalidProtocolBufferException
 import kotlinx.coroutines.Dispatchers
@@ -196,7 +197,7 @@ class SettingsActivity : AppCompatActivity(),
     }
 
     private fun exportFile() {
-        exportFileLauncher.launch("")
+        performExport(null)
     }
 
     private fun launchFragment(
@@ -217,11 +218,13 @@ class SettingsActivity : AppCompatActivity(),
     }
 
     private val exportFileLauncher = registerForActivityResult(ExportFileContract()) { uri: Uri? ->
+        if (uri != null) performExport(uri)
+    }
+
+    private fun performExport(uri: Uri?) {
         lifecycleScope.launch(Dispatchers.IO) {
             val result = try {
-                if (uri == null) {
-                    R.string.export_failed
-                } else {
+                run {
                     val data = applicationContext.dataStore.updateData { current ->
                         if (current.horizontalBarDisplay.pid.isNotBlank()) current
                         else {
@@ -257,11 +260,20 @@ class SettingsActivity : AppCompatActivity(),
                         UserPreferenceSerializer.writeTo(exportedData, buffer)
                         buffer.toByteArray()
                     }
-                    val outputStream = contentResolver.openOutputStream(uri)
-                        ?: throw IOException("Could not open selected export destination")
-                    outputStream.use { stream ->
-                        stream.write(protobufBytes)
-                        stream.flush()
+                    if (uri == null) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                            PublicDocuments.write(applicationContext, PublicDocuments.EXPORTS,
+                                "dashboards.pb", EXPORT_MIME, protobufBytes)
+                        } else {
+                            throw IOException("Public Documents export requires Android 10 or later")
+                        }
+                    } else {
+                        val outputStream = contentResolver.openOutputStream(uri)
+                            ?: throw IOException("Could not open selected export destination")
+                        outputStream.use { stream ->
+                            stream.write(protobufBytes)
+                            stream.flush()
+                        }
                     }
                     R.string.file_exported_successfully
                 }
