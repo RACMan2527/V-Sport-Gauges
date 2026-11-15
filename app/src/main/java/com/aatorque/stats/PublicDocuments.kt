@@ -14,8 +14,51 @@ object PublicDocuments {
     const val LOGS = ROOT + "Logs/"
     const val EXPORTS = ROOT + "Exports/"
 
+    private const val HISTORY_PREFS = "public_fuel_history"
+    private const val HISTORY_URI = "document_uri"
+
+    fun linkFuelHistory(context: Context, uri: Uri, grantFlags: Int) {
+        val resolver = context.contentResolver
+        val flags = grantFlags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+            android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        require(flags and android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION != 0) {
+            "Document picker did not grant write access"
+        }
+        val name = resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME),
+            null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) cursor.getString(0) else null
+        }
+        require(name == "Fuel-Up-History.csv") { "Select the original Fuel-Up-History.csv" }
+        // Ensure this is the expected CSV before replacing its contents.
+        val header = resolver.openInputStream(uri)?.bufferedReader()?.use { it.readLine() }
+        require(header == "Fuel-Up ID,Date (UTC),Miles,Gallons,MPG,Driving Seconds,Fuel Before (%),Fuel After (%)") {
+            "Selected file is not a V-Sport fuel history"
+        }
+        resolver.takePersistableUriPermission(uri, flags)
+        context.getSharedPreferences(HISTORY_PREFS, Context.MODE_PRIVATE)
+            .edit().putString(HISTORY_URI, uri.toString()).apply()
+    }
+
+    fun linkedFuelHistory(context: Context): Boolean =
+        context.getSharedPreferences(HISTORY_PREFS, Context.MODE_PRIVATE)
+            .contains(HISTORY_URI)
+
+    private fun writeLinkedFuelHistory(context: Context, bytes: ByteArray): Uri {
+        val uriText = context.getSharedPreferences(HISTORY_PREFS, Context.MODE_PRIVATE)
+            .getString(HISTORY_URI, null)
+            ?: throw IllegalStateException("Link existing Fuel-Up-History.csv in phone Settings first")
+        val uri = Uri.parse(uriText)
+        require(context.contentResolver.persistedUriPermissions.any {
+            it.uri == uri && it.isWritePermission
+        }) { "Fuel history document write permission lost; relink in Settings" }
+        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
+            ?: throw IllegalStateException("Cannot update linked fuel history")
+        return uri
+    }
+
     fun write(context: Context, folder: String, name: String, mime: String, bytes: ByteArray): Uri {
         require(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        if (name == "Fuel-Up-History.csv") return writeLinkedFuelHistory(context, bytes)
         val resolver = context.contentResolver
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         var existing: Uri? = null
