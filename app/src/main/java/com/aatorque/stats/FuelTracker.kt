@@ -232,12 +232,10 @@ class FuelTracker(context: Context, private val service: TorqueService) {
                     } else if (gallonsDelta < -0.02) {
                         DiagnosticLog.event("FUEL_TRIP_GALLONS_DECREASE", "delta=$gallonsDelta")
                     }
-                } else if (milesDelta > 0.0) {
-                    state.put("fuelRateValid", false)
                 }
             }
             previousTripMiles = tripMiles
-            previousTripGallons = tripGallons
+            if (tripGallons != null) previousTripGallons = tripGallons
             previousTripSeconds = tripSeconds
         }
         lastSampleMs = now
