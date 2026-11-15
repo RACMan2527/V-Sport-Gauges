@@ -26,11 +26,12 @@ class FuelTracker(context: Context, private val service: TorqueService) {
                        val seconds: Long, val mpg: Double?)
     private val app = context.applicationContext
     private val file = AtomicFile(File(app.filesDir, "Fuel-Tracker.json"))
+    private val historyFile = AtomicFile(File(app.filesDir, "Fuel-Up-History.csv"))
     private val executor = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "V-Sport-Fuel-Tracker").apply { isDaemon = true }
     }
     private var task: ScheduledFuture<*>? = null
-    private var state = load()
+    private var state = load().also { writeHistory(it) }
     private var lastSampleMs = 0L
     private var candidate: Double? = null
     private var candidateCount = 0
@@ -56,6 +57,44 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         // Never replace a damaged or unreadable tank with an empty one.
         DiagnosticLog.event("FUEL_TRACKER_LOAD_ERROR", e.javaClass.simpleName)
         throw IllegalStateException("Cannot recover Fuel-Tracker.json; existing data preserved", e)
+    }
+
+
+    /**
+     * Completed tank JSON remains the atomic recovery journal. CSV is a separate,
+     * rebuildable user-readable history. Rebuild at startup and after each refill:
+     * an interrupted CSV write cannot lose or duplicate completed tank records.
+     */
+    private fun writeHistory(source: JSONObject) {
+        val completed = source.getJSONArray("completed")
+        val csv = StringBuilder("Fuel-Up ID,Date (UTC),Miles,Gallons,MPG,Driving Seconds,Fuel Before (%),Fuel After (%)\\r\\n")
+        val seen = HashSet<Long>()
+        for (i in 0 until completed.length()) {
+            val tank = completed.getJSONObject(i)
+            val id = tank.getLong("id")
+            if (!seen.add(id)) continue
+            val gallons = if (tank.isNull("gallons") || !tank.has("gallons")) null else tank.getDouble("gallons")
+            val miles = tank.getDouble("miles")
+            val date = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.US).apply {
+                timeZone = java.util.TimeZone.getTimeZone("UTC")
+            }.format(java.util.Date(id))
+            val cells = listOf(
+                id.toString(), date, miles.toString(), gallons?.toString() ?: "",
+                gallons?.takeIf { it > 0.0 }?.let { (miles / it).toString() } ?: "",
+                tank.getLong("seconds").toString(),
+                if (tank.has("beforeLevel")) tank.getDouble("beforeLevel").toString() else "",
+                if (tank.has("afterLevel")) tank.getDouble("afterLevel").toString() else ""
+            )
+            csv.append(cells.joinToString(",")).append("\\r\\n")
+        }
+        val stream = historyFile.startWrite()
+        try {
+            stream.write(csv.toString().toByteArray(Charsets.UTF_8))
+            historyFile.finishWrite(stream)
+        } catch (e: Exception) {
+            historyFile.failWrite(stream)
+            throw e
+        }
     }
 
     private fun save() {
@@ -251,5 +290,11 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             throw e
         }
         state = next
+        try { writeHistory(state) }
+        catch (e: Exception) {
+            DiagnosticLog.event("FUEL_HISTORY_WRITE_ERROR", e.javaClass.simpleName)
+            // The completed tank is safe in Fuel-Tracker.json and will be
+            // recovered into the CSV at next startup.
+        }
     }
 }
