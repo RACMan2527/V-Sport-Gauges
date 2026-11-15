@@ -25,7 +25,8 @@ object PidValidator {
 
     fun inspect(ts: ITorqueService, pid: String, value: Double?,
                 minimum: Double = Double.NEGATIVE_INFINITY,
-                maximum: Double = Double.POSITIVE_INFINITY): Result {
+                maximum: Double = Double.POSITIVE_INFINITY,
+                consumer: String = "gauges"): Result {
         val result = try {
             if (!ts.isConnectedToECU || value == null || !value.isFinite() ||
                 value < minimum || value > maximum) {
@@ -34,7 +35,7 @@ object PidValidator {
                 val timestamp = ts.getPIDUpdateTime(arrayOf(pid)).firstOrNull() ?: 0L
                 if (timestamp <= 0L) Result(Quality.SUSPECT, timestamp)
                 else {
-                    val previous = previousUpdates.put(pid, timestamp)
+                    val previous = previousUpdates.put("$consumer:$pid", timestamp)
                     if (previous == timestamp) Result(Quality.STALE, timestamp)
                     else Result(Quality.VALID, timestamp)
                 }
