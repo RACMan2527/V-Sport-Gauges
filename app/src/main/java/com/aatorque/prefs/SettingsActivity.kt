@@ -140,12 +140,24 @@ class SettingsActivity : AppCompatActivity(),
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.settings_menu, menu)
+        menu?.add(0, 984116, 100, "Link existing Fuel-Up-History.csv")
+            ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
         return true
     }
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         // Handle item selection
         return when (item.itemId) {
+            984116 -> {
+                fuelHistoryPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                    addCategory(Intent.CATEGORY_OPENABLE)
+                    type = "*/*"
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                })
+                true
+            }
             R.id.action_preview -> {
                 launchFragment("preview", DashboardPreviewFragment())
                 true
@@ -215,6 +227,20 @@ class SettingsActivity : AppCompatActivity(),
             )
             .addToBackStack(null)
             .commit()
+    }
+
+    private val fuelHistoryPicker = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data
+        if (result.resultCode == Activity.RESULT_OK && uri != null) {
+            try {
+                PublicDocuments.linkFuelHistory(this, uri, result.data?.flags ?: 0)
+                Toast.makeText(this, "Fuel history linked. Existing CSV will be updated in place.", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Fuel history not linked: " + e.message, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private val exportFileLauncher = registerForActivityResult(ExportFileContract()) { uri: Uri? ->
