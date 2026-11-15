@@ -162,7 +162,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             catch (e: Exception) {
                 DiagnosticLog.event("FUEL_TRACKER_ERROR", e.javaClass.simpleName + " " + e.message)
             }
-        }, 0L, 30L, TimeUnit.SECONDS)
+        }, 0L, 2L, TimeUnit.SECONDS)
     }
 
     @Synchronized fun stop() {
