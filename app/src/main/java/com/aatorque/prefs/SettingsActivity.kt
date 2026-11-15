@@ -144,12 +144,30 @@ class SettingsActivity : AppCompatActivity(),
             ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
         menu?.add(0, 984117, 101, "Link existing Fuel-Tracker.json")
             ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
+        menu?.add(0, 984118, 102, "Save current Fuel-Tracker.json to Documents")
+            ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
         return true
     }
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         // Handle item selection
         return when (item.itemId) {
+            984118 -> {
+                val source = java.io.File(filesDir, "Fuel-Tracker.json")
+                if (!source.exists()) {
+                    Toast.makeText(this, "No private fuel journal to export", Toast.LENGTH_LONG).show()
+                } else {
+                    createFuelJson.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                        addCategory(Intent.CATEGORY_OPENABLE)
+                        type = "application/json"
+                        putExtra(Intent.EXTRA_TITLE, "Fuel-Tracker.json")
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                    })
+                }
+                true
+            }
             984116, 984117 -> {
                 requestedFuelName = if (item.itemId == 984116) "Fuel-Up-History.csv" else "Fuel-Tracker.json"
                 fuelHistoryPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
@@ -230,6 +248,25 @@ class SettingsActivity : AppCompatActivity(),
             )
             .addToBackStack(null)
             .commit()
+    }
+
+    private val createFuelJson = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data
+        if (result.resultCode == Activity.RESULT_OK && uri != null) {
+            try {
+                val source = java.io.File(filesDir, "Fuel-Tracker.json")
+                val bytes = source.readBytes()
+                val json = JSONObject(String(bytes, Charsets.UTF_8))
+                require(json.has("miles") && json.optJSONArray("completed") != null)
+                contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
+                PublicDocuments.linkFuelDocument(this, uri, result.data?.flags ?: 0, "Fuel-Tracker.json")
+                Toast.makeText(this, "Fuel-Tracker.json saved and linked", Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Fuel journal export failed: " + e.message, Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     private var requestedFuelName = "Fuel-Up-History.csv"
