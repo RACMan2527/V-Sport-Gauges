@@ -80,7 +80,7 @@ open class DashboardFragment : AlbumArt() {
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density + 0.5f).toInt()
         val overlay = FrameLayout(ctx).apply {
-            setBackgroundColor(Color.argb(225, 0, 0, 0))
+            setBackgroundColor(Color.argb(170, 0, 0, 0))
             elevation = dp(120).toFloat()
             isClickable = true
             isFocusable = true
