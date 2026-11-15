@@ -67,7 +67,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
      */
     private fun writeHistory(source: JSONObject) {
         val completed = source.getJSONArray("completed")
-        val csv = StringBuilder("Fuel-Up ID,Date (UTC),Miles,Gallons,MPG,Driving Seconds,Fuel Before (%),Fuel After (%)\\r\\n")
+        val csv = StringBuilder("Fuel-Up ID,Date (UTC),Miles,Gallons,MPG,Driving Seconds,Fuel Before (%),Fuel After (%)\r\n")
         val seen = HashSet<Long>()
         for (i in 0 until completed.length()) {
             val tank = completed.getJSONObject(i)
@@ -85,7 +85,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
                 if (tank.has("beforeLevel")) tank.getDouble("beforeLevel").toString() else "",
                 if (tank.has("afterLevel")) tank.getDouble("afterLevel").toString() else ""
             )
-            csv.append(cells.joinToString(",")).append("\\r\\n")
+            csv.append(cells.joinToString(",")).append("\r\n")
         }
         val stream = historyFile.startWrite()
         try {
