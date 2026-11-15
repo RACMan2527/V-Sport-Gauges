@@ -15,6 +15,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
+import android.provider.DocumentsContract
 import android.view.Menu
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContract
@@ -364,6 +365,7 @@ class SettingsActivity : AppCompatActivity(),
                 type = EXPORT_MIME
                 // Suggest a file name based on the original file name
                 putExtra(Intent.EXTRA_TITLE, "dashboards.pb")
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Documents/V-Sport Gauges/Exports"))
             }
         }
 
@@ -383,6 +385,7 @@ class SettingsActivity : AppCompatActivity(),
             return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = input
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, exportsFolderUri())
             }
         }
 
