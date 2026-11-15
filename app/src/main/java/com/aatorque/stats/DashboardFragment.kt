@@ -114,7 +114,7 @@ open class DashboardFragment : AlbumArt() {
         val hours = summary.seconds / 3600
         val minutes = (summary.seconds % 3600) / 60
         val heading = TextView(ctx).apply {
-            text = if (preview) "CURRENT TRACKING (PREVIEW)" else "LAST TANK"
+            text = if (preview) "FUEL SUMMARY PREVIEW" else "LAST TANK"
             textSize = 17f
             setTextColor(Color.WHITE)
             gravity = Gravity.CENTER_VERTICAL
