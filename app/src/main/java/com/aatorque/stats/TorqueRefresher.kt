@@ -279,7 +279,7 @@ class TorqueRefresher {
                         initialRpm = rpm
                         initialRpmUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
                         rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 && initialRpmUpdate > 0L
-                        if (rpmValid) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
+                        if (rpmValid) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm rpmUpdateMs=$initialRpmUpdate wallClockMs=${System.currentTimeMillis()} elapsedClockMs=${android.os.SystemClock.elapsedRealtime()} valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
                     }
 
                     synchronized(pendingMinimums) {
@@ -314,7 +314,7 @@ class TorqueRefresher {
                                         val finalUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
                                         finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 &&
                                             rpm != initialRpm && finalUpdate > 0L && finalUpdate != initialRpmUpdate
-                                        DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum samples=${pending.samples} elapsedMs=${android.os.SystemClock.elapsedRealtime() - pending.startMs} durationMs=${android.os.SystemClock.elapsedRealtime() - finalStarted}")
+                                        DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm rpmUpdateMs=$finalUpdate wallClockMs=${System.currentTimeMillis()} elapsedClockMs=${android.os.SystemClock.elapsedRealtime()} initialRpmUpdateMs=$initialRpmUpdate valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum samples=${pending.samples} elapsedMs=${android.os.SystemClock.elapsedRealtime() - pending.startMs} durationMs=${android.os.SystemClock.elapsedRealtime() - finalStarted}")
                                     }
                                     if (!finalQueried) DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} error=torque_unbound")
                                     synchronized(pendingMinimums) {
