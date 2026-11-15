@@ -91,6 +91,15 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         try {
             stream.write(csv.toString().toByteArray(Charsets.UTF_8))
             historyFile.finishWrite(stream)
+            // Public copy for Files/Excel; private CSV and JSON remain recovery sources.
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                try {
+                    PublicDocuments.write(app, PublicDocuments.ROOT, "Fuel-Up-History.csv",
+                        "text/csv", csv.toString().toByteArray(Charsets.UTF_8))
+                } catch (e: Exception) {
+                    DiagnosticLog.event("FUEL_PUBLIC_HISTORY_ERROR", e.javaClass.simpleName)
+                }
+            }
         } catch (e: Exception) {
             historyFile.failWrite(stream)
             throw e
