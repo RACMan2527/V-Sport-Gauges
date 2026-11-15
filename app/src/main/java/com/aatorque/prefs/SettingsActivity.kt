@@ -385,7 +385,7 @@ class SettingsActivity : AppCompatActivity(),
             return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = input
-                putExtra(DocumentsContract.EXTRA_INITIAL_URI, exportsFolderUri())
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Documents/V-Sport Gauges/Exports"))
             }
         }
 
