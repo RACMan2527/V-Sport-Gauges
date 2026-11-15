@@ -30,16 +30,12 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         Thread(r, "V-Sport-Fuel-Tracker").apply { isDaemon = true }
     }
     private var task: ScheduledFuture<*>? = null
-    private var state = load().apply {
-        // Pending summaries from an earlier app session must not appear on startup.
-        remove("pending")
-    }
+    private var state = load()
     private var lastSampleMs = 0L
     private var candidate: Double? = null
     private var candidateCount = 0
     private var candidateBaseline: Double? = null
     private var lastFuelUpdateTime = 0L
-    private var lastValidFuelLevel: Double? = null
     @Volatile private var latest: Summary? = null
 
     private fun emptyState(): JSONObject = JSONObject().put("schema", 2)
@@ -200,7 +196,6 @@ class FuelTracker(context: Context, private val service: TorqueService) {
                 // Baseline tracks consumption, never ratchets upward during filling.
                 if (level < baseline && level > 0.0) state.put("fuelBaseline", level)
             }
-            lastValidFuelLevel = level
         }
         // Avoid a write on every 2s poll; save approximately every 30 seconds.
         if (now - lastPersistMs > 30_000L) {
@@ -212,33 +207,46 @@ class FuelTracker(context: Context, private val service: TorqueService) {
     private var lastPersistMs = 0L
 
     private fun onRefill(after: Double, before: Double) {
-        // A refill without any tracked travel is not a completed driving period.
+        // Commit the completed tank and new baseline in one atomic replacement.
+        // If the write fails, leave the in-memory authoritative state unchanged.
+        val next = JSONObject(state.toString())
+        next.put("lowLevel", after)
+        next.put("fuelBaseline", after)
         if (state.optDouble("miles") < 1.0) {
-            state.put("lowLevel", after)
-            state.put("fuelBaseline", after)
-            save()
+            commit(next)
             return
         }
         val id = System.currentTimeMillis()
-        val gallons = if (state.optBoolean("fuelRateValid", true) && state.optBoolean("fuelRateSeen", false))
-            state.optDouble("gallons") else null
+        val gallons = if (state.optBoolean("fuelRateValid", true) &&
+            state.optBoolean("fuelRateSeen", false)) state.optDouble("gallons") else null
         val finished = JSONObject().put("id", id)
             .put("miles", state.optDouble("miles"))
             .put("gallons", gallons ?: JSONObject.NULL)
             .put("seconds", state.optLong("seconds"))
             .put("beforeLevel", before).put("afterLevel", after)
-        state.getJSONArray("completed").put(finished)
-        state.put("pending", finished)
+        next.getJSONArray("completed").put(finished)
+        next.put("pending", finished)
+        next.put("miles", 0.0)
+        next.put("gallons", 0.0)
+        next.put("seconds", 0L)
+        next.put("fuelRateValid", true)
+        next.put("fuelRateSeen", false)
+        commit(next)
         latest = summaryFromJson(finished)
         DiagnosticLog.event("FUEL_TANK_COMPLETED",
             "id=$id miles=${latest!!.miles} gallons=${latest!!.gallons} seconds=${latest!!.seconds}")
-        state.put("lowLevel", after)
-        state.put("fuelBaseline", after)
-        state.put("miles", 0.0)
-        state.put("gallons", 0.0)
-        state.put("seconds", 0L)
-        state.put("fuelRateValid", true)
-        state.put("fuelRateSeen", false)
-        save()
+    }
+
+    private fun commit(next: JSONObject) {
+        val bytes = next.toString(2).toByteArray(Charsets.UTF_8)
+        val stream = file.startWrite()
+        try {
+            stream.write(bytes)
+            file.finishWrite(stream)
+        } catch (e: Exception) {
+            file.failWrite(stream)
+            throw e
+        }
+        state = next
     }
 }
