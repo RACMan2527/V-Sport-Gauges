@@ -113,7 +113,20 @@ open class DashboardFragment : AlbumArt() {
         }
         val hours = summary.seconds / 3600
         val minutes = (summary.seconds % 3600) / 60
-        row(if (preview) "CURRENT TRACKING (PREVIEW)" else "LAST TANK", "")
+        val heading = TextView(ctx).apply {
+            text = if (preview) "CURRENT TRACKING (PREVIEW)" else "LAST TANK"
+            textSize = 17f
+            setTextColor(Color.WHITE)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(9), dp(14), dp(9))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(40, 46, 54))
+                cornerRadius = dp(5).toFloat()
+            }
+        }
+        panel.addView(heading, LinearLayout.LayoutParams(-1, -2).apply {
+            bottomMargin = dp(4)
+        })
         row("Tank MPG", summary.mpg?.let { String.format(java.util.Locale.US, "%.1f MPG", it) } ?: "Unavailable", true)
         row("Distance", String.format(java.util.Locale.US, "%.1f mi", summary.miles))
         row("Fuel Consumed", summary.gallons?.let { String.format(java.util.Locale.US, "%.1f gal", it) } ?: "Unavailable")
@@ -177,7 +190,6 @@ open class DashboardFragment : AlbumArt() {
     private var quickResetSelection = 0
     private val diagnosticsHandler = Handler(Looper.getMainLooper())
     private var diagnosticsValueViews: List<TextView> = emptyList()
-    private var diagnosticsQualityView: TextView? = null
     private var diagnosticsLastCount = 0L
     private var diagnosticsLastSampleMs = 0L
     private val diagnosticsRefresh = object : Runnable {
@@ -190,22 +202,17 @@ open class DashboardFragment : AlbumArt() {
             diagnosticsLastCount = snapshot.successfulPolls
             diagnosticsLastSampleMs = now
             val age = if (snapshot.lastSuccessAtMs > 0L) "${now - snapshot.lastSuccessAtMs} ms" else "—"
+            val quality = snapshot.quality
+            val total = quality.total
             val values = listOf(
                 "${TorqueRefresher.SAMPLE_INTERVAL} ms",
                 String.format(java.util.Locale.US, "%.1f /sec", rate),
-                "${TorqueRefresher.REFRESH_INTERVAL} ms",
                 if (snapshot.lastResponseMs >= 0) "${snapshot.lastResponseMs} ms" else "—",
-                snapshot.failedPolls.toString(),
-                age
+                age,
+                "${quality.stale} (${Math.round(100.0 * quality.stale / total.coerceAtLeast(1))}%)",
+                "${quality.suspect} (${Math.round(100.0 * quality.suspect / total.coerceAtLeast(1))}%)"
             )
             diagnosticsValueViews.forEachIndexed { index, view -> view.text = values[index] }
-            val quality = snapshot.quality
-            val total = quality.total
-            val stalePct = if (total > 0) 100.0 * quality.stale / total else 0.0
-            val suspectPct = if (total > 0) 100.0 * quality.suspect / total else 0.0
-            diagnosticsQualityView?.text = String.format(java.util.Locale.US,
-                "PID Quality   Stale: %d (%.1f%%)   Suspect: %d (%.1f%%)",
-                quality.stale, stalePct, quality.suspect, suspectPct)
             diagnosticsHandler.postDelayed(this, 1_000L)
         }
     }
@@ -1406,7 +1413,7 @@ open class DashboardFragment : AlbumArt() {
                 }
                 panel.addView(state)
                 val labels = listOf("PID Polling Target", "Actual PID Rate",
-                    "Screen Refresh", "ECU Response", "PID Failures", "Last PID Age")
+                    "Torque Response", "Last PID Age", "Stale Data", "Suspect Data")
                 val valueViews = mutableListOf<TextView>()
                 labels.chunked(2).forEach { pair ->
                     val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -1438,13 +1445,6 @@ open class DashboardFragment : AlbumArt() {
                     panel.addView(line)
                 }
                 diagnosticsValueViews = valueViews
-                diagnosticsQualityView = TextView(context).apply {
-                    text = "PID Quality   Stale: —   Suspect: —"
-                    textSize = 12f
-                    setTextColor(Color.WHITE)
-                    setPadding(dp(12), dp(6), dp(12), dp(6))
-                }
-                panel.addView(diagnosticsQualityView)
                 row("Torque Connection: " + currentConnectionStatus.name) {}
                 row("Data Stream: " + if (communicationFaultActive) "Fault" else "Monitoring") {}
                 row("BACK") { openQuickControls() }
