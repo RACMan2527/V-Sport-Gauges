@@ -45,7 +45,8 @@ class TorqueRefresher {
         val successfulPolls: Long,
         val failedPolls: Long,
         val lastResponseMs: Long,
-        val lastSuccessAtMs: Long
+        val lastSuccessAtMs: Long,
+        val quality: PidValidator.Snapshot
     )
     private val diagSuccess = java.util.concurrent.atomic.AtomicLong()
     private val diagFailures = java.util.concurrent.atomic.AtomicLong()
@@ -53,7 +54,7 @@ class TorqueRefresher {
     private val diagLastSuccessAtMs = java.util.concurrent.atomic.AtomicLong(0L)
     fun diagnosticsSnapshot(): DiagnosticsSnapshot = DiagnosticsSnapshot(
         diagSuccess.get(), diagFailures.get(),
-        diagLastResponseMs.get(), diagLastSuccessAtMs.get()
+        diagLastResponseMs.get(), diagLastSuccessAtMs.get(), PidValidator.snapshot()
     )
 
     private fun markPollResult(gauge: TorqueData, successful: Boolean) {
@@ -200,6 +201,7 @@ class TorqueRefresher {
             } finally {
                 diagLastResponseMs.set(android.os.SystemClock.elapsedRealtime() - requestStarted)
             }
+            val quality = PidValidator.inspect(ts, torqueData.pid!!, value)
             if (!torqueData.updateReading(value)) {
                 DiagnosticLog.event("PID_REJECTED", "${diagnosticPid(torqueData)} raw=$value")
                 markPollResult(torqueData, false)
@@ -207,11 +209,11 @@ class TorqueRefresher {
             }
             markPollResult(torqueData, true)
             torqueData.hasReceivedReading = true
-            if (data[7] === torqueData) {
+            if (quality.quality == PidValidator.Quality.VALID && data[7] === torqueData) {
                 if (!torqueData.display.hasHorizontalDailyMaxEnabled() || torqueData.display.horizontalDailyMaxEnabled) {
                     DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData, horizontalBar = true)
                 }
-            } else when (torqueData.display.maxMarksActive) {
+            } else if (quality.quality == PidValidator.Quality.VALID) when (torqueData.display.maxMarksActive) {
                 MaxControl.MAX -> DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData)
                 MaxControl.MIN -> validateMinimumIfNeeded(service, torqueData, torqueData.lastData)
                 MaxControl.BOTH -> {
@@ -270,11 +272,13 @@ class TorqueRefresher {
                 try {
                     var rpmValid = false
                     var initialRpm: Double? = null
+                    var initialRpmUpdate = 0L
                     val initialStarted = android.os.SystemClock.elapsedRealtime()
                     val initialQueried = service.runIfConnected { ts ->
                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                         initialRpm = rpm
-                        rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0
+                        initialRpmUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
+                        rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 && initialRpmUpdate > 0L
                         if (rpmValid) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
                     }
 
@@ -307,7 +311,9 @@ class TorqueRefresher {
                                     val finalQueried = service.runIfConnected { ts ->
                                         val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                                         finalRpm = rpm
-                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm != initialRpm
+                                        val finalUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
+                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 &&
+                                            rpm != initialRpm && finalUpdate > 0L && finalUpdate != initialRpmUpdate
                                         DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum samples=${pending.samples} elapsedMs=${android.os.SystemClock.elapsedRealtime() - pending.startMs} durationMs=${android.os.SystemClock.elapsedRealtime() - finalStarted}")
                                     }
                                     if (!finalQueried) DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} error=torque_unbound")

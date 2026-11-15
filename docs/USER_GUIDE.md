@@ -9,9 +9,11 @@ This is the **how-to guide** for the features added to the original AA Torque ap
 
 The app independently samples standard ECU fuel level (PID 012F), vehicle speed (010D), and engine fuel rate (015E) through Torque Pro. It tracks distance from speed and elapsed time, and fuel consumed from the fuel-rate reading when available. It does **not** use Torque Pro's trip MPG or trip-distance counters. Fuel consumption and MPG display as **Unavailable** when a valid fuel-rate stream has not been established. The accuracy and availability of these PIDs on the Escalade must be confirmed in the vehicle.
 
-A refuel candidate requires a verified engine-running → engine-off → engine-running sequence using RPM, with three consecutive zero-RPM readings to confirm engine-off. After restart, the vehicle must remain stationary while five stable fuel-level readings confirm an increase of at least 12 percentage points relative to the last running fuel level before shutdown. Validation expires after approximately 30 seconds or immediately on movement. A Torque/ECU disconnect does not count as engine-off and cancels any pending validation. Continuous engine operation, including highway exits and stoplights, cannot trigger a refill. Tracking begins with the first valid connected readings, regardless of the current fuel level. Every validated refill—including the first—completes the accumulated period, saves its distance, driving time, fuel used when available, and MPG when available, and queues the automatic **Last Tank** popup. The first period covers only driving since tracking began and may not represent a full tank. The popup appears above the gauges for a newly detected refill while the gauges screen is active, remains until **OK**, and is deferred while the dashboard is not foreground. A pending popup is not restored after restarting the app. Refill events with less than one mile of accumulated travel do not create a summary.
+A refuel candidate requires an increase of at least **25 percentage points** from the last persisted fuel-level baseline. Engine shutdown, restart, and RPM are not required: a refill may be detected while the engine is running or between app sessions. Confirmation requires five distinct Torque fuel-level source updates that remain within three percentage points of the candidate. A single high reading or repeated cached values must not count as five updates. The fuel-level baseline is retained between sessions, and lower readings can update it as fuel is consumed. Refills smaller than 25 percentage points are not detected by this rule.
 
-The authoritative tracker state is saved atomically in app-private storage; a readable copy named `Fuel-Tracker.json` is written to **Downloads / V-Sport Gauges**, alongside the diagnostic logs. Tank history is retained in its `completed` array. Do not delete the private app data if you want to retain tracker state. The Downloads copy is an export, not an automatic restore source. Fuel-level-based refill detection cannot reconstruct a refill that happened before any lower fuel level was observed.
+A confirmed refill completes the accumulated tank, preserves distance, driving time, fuel used and MPG when available, and queues the **Last Tank** popup. The popup remains until **OK**; pending summaries are preserved across normal app restarts. Refill events with less than one mile of accumulated travel do not create a summary.
+
+The authoritative `Fuel-Tracker.json` is saved atomically in app-private storage. The app no longer attempts a continuously synchronized Downloads copy. Normal shutdown triggers a save; an unexpected termination recovers the last completed save. Do not clear app data or uninstall the app if you want to retain this history. A damaged existing file is not silently replaced with an empty tank. These behaviors await vehicle verification.
 
 ## Quick Controls and Live Diagnostics
 
@@ -29,12 +31,12 @@ Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile
 | --- | --- |
 | **PID Polling Target** | Configured PID request interval, in milliseconds; a target, not a measured rate |
 | **Actual PID Rate** | Number of successful accepted PID polls per second across active gauge requests, measured over the preceding display interval |
-| **Screen Refresh** | Configured gauge animation interval, in milliseconds; not the Android Auto screen frame rate |
-| **ECU Response** | Elapsed time for the most recently completed existing PID request, in milliseconds |
-| **PID Failures** | Cumulative failed poll results counted while polling is enabled; **not exclusively timeouts** |
-| **Last PID Age** | Time elapsed since the most recent accepted successful PID reading; a dash appears until one is received |
+| **Torque Response** | Time spent retrieving the last PID value from Torque's API, in milliseconds; not confirmed ECU latency |
+| **Last PID Age** | Time since the most recent accepted PID reading; a dash appears until one is received |
+| **Stale Data** | Cumulative count and whole-number percentage of PID validation results with an unchanged source timestamp |
+| **Suspect Data** | Cumulative count and whole-number percentage of PID validation results that failed validation, including unavailable connection, invalid values or invalid timestamps |
 
-The connection label uses the **existing application ECU connection flag**; diagnostics does not independently determine ECU connectivity or change the connection-state logic. The panel also displays **Torque Connection** and **Data Stream** summary labels. A Data Stream label of **Monitoring** is not proof of fresh ECU data; use Actual PID Rate and Last PID Age for that assessment.
+The six tiles are grouped by polling, timing, and data quality. The existing ECU status line, **Torque Connection** and **Data Stream** rows retain their original connection-state logic and placement. A **Monitoring** status does not by itself establish fresh ECU data. Stale and suspect percentages are cumulative since app startup, not a live rolling-window percentage. The Screen Refresh setting remains available in Quick Controls even though its value is no longer displayed in Live Diagnostics.
 
 The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
 
