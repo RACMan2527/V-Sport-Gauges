@@ -78,7 +78,17 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         source.put("fuelRateSeen", false)
         source.put("schema", 3)
         DiagnosticLog.event("FUEL_TRACKER_MIGRATED", "Legacy raw-PID totals preserved separately")
-        save()
+        val bytes = source.toString(2).toByteArray(Charsets.UTF_8)
+        val stream = file.startWrite()
+        try {
+            stream.write(bytes)
+            file.finishWrite(stream)
+            try { PublicDocuments.write(app, PublicDocuments.ROOT, "Fuel-Tracker.json", "application/json", bytes) }
+            catch (e: Exception) { DiagnosticLog.event("FUEL_PUBLIC_TRACKER_ERROR", e.javaClass.simpleName) }
+        } catch (e: Exception) {
+            file.failWrite(stream)
+            throw e
+        }
     }
 
     /**
