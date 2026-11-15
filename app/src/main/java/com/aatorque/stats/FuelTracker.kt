@@ -29,7 +29,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         Thread(r, "V-Sport-Fuel-Tracker").apply { isDaemon = true }
     }
     private var task: ScheduledFuture<*>? = null
-    private var state = load().also { writeHistory(it) }
+    private var state = load().also { migrateLegacyFuelAccounting(it); writeHistory(it) }
     private var lastSampleMs = 0L
     private var previousTripMiles: Double? = null
     private var previousTripGallons: Double? = null
@@ -40,7 +40,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
     private var warnedNoFuelTimestamp = false
     @Volatile private var latest: Summary? = null
 
-    private fun emptyState(): JSONObject = JSONObject().put("schema", 2)
+    private fun emptyState(): JSONObject = JSONObject().put("schema", 3)
         .put("miles", 0.0).put("gallons", 0.0).put("seconds", 0L)
         .put("fuelRateValid", true).put("fuelRateSeen", false)
         .put("completed", JSONArray())
@@ -63,6 +63,23 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         throw IllegalStateException("Cannot recover Fuel-Tracker.json; existing data preserved", e)
     }
 
+
+    /** Keep prior unverified raw-PID totals for audit, but never mix them with
+     * Torque trip totals; doing so would produce a misleading tank MPG. */
+    private fun migrateLegacyFuelAccounting(source: JSONObject) {
+        if (source.optInt("schema", 2) >= 3) return
+        source.put("legacyRawPidMiles", source.optDouble("miles"))
+        source.put("legacyRawPidSeconds", source.optLong("seconds"))
+        source.put("legacyRawPidGallons", source.optDouble("gallons"))
+        source.put("miles", 0.0)
+        source.put("seconds", 0L)
+        source.put("gallons", 0.0)
+        source.put("fuelRateValid", true)
+        source.put("fuelRateSeen", false)
+        source.put("schema", 3)
+        DiagnosticLog.event("FUEL_TRACKER_MIGRATED", "Legacy raw-PID totals preserved separately")
+        save()
+    }
 
     /**
      * Completed tank JSON remains the atomic recovery journal. CSV is a separate,
@@ -218,6 +235,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             val reset = (oldMiles != null && tripMiles + 0.01 < oldMiles) ||
                 (oldSeconds != null && tripSeconds + 0.5 < oldSeconds)
             if (reset) {
+                previousTripGallons = null
                 DiagnosticLog.event("FUEL_TRIP_RESET", "Torque trip distance/time reset")
             } else if (oldMiles != null && oldSeconds != null) {
                 val milesDelta = (tripMiles - oldMiles).coerceAtLeast(0.0)
