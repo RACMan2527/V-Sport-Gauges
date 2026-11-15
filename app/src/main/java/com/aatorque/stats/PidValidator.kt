@@ -27,8 +27,12 @@ object PidValidator {
                 minimum: Double = Double.NEGATIVE_INFINITY,
                 maximum: Double = Double.POSITIVE_INFINITY,
                 consumer: String = "gauges"): Result {
+        // A disconnected ECU is a connection state, not a data-quality sample.
+        // Preserve SUSPECT for callers that reject unusable values, but do not count it.
+        var disconnected = false
         val result = try {
-            if (!ts.isConnectedToECU || value == null || !value.isFinite() ||
+            disconnected = !ts.isConnectedToECU
+            if (disconnected || value == null || !value.isFinite() ||
                 value < minimum || value > maximum) {
                 Result(Quality.SUSPECT, 0L)
             } else {
@@ -46,7 +50,7 @@ object PidValidator {
         when (result.quality) {
             Quality.VALID -> validCount.incrementAndGet()
             Quality.STALE -> staleCount.incrementAndGet()
-            Quality.SUSPECT -> suspectCount.incrementAndGet()
+            Quality.SUSPECT -> if (!disconnected) suspectCount.incrementAndGet()
         }
         return result
     }
