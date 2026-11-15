@@ -45,14 +45,17 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         .put("completed", JSONArray())
 
     private fun load(): JSONObject = try {
-        val bytes = file.openRead().use { it.readBytes() }
+        val bytes = try {
+            file.openRead().use { it.readBytes() }
+        } catch (_: FileNotFoundException) {
+            PublicDocuments.readFuelDocument(app, "Fuel-Tracker.json")
+                ?: throw IllegalStateException("Link existing Fuel-Tracker.json in phone Settings before starting")
+        }
         JSONObject(String(bytes, Charsets.UTF_8)).also {
             require(it.has("miles") && it.has("seconds") && it.optJSONArray("completed") != null) {
                 "Incomplete fuel tracker state"
             }
         }
-    } catch (_: FileNotFoundException) {
-        emptyState()
     } catch (e: Exception) {
         // Never replace a damaged or unreadable tank with an empty one.
         DiagnosticLog.event("FUEL_TRACKER_LOAD_ERROR", e.javaClass.simpleName)
@@ -112,6 +115,12 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         try {
             stream.write(bytes)
             file.finishWrite(stream)
+            try {
+                PublicDocuments.write(app, PublicDocuments.ROOT, "Fuel-Tracker.json",
+                    "application/json", bytes)
+            } catch (e: Exception) {
+                DiagnosticLog.event("FUEL_PUBLIC_TRACKER_ERROR", e.javaClass.simpleName)
+            }
         } catch (e: Exception) {
             file.failWrite(stream)
             throw e
