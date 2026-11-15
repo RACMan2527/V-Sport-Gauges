@@ -35,7 +35,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
     private var candidate: Double? = null
     private var candidateCount = 0
     private var candidateBaseline: Double? = null
-    private var lastFuelUpdateTime = 0L
+    private var warnedNoFuelTimestamp = false
     @Volatile private var latest: Summary? = null
 
     private fun emptyState(): JSONObject = JSONObject().put("schema", 2)
@@ -89,7 +89,7 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         candidate = null
         candidateCount = 0
         candidateBaseline = null
-        lastFuelUpdateTime = 0L
+        warnedNoFuelTimestamp = false
     }
 
     @Synchronized fun close() {
@@ -161,10 +161,13 @@ class FuelTracker(context: Context, private val service: TorqueService) {
 
         // Refill detection is independent of RPM and survives application restarts.
         // A source timestamp must advance; five cached API returns are not five samples.
-        val updateTime = try { ts.getPIDUpdateTime(arrayOf("2f,0")).firstOrNull() ?: 0L }
-            catch (_: Exception) { 0L }
-        if (updateTime > 0L && updateTime != lastFuelUpdateTime) {
-            lastFuelUpdateTime = updateTime
+        val fuelQuality = PidValidator.inspect(ts, "2f,0", level, 0.0, 100.0, "fuel")
+        if (fuelQuality.updateTime <= 0L && !warnedNoFuelTimestamp) {
+            warnedNoFuelTimestamp = true
+            DiagnosticLog.event("FUEL_TIMESTAMP_UNAVAILABLE",
+                "Cannot confirm distinct ECU fuel-level updates")
+        }
+        if (fuelQuality.quality == PidValidator.Quality.VALID) {
             val persisted = state.optDouble("fuelBaseline", Double.NaN)
             val baseline = if (persisted.isFinite() && persisted in 0.0..100.0)
                 persisted else null
