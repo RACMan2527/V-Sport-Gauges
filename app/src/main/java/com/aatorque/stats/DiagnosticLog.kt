@@ -182,22 +182,20 @@ object DiagnosticLog {
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
     private fun trimMediaStore(context: Context) {
         val resolver = context.contentResolver
+        val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val entries = mutableListOf<Pair<String, Uri>>()
-        resolver.query(
-            MediaStore.Downloads.EXTERNAL_CONTENT_URI,
-            arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Downloads.DISPLAY_NAME),
-            "${MediaStore.Downloads.DISPLAY_NAME} LIKE ?",
-            arrayOf("$PREFIX%.log"), null
+        resolver.query(collection,
+            arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.DISPLAY_NAME),
+            "${MediaStore.Files.FileColumns.RELATIVE_PATH}=? AND ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?",
+            arrayOf(PublicDocuments.LOGS, "$PREFIX%.log"), null
         )?.use { cursor ->
             while (cursor.moveToNext()) {
                 val name = cursor.getString(1)
                 if (name.startsWith(PREFIX) && name.endsWith(".log")) {
-                    entries.add(name to android.content.ContentUris.withAppendedId(
-                        MediaStore.Downloads.EXTERNAL_CONTENT_URI, cursor.getLong(0)))
+                    entries.add(name to android.content.ContentUris.withAppendedId(collection, cursor.getLong(0)))
                 }
             }
         }
-        // Only delete our own logs; Android enforces ownership for app-created MediaStore entries.
         entries.sortedBy { it.first }.dropLast(KEEP_FILES).forEach { (_, uri) ->
             try { resolver.delete(uri, null, null) } catch (_: Exception) { }
         }
