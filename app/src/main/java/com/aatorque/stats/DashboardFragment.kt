@@ -177,6 +177,7 @@ open class DashboardFragment : AlbumArt() {
     private var quickResetSelection = 0
     private val diagnosticsHandler = Handler(Looper.getMainLooper())
     private var diagnosticsValueViews: List<TextView> = emptyList()
+    private var diagnosticsQualityView: TextView? = null
     private var diagnosticsLastCount = 0L
     private var diagnosticsLastSampleMs = 0L
     private val diagnosticsRefresh = object : Runnable {
@@ -198,6 +199,13 @@ open class DashboardFragment : AlbumArt() {
                 age
             )
             diagnosticsValueViews.forEachIndexed { index, view -> view.text = values[index] }
+            val quality = snapshot.quality
+            val total = quality.total
+            val stalePct = if (total > 0) 100.0 * quality.stale / total else 0.0
+            val suspectPct = if (total > 0) 100.0 * quality.suspect / total else 0.0
+            diagnosticsQualityView?.text = String.format(java.util.Locale.US,
+                "PID Quality   Stale: %d (%.1f%%)   Suspect: %d (%.1f%%)",
+                quality.stale, stalePct, quality.suspect, suspectPct)
             diagnosticsHandler.postDelayed(this, 1_000L)
         }
     }
@@ -1430,6 +1438,13 @@ open class DashboardFragment : AlbumArt() {
                     panel.addView(line)
                 }
                 diagnosticsValueViews = valueViews
+                diagnosticsQualityView = TextView(context).apply {
+                    text = "PID Quality   Stale: —   Suspect: —"
+                    textSize = 12f
+                    setTextColor(Color.WHITE)
+                    setPadding(dp(12), dp(6), dp(12), dp(6))
+                }
+                panel.addView(diagnosticsQualityView)
                 row("Torque Connection: " + currentConnectionStatus.name) {}
                 row("Data Stream: " + if (communicationFaultActive) "Fault" else "Monitoring") {}
                 row("BACK") { openQuickControls() }
