@@ -103,7 +103,6 @@ class SettingsActivity : AppCompatActivity(),
             requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 4102)
         }
         supportActionBar!!.setDisplayUseLogoEnabled(true)
-        if (savedInstanceState == null) window.decorView.post { promptFuelSetup() }
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
@@ -141,45 +140,12 @@ class SettingsActivity : AppCompatActivity(),
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.settings_menu, menu)
-        menu?.add(0, 984116, 100, "Link existing Fuel-Up-History.csv")
-            ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
-        menu?.add(0, 984117, 101, "Link existing Fuel-Tracker.json")
-            ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
-        menu?.add(0, 984118, 102, "Save current Fuel-Tracker.json to Documents")
-            ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
         return true
     }
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         // Handle item selection
         return when (item.itemId) {
-            984118 -> {
-                val source = java.io.File(filesDir, "Fuel-Tracker.json")
-                if (!source.exists()) {
-                    Toast.makeText(this, "No private fuel journal to export", Toast.LENGTH_LONG).show()
-                } else {
-                    createFuelJson.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                        addCategory(Intent.CATEGORY_OPENABLE)
-                        type = "application/json"
-                        putExtra(Intent.EXTRA_TITLE, "Fuel-Tracker.json")
-                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                            Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                            Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                    })
-                }
-                true
-            }
-            984116, 984117 -> {
-                requestedFuelName = if (item.itemId == 984116) "Fuel-Up-History.csv" else "Fuel-Tracker.json"
-                fuelHistoryPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                })
-                true
-            }
             R.id.action_preview -> {
                 launchFragment("preview", DashboardPreviewFragment())
                 true
@@ -251,89 +217,6 @@ class SettingsActivity : AppCompatActivity(),
             .commit()
     }
 
-
-    private var creatingFuelName = "Fuel-Tracker.json"
-
-    private fun promptFuelSetup() {
-        val name = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
-            .firstOrNull { !PublicDocuments.linkedFuelDocument(this, it) } ?: return
-        AlertDialog.Builder(this).setTitle("Persistent fuel files")
-            .setMessage("Create or select $name in Documents/V-Sport Gauges.")
-            .setPositiveButton("Create new") { _, _ ->
-                creatingFuelName = name
-                createPersistentFuel.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = if (name.endsWith(".json")) "application/json" else "text/csv"
-                    putExtra(Intent.EXTRA_TITLE, name)
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                })
-            }
-            .setNeutralButton("Select existing") { _, _ ->
-                requestedFuelName = name
-                fuelHistoryPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-                    addCategory(Intent.CATEGORY_OPENABLE)
-                    type = "*/*"
-                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
-                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
-                })
-            }.setNegativeButton("Later", null).show()
-    }
-
-    private val createPersistentFuel = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val uri = result.data?.data
-        if (result.resultCode == Activity.RESULT_OK && uri != null) {
-            try {
-                val bytes = PublicDocuments.initialFuelDocument(creatingFuelName)
-                contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
-                PublicDocuments.linkFuelDocument(this, uri, result.data?.flags ?: 0, creatingFuelName)
-                Toast.makeText(this, "$creatingFuelName ready", Toast.LENGTH_LONG).show()
-                window.decorView.post { promptFuelSetup() }
-            } catch (e: Exception) {
-                Toast.makeText(this, "Fuel setup failed: " + e.message, Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private val createFuelJson = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val uri = result.data?.data
-        if (result.resultCode == Activity.RESULT_OK && uri != null) {
-            try {
-                val source = java.io.File(filesDir, "Fuel-Tracker.json")
-                val bytes = source.readBytes()
-                val json = JSONObject(String(bytes, Charsets.UTF_8))
-                require(json.has("miles") && json.optJSONArray("completed") != null)
-                contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
-                PublicDocuments.linkFuelDocument(this, uri, result.data?.flags ?: 0, "Fuel-Tracker.json")
-                Toast.makeText(this, "Fuel-Tracker.json saved and linked", Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(this, "Fuel journal export failed: " + e.message, Toast.LENGTH_LONG).show()
-            }
-        }
-    }
-
-    private var requestedFuelName = "Fuel-Up-History.csv"
-
-    private val fuelHistoryPicker = registerForActivityResult(
-        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        val uri = result.data?.data
-        if (result.resultCode == Activity.RESULT_OK && uri != null) {
-            try {
-                PublicDocuments.linkFuelDocument(this, uri, result.data?.flags ?: 0, requestedFuelName)
-                Toast.makeText(this, "$requestedFuelName linked for persistent read/write.", Toast.LENGTH_LONG).show()
-                window.decorView.post { promptFuelSetup() }
-            } catch (e: Exception) {
-                Toast.makeText(this, "Fuel history not linked: " + e.message, Toast.LENGTH_LONG).show()
-            }
-        }
-    }
 
     private val exportFileLauncher = registerForActivityResult(ExportFileContract()) { uri: Uri? ->
         if (uri != null) performExport(uri)
