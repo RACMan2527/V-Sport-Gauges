@@ -26,6 +26,11 @@ object PublicDocuments {
                 existing = android.content.ContentUris.withAppendedId(collection, cursor.getLong(0))
             }
         }
+        // Never insert another public fuel history when MediaStore cannot see the original.
+        // The private atomic CSV remains intact and can be published after access is fixed.
+        if (name == "Fuel-Up-History.csv" && existing == null) {
+            throw IllegalStateException("Fuel history not visible in MediaStore; duplicate creation blocked")
+        }
         val uri = existing ?: resolver.insert(collection, ContentValues().apply {
             put(MediaStore.Files.FileColumns.DISPLAY_NAME, name)
             put(MediaStore.Files.FileColumns.MIME_TYPE, mime)
