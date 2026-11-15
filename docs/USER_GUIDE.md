@@ -31,12 +31,12 @@ Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile
 | --- | --- |
 | **PID Polling Target** | Configured PID request interval, in milliseconds; a target, not a measured rate |
 | **Actual PID Rate** | Number of successful accepted PID polls per second across active gauge requests, measured over the preceding display interval |
-| **Screen Refresh** | Configured gauge animation interval, in milliseconds; not the Android Auto screen frame rate |
-| **ECU Response** | Elapsed time for the most recently completed existing PID request, in milliseconds |
-| **PID Failures** | Cumulative failed poll results counted while polling is enabled; **not exclusively timeouts** |
-| **Last PID Age** | Time elapsed since the most recent accepted successful PID reading; a dash appears until one is received |
+| **Torque Response** | Time spent retrieving the last PID value from Torque's API, in milliseconds; not confirmed ECU latency |
+| **Last PID Age** | Time since the most recent accepted PID reading; a dash appears until one is received |
+| **Stale Data** | Cumulative count and whole-number percentage of PID validation results with an unchanged source timestamp |
+| **Suspect Data** | Cumulative count and whole-number percentage of PID validation results that failed validation, including unavailable connection, invalid values or invalid timestamps |
 
-The connection label uses the **existing application ECU connection flag**; diagnostics does not independently determine ECU connectivity or change the connection-state logic. The panel also displays **Torque Connection** and **Data Stream** summary labels, plus a **PID Quality** row with stale and suspect sample counts and percentages. Timestamp availability and interpretation require vehicle verification. A Data Stream label of **Monitoring** is not proof of fresh ECU data; use Actual PID Rate and Last PID Age for that assessment.
+The six tiles are grouped by polling, timing, and data quality. The existing ECU status line, **Torque Connection** and **Data Stream** rows retain their original connection-state logic and placement. A **Monitoring** status does not by itself establish fresh ECU data. Stale and suspect percentages are cumulative since app startup, not a live rolling-window percentage. The Screen Refresh setting remains available in Quick Controls even though its value is no longer displayed in Live Diagnostics.
 
 The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
 
