@@ -142,13 +142,16 @@ class SettingsActivity : AppCompatActivity(),
         menuInflater.inflate(R.menu.settings_menu, menu)
         menu?.add(0, 984116, 100, "Link existing Fuel-Up-History.csv")
             ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
+        menu?.add(0, 984117, 101, "Link existing Fuel-Tracker.json")
+            ?.setShowAsAction(android.view.MenuItem.SHOW_AS_ACTION_NEVER)
         return true
     }
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         // Handle item selection
         return when (item.itemId) {
-            984116 -> {
+            984116, 984117 -> {
+                requestedFuelName = if (item.itemId == 984116) "Fuel-Up-History.csv" else "Fuel-Tracker.json"
                 fuelHistoryPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                     addCategory(Intent.CATEGORY_OPENABLE)
                     type = "*/*"
@@ -229,14 +232,16 @@ class SettingsActivity : AppCompatActivity(),
             .commit()
     }
 
+    private var requestedFuelName = "Fuel-Up-History.csv"
+
     private val fuelHistoryPicker = registerForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
     ) { result ->
         val uri = result.data?.data
         if (result.resultCode == Activity.RESULT_OK && uri != null) {
             try {
-                PublicDocuments.linkFuelHistory(this, uri, result.data?.flags ?: 0)
-                Toast.makeText(this, "Fuel history linked. Existing CSV will be updated in place.", Toast.LENGTH_LONG).show()
+                PublicDocuments.linkFuelDocument(this, uri, result.data?.flags ?: 0, requestedFuelName)
+                Toast.makeText(this, "$requestedFuelName linked for persistent read/write.", Toast.LENGTH_LONG).show()
             } catch (e: Exception) {
                 Toast.makeText(this, "Fuel history not linked: " + e.message, Toast.LENGTH_LONG).show()
             }
