@@ -59,7 +59,10 @@ object AllTimePeakStore {
             .edit()
             .putString(key(pid), value.toString())
             .apply()
-        if (previous != value) DiagnosticLog.recordChange("PEAK_UPDATE", pid, previous, value, label)
+        if (previous != value) {
+            DiagnosticLog.recordChange("PEAK_UPDATE", pid, previous, value, label)
+            AppStateStore.changed(context)
+        }
     }
 
     fun reset(context: Context, pid: String) {
@@ -68,6 +71,9 @@ object AllTimePeakStore {
             .edit()
             .remove(key(pid))
             .apply()
-        if (previous != null) DiagnosticLog.event("PEAK_RESET", "pid=$pid old=$previous")
+        if (previous != null) {
+            DiagnosticLog.event("PEAK_RESET", "pid=$pid old=$previous")
+            AppStateStore.changed(context)
+        }
     }
 }
