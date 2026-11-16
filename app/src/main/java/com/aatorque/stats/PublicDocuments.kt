@@ -3,6 +3,7 @@ package com.aatorque.stats
 import android.content.ContentValues
 import android.content.Context
 import android.net.Uri
+import android.util.AtomicFile
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
@@ -42,8 +43,27 @@ object PublicDocuments {
             }
         }
         resolver.takePersistableUriPermission(uri, flags)
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(expectedName, uri.toString()).commit()
+        // Preserve a validated private recovery journal immediately when the user links
+        // an existing tank. Never overwrite an already-present private journal.
+        if (expectedName == "Fuel-Tracker.json") {
+            val privateFile = File(context.filesDir, expectedName)
+            if (!privateFile.exists()) {
+                val journal = AtomicFile(privateFile)
+                val stream = journal.startWrite()
+                try {
+                    stream.write(contents)
+                    journal.finishWrite(stream)
+                    DiagnosticLog.event("FUEL_TRACKER_RECOVERED", "linked_document_to_private bytes=" + contents.size)
+                } catch (e: Exception) {
+                    journal.failWrite(stream)
+                    throw e
+                }
+            }
+        }
+        check(context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(expectedName, uri.toString()).commit()) {
+            "Cannot save persistent fuel document link"
+        }
     }
 
     fun linkedFuelDocument(context: Context, name: String): Boolean =
