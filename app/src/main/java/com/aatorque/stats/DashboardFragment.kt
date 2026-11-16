@@ -22,7 +22,6 @@ import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.MotionEvent
-import android.view.ViewConfiguration
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
@@ -219,7 +218,6 @@ open class DashboardFragment : AlbumArt() {
     private var quickSliderMode = ""
     private var quickSliderControl: SeekBar? = null
     private var quickSliderSave: View? = null
-    private val gaugePressHandler = Handler(Looper.getMainLooper())
     private var allRoundGaugesLarge = false
     private var centerGaugeLarge = false
     private val logoLongPressHandler = Handler(Looper.getMainLooper())
@@ -666,82 +664,6 @@ open class DashboardFragment : AlbumArt() {
         return true
     }
 
-    private fun configureGaugeScaleLongPress(gauge: View, allGauges: Boolean) {
-        val handler = gaugePressHandler
-        val touchSlop = ViewConfiguration.get(gauge.context).scaledTouchSlop
-        var startX = 0f
-        var startY = 0f
-        var pending: Runnable? = null
-        gauge.setOnTouchListener { view, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    startX = event.x
-                    startY = event.y
-                    // Restrict activation to the central portion of the round dial.
-                    val centerX = view.width / 2f
-                    val centerY = view.height / 2f
-                    val radius = minOf(view.width, view.height) * 0.22f
-                    if ((startX - centerX) * (startX - centerX) +
-                        (startY - centerY) * (startY - centerY) <= radius * radius) {
-                        val action = Runnable {
-                            // Persist the center state before applying either size mode.
-                            // This prevents the DataStore observer from restoring a stale
-                            // center-only selection after an all-gauges toggle.
-                            val nextAll = if (allGauges) !allRoundGaugesLarge else false
-                            val nextCenter = if (allGauges) false
-                                else !allRoundGaugesLarge && !centerGaugeLarge
-                            lifecycleScope.launch {
-                                requireContext().dataStore.updateData { current ->
-                                    current.toBuilder().setCenterGaugeLarge(nextCenter).build()
-                                }
-                                requireContext().getSharedPreferences(
-                                    "round_gauge_display", Context.MODE_PRIVATE
-                                ).edit().putBoolean("all_round_gauges_large", nextAll).apply()
-                                allRoundGaugesLarge = nextAll
-                                centerGaugeLarge = nextCenter
-                                DiagnosticLog.event("GAUGE_SIZE", "source=long_press all=$nextAll center=$nextCenter")
-                                applyRoundGaugeScale()
-                            }
-                        }
-                        pending = action
-                        handler.postDelayed(action, 3_000L)
-                    }
-                    true
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    if (kotlin.math.abs(event.x - startX) > touchSlop ||
-                        kotlin.math.abs(event.y - startY) > touchSlop) {
-                        pending?.let(handler::removeCallbacks)
-                        pending = null
-                    }
-                    true
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                    pending?.let(handler::removeCallbacks)
-                    pending = null
-                    if (event.actionMasked == MotionEvent.ACTION_UP) view.performClick()
-                    true
-                }
-                else -> true
-            }
-        }
-    }
-
-    private fun configureRefreshIntervalLongPress() {
-        val badge = binding.cadillacVSeriesBadge
-        val longPressAction = Runnable { showRefreshIntervalSlider() }
-        badge.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    logoLongPressHandler.removeCallbacks(longPressAction)
-                    logoLongPressHandler.postDelayed(longPressAction, 3_000L)
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> logoLongPressHandler.removeCallbacks(longPressAction)
-            }
-            true
-        }
-    }
-
     private fun showRefreshIntervalSlider() {
         if (!isAdded || refreshIntervalOverlay != null) return
 
@@ -889,22 +811,6 @@ open class DashboardFragment : AlbumArt() {
         refreshIntervalOverlay = null
         if (quickSliderMode == "refresh") openQuickControls()
     }
-    private fun configurePollingIntervalLongPress() {
-        val clock = binding.dashboardClock
-        val longPressAction = Runnable { showPollingIntervalSlider() }
-        clock.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    logoLongPressHandler.removeCallbacks(longPressAction)
-                    logoLongPressHandler.postDelayed(longPressAction, 3_000L)
-                }
-                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL ->
-                    logoLongPressHandler.removeCallbacks(longPressAction)
-            }
-            true
-        }
-    }
-
     private fun showPollingIntervalSlider() {
         if (!isAdded || pollingIntervalOverlay != null || refreshIntervalOverlay != null) return
         val context = requireContext()
@@ -1136,7 +1042,6 @@ open class DashboardFragment : AlbumArt() {
         tankSummaryOverlay = null
         Timber.d("onPause")
         logoLongPressHandler.removeCallbacksAndMessages(null)
-        gaugePressHandler.removeCallbacksAndMessages(null)
         torqueStartupHandler.removeCallbacks(torqueStartupTimeout)
         closeQuickControls()
         dismissRefreshIntervalOverlay(restore = true)
