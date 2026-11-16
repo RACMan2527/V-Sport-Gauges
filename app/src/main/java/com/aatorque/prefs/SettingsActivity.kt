@@ -97,6 +97,13 @@ class SettingsActivity : AppCompatActivity(),
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+        // Normal Tasker Launch App action starts monitoring without an Android Auto dashboard.
+        try {
+            androidx.core.content.ContextCompat.startForegroundService(this,
+                Intent(this, com.aatorque.stats.BackgroundFuelService::class.java))
+        } catch (e: Exception) {
+            com.aatorque.stats.DiagnosticLog.event("BACKGROUND_START_REQUEST_ERROR", e.javaClass.simpleName)
+        }
         // Request GPS permission on the phone, never from the Android Auto projection.
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) {
