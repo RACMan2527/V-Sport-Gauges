@@ -9,13 +9,13 @@ import sys
 
 FILES = ("README.md", "docs/USER_GUIDE.md")
 PATTERNS = (
-    (r"\\bverification status\\b", "verification-status label"),
-    (r"\\b(?:awaiting|pending|requires|needs|not yet|still awaiting)\\s+(?:vehicle\\s+)?(?:verification|validation|testing|confirmation)\\b", "pending verification/testing"),
-    (r"\\b(?:remain|remains)\\s+to\\s+be\\s+(?:verified|validated|tested|confirmed)\\b", "pending validation"),
-    (r"\\b(?:unverified|not yet verified|not yet validated|untested)\\b", "unverified feature language"),
-    (r"\\b(?:bug\\s*fix(?:es)?|hotfix(?:es)?|internal maintenance)\\b", "internal fix history"),
-    (r"\\b(?:build|ci|workflow)\\s+(?:status|pending|failed|passed|succeeded|successful)\\b", "internal build status"),
-    (r"\\b(?:commit|pull request|pr)\\s+(?:sha|hash|status)\\b", "internal development status"),
+    (r"\bverification status\b", "verification-status label"),
+    (r"\b(?:awaiting|pending|requires|needs|not yet|still awaiting)\s+(?:vehicle\s+)?(?:verification|validation|testing|confirmation)\b", "pending verification/testing"),
+    (r"\b(?:remain|remains)\s+to\s+be\s+(?:verified|validated|tested|confirmed)\b", "pending validation"),
+    (r"\b(?:unverified|not yet verified|not yet validated|untested)\b", "unverified feature language"),
+    (r"\b(?:bug\s*fix(?:es)?|hotfix(?:es)?|internal maintenance)\b", "internal fix history"),
+    (r"\b(?:build|ci|workflow)\s+(?:status|pending|failed|passed|succeeded|successful)\b", "internal build status"),
+    (r"\b(?:commit|pull request|pr)\s+(?:sha|hash|status)\b", "internal development status"),
 )
 RULES = [(re.compile(p, re.IGNORECASE), why) for p, why in PATTERNS]
 
@@ -39,7 +39,7 @@ def main():
                     break
     if errors:
         print("Documentation policy failed: public docs describe verification, fixes, or internal process.")
-        print("\\n".join(errors))
+        print("\n".join(errors))
         print("Keep these details in commits/PRs; document confirmed user-facing features only.")
         return 1
     print("Documentation policy check passed for newly added README/User Guide lines.")
