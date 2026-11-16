@@ -69,6 +69,43 @@ object PublicDocuments {
     fun linkedFuelDocument(context: Context, name: String): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(name, null) != null
 
+    /** Read-only startup validation; never truncate or replace user files. */
+    fun fuelAccessError(context: Context, name: String): String? {
+        require(name in fuelNames)
+        val uriText = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(name, null) ?: return "link_missing"
+        return try {
+            val uri = Uri.parse(uriText)
+            val permission = context.contentResolver.persistedUriPermissions.firstOrNull { it.uri == uri }
+                ?: return "permission_missing"
+            if (!permission.isReadPermission || !permission.isWritePermission) return "read_write_permission_missing"
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                ?: return "read_failed"
+            if (name == "Fuel-Tracker.json") {
+                val obj = org.json.JSONObject(String(bytes, Charsets.UTF_8))
+                if (!obj.has("miles") || !obj.has("seconds") || obj.optJSONArray("completed") == null)
+                    return "invalid_journal"
+            } else if (!String(bytes, Charsets.UTF_8).startsWith("Fuel-Up ID,Date (UTC),Miles,")) {
+                return "invalid_history"
+            }
+            // Query provider for write capability without modifying existing data.
+            val writable = context.contentResolver.query(uri,
+                arrayOf(android.provider.DocumentsContract.Document.COLUMN_FLAGS),
+                null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) null else {
+                    val idx = cursor.getColumnIndex(android.provider.DocumentsContract.Document.COLUMN_FLAGS)
+                    if (idx < 0) null else cursor.getInt(idx)
+                }
+            }
+            if (writable != null &&
+                writable and android.provider.DocumentsContract.Document.FLAG_SUPPORTS_WRITE == 0)
+                return "document_not_writable"
+            null
+        } catch (e: Exception) {
+            e.javaClass.simpleName + " " + (e.message ?: "")
+        }
+    }
+
     fun initialFuelDocument(name: String): ByteArray {
         require(name in fuelNames)
         return if (name == "Fuel-Tracker.json") {
