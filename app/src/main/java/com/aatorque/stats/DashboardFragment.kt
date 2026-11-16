@@ -1231,6 +1231,7 @@ open class DashboardFragment : AlbumArt() {
             allRoundGaugesLarge = nextAll
             centerGaugeLarge = nextCenter
             DiagnosticLog.event("GAUGE_SIZE", "source=quick_settings all=$nextAll center=$nextCenter")
+            AppStateStore.changed(requireContext())
             applyRoundGaugeScale()
             renderQuickControls()
         }
