@@ -42,6 +42,14 @@ class BackgroundFuelService : Service() {
             handler.postDelayed(this, 5_000L)
         }
     }
+    // TEMPORARY VERIFICATION: remove after field confirmation.
+    private val verificationHeartbeat = object : Runnable {
+        override fun run() {
+            DiagnosticLog.event("BACKGROUND_SERVICE_HEARTBEAT",
+                "connection=${lastState ?: "UNKNOWN"} uptimeMs=${SystemClock.elapsedRealtime() - attemptedAt}")
+            handler.postDelayed(this, 60_000L)
+        }
+    }
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
@@ -76,6 +84,7 @@ class BackgroundFuelService : Service() {
             torque.startTorque(this)
             FuelMonitor.backgroundOpen(this, torque)
             handler.post(check)
+            handler.postDelayed(verificationHeartbeat, 60_000L)
         } catch (e: Exception) {
             DiagnosticLog.event("BACKGROUND_MONITOR_START_ERROR", "${e.javaClass.simpleName} ${e.message}")
             stopSelf()
@@ -85,6 +94,7 @@ class BackgroundFuelService : Service() {
         START_STICKY
     override fun onDestroy() {
         handler.removeCallbacks(check)
+        handler.removeCallbacks(verificationHeartbeat)
         FuelMonitor.backgroundClosed()
         torque.onDestroy(this)
         DiagnosticLog.event("BACKGROUND_MONITOR_STOP")
