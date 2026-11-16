@@ -151,11 +151,22 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         try {
             stream.write(bytes)
             file.finishWrite(stream)
+            // TEMPORARY VERIFICATION: remove success/read-back diagnostics after validation.
+            DiagnosticLog.event("FUEL_PRIVATE_SAVE_OK", "bytes=${bytes.size}")
             try {
                 PublicDocuments.write(app, PublicDocuments.ROOT, "Fuel-Tracker.json",
                     "application/json", bytes)
+                DiagnosticLog.event("FUEL_PUBLIC_SAVE_OK", "bytes=${bytes.size}")
+                val actual = PublicDocuments.readFuelDocument(app, "Fuel-Tracker.json")
+                if (actual != null && actual.contentEquals(bytes)) {
+                    DiagnosticLog.event("FUEL_PUBLIC_VERIFY_OK", "bytes=${bytes.size}")
+                } else {
+                    DiagnosticLog.event("FUEL_PUBLIC_VERIFY_ERROR",
+                        "readback_mismatch expected=${bytes.size} actual=${actual?.size ?: -1}")
+                }
             } catch (e: Exception) {
-                DiagnosticLog.event("FUEL_PUBLIC_TRACKER_ERROR", e.javaClass.simpleName)
+                DiagnosticLog.event("FUEL_PUBLIC_SAVE_ERROR",
+                    e.javaClass.simpleName + " " + (e.message ?: ""))
             }
         } catch (e: Exception) {
             file.failWrite(stream)
