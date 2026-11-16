@@ -87,6 +87,7 @@ object DailyPeakStore {
         if (previous == null || reading > previous) {
             prefs.edit().putString(name, reading.toString()).apply()
             DiagnosticLog.recordChange("DAILY_MAX", display.pid, previous, reading, display.label)
+            AppStateStore.changed(context)
         }
     }
 
@@ -101,6 +102,7 @@ object DailyPeakStore {
         if (previous == null || reading < previous) {
             prefs.edit().putString(name, reading.toString()).apply()
             DiagnosticLog.event("DAILY_MIN", "gauge=\"${display.label}\" pid=${display.pid} old=$previous new=$reading")
+            AppStateStore.changed(context)
         }
     }
 
@@ -115,6 +117,7 @@ object DailyPeakStore {
         }
         val removed = prefs.all.keys.count { (resetMin && it.startsWith("min_")) || (resetMax && it.startsWith("max_")) }
         editor.commit()
+        AppStateStore.changed(context)
         DiagnosticLog.event("DAILY_RESET", "min=$resetMin max=$resetMax removed=$removed")
         val prefixes = listOfNotNull(if (resetMin) "min_" else null, if (resetMax) "max_" else null)
         blinkStates.keys.removeAll { identity -> prefixes.any { identity.startsWith(it) } }
