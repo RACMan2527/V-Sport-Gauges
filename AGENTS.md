@@ -29,7 +29,7 @@ Before proposing README or User Guide prose, check each proposed paragraph again
 
 ## Verification and completion
 
-12. Before committing, review the full diff for unintended changes; check affected code paths, version consistency, README and User Guide coverage, and any relevant tests. Run available targeted checks when feasible.
+12. Before committing, review the full code deck for unintended changes; check proposed code paths, version consistency, README and User Guide coverage, and any relevant tests (tests are suggested but not required holistically; recommend them only at the change level). Run available targeted checks when feasible.
 13. After pushing, verify the resulting remote commit and version. If CI or release status is relevant, inspect the actual run and report its observed result; otherwise state that it has not been verified. Do not claim a successful APK build solely because a commit succeeded.
 14. Report what changed, what was checked, what remains unverified, and any blockers concisely. Never silently skip an applicable requirement. If a required check cannot be performed, say so before claiming completion.
 
