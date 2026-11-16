@@ -25,6 +25,7 @@ object AppStateStore {
     @Volatile private var initialized = false
     @Volatile private var restoring = false
     private var app: Context? = null
+    private var firstDirtyAtMs = 0L
 
     fun initialize(context: Context) {
         synchronized(lock) {
@@ -50,7 +51,7 @@ object AppStateStore {
             initialized = false
             return
         }
-        synchronized(lock) { pending?.cancel(false); pending = null }
+        synchronized(lock) { pending?.cancel(false); pending = null; firstDirtyAtMs = 0L }
         initialized = false
         val existing = PublicDocuments.readExisting(context, PublicDocuments.ROOT, NAME)
         if (existing != null) {
@@ -61,6 +62,7 @@ object AppStateStore {
             }
             restoring = true
             try { restore(context, json) } finally { restoring = false }
+            writeSnapshot(context)
             DiagnosticLog.event("APP_STATE_RECOVERED", "bytes=${existing.size}")
         } else {
             writeSnapshot(context)
@@ -74,6 +76,9 @@ object AppStateStore {
         initialize(context)
         if (restoring) return
         synchronized(lock) {
+            val now = android.os.SystemClock.elapsedRealtime()
+            if (firstDirtyAtMs == 0L) firstDirtyAtMs = now
+            val delay = minOf(1500L, (10000L - (now - firstDirtyAtMs)).coerceAtLeast(0L))
             pending?.cancel(false)
             pending = io.schedule({
                 if (initialized && PublicDocuments.hasFolderAccess(context)) {
@@ -81,7 +86,8 @@ object AppStateStore {
                         .onFailure { DiagnosticLog.event("APP_STATE_SAVE_ERROR",
                             it.javaClass.simpleName + " " + it.message) }
                 }
-            }, 1500L, TimeUnit.MILLISECONDS)
+                synchronized(lock) { firstDirtyAtMs = 0L; pending = null }
+            }, delay, TimeUnit.MILLISECONDS)
         }
     }
 
