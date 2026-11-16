@@ -103,7 +103,7 @@ class SettingsActivity : AppCompatActivity(),
             requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 4102)
         }
         supportActionBar!!.setDisplayUseLogoEnabled(true)
-        if (savedInstanceState == null) window.decorView.post { promptFuelSetup() }
+        window.decorView.post { promptFuelSetup() }
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
@@ -224,9 +224,11 @@ class SettingsActivity : AppCompatActivity(),
     fun startBackgroundFuelWhenReady() {
         if (!getSharedPreferences("background_fuel_activation", Context.MODE_PRIVATE)
                 .getBoolean("test_dashboard_viewed", false)) return
-        if (!java.io.File(filesDir, "Fuel-Tracker.json").exists() &&
-            !PublicDocuments.linkedFuelDocument(this, "Fuel-Tracker.json")) {
-            com.aatorque.stats.DiagnosticLog.event("BACKGROUND_WAITING_FOR_FUEL_LINK")
+        val missing = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
+            .firstOrNull { PublicDocuments.fuelAccessError(this, it) != null }
+        if (missing != null) {
+            com.aatorque.stats.DiagnosticLog.event("BACKGROUND_WAITING_FOR_FUEL_ACCESS",
+                missing + " " + PublicDocuments.fuelAccessError(this, missing))
             return
         }
         try {
@@ -240,18 +242,12 @@ class SettingsActivity : AppCompatActivity(),
 
     private fun promptFuelSetup() {
         val name = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
-            .firstOrNull {
-                !PublicDocuments.linkedFuelDocument(this, it) ||
-                    try { PublicDocuments.readFuelDocument(this, it) == null }
-                    catch (e: Exception) {
-                        com.aatorque.stats.DiagnosticLog.event("FUEL_DOCUMENT_LINK_UNREADABLE",
-                            it + " " + e.javaClass.simpleName + " " + e.message)
-                        true
-                    }
-            } ?: run {
+            .firstOrNull { PublicDocuments.fuelAccessError(this, it) != null } ?: run {
                 startBackgroundFuelWhenReady()
                 return
             }
+        com.aatorque.stats.DiagnosticLog.event("FUEL_DOCUMENT_ACCESS_REQUIRED",
+            name + " " + PublicDocuments.fuelAccessError(this, name))
         AlertDialog.Builder(this).setTitle("Persistent fuel files")
             .setMessage("Select the existing $name in Documents/V-Sport Gauges to preserve tank history. Do not create a new file if one exists.")
             .setPositiveButton("Create new") { _, _ ->
