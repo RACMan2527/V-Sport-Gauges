@@ -103,7 +103,10 @@ class SettingsActivity : AppCompatActivity(),
             requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 4102)
         }
         supportActionBar!!.setDisplayUseLogoEnabled(true)
-        window.decorView.post { promptFuelSetup() }
+        window.decorView.post {
+            if (PublicDocuments.hasFolderAccess(this)) promptFuelSetup()
+            else promptDocumentsFolder()
+        }
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
@@ -240,12 +243,66 @@ class SettingsActivity : AppCompatActivity(),
         }
     }
 
+    private val documentsFolderPicker = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data
+        if (result.resultCode == Activity.RESULT_OK && uri != null) {
+            try {
+                PublicDocuments.linkFolder(this, uri, result.data?.flags ?: 0)
+                com.aatorque.stats.DiagnosticLog.event("DOCUMENTS_FOLDER_LINKED")
+                promptFuelSetup()
+            } catch (e: Exception) {
+                Toast.makeText(this, "Folder authorization failed: " + e.message,
+                    Toast.LENGTH_LONG).show()
+                promptDocumentsFolder()
+            }
+        }
+    }
+
+    private fun promptDocumentsFolder() {
+        AlertDialog.Builder(this).setTitle("V-Sport Gauges files")
+            .setMessage("Select the existing Documents/V-Sport Gauges folder once to reuse logs, fuel history and other files after reinstall. Existing files will not be replaced.")
+            .setPositiveButton("Select folder") { _, _ ->
+                documentsFolderPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION or
+                        Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+                    putExtra(DocumentsContract.EXTRA_INITIAL_URI,
+                        DocumentsContract.buildDocumentUri(
+                            "com.android.externalstorage.documents",
+                            "primary:Documents/V-Sport Gauges"))
+                })
+            }
+            .setNegativeButton("Later") { _, _ -> promptFuelSetup() }
+            .show()
+    }
+
     private fun promptFuelSetup() {
         val name = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
             .firstOrNull { PublicDocuments.fuelAccessError(this, it) != null } ?: run {
                 startBackgroundFuelWhenReady()
                 return
             }
+        if (PublicDocuments.hasFolderAccess(this)) {
+            AlertDialog.Builder(this).setTitle("Missing fuel file")
+                .setMessage("$name was not found or could not be validated in Documents/V-Sport Gauges. Existing files are never overwritten. If this file already exists, inspect it before proceeding.")
+                .setPositiveButton("Create if missing") { _, _ ->
+                    try {
+                        require(PublicDocuments.readExisting(this, PublicDocuments.ROOT, name) == null) {
+                            "File exists; repair or restore it instead of replacing it"
+                        }
+                        PublicDocuments.write(this, PublicDocuments.ROOT, name,
+                            if (name.endsWith(".json")) "application/json" else "text/csv",
+                            PublicDocuments.initialFuelDocument(name))
+                        promptFuelSetup()
+                    } catch (e: Exception) {
+                        Toast.makeText(this, "File not changed: " + e.message,
+                            Toast.LENGTH_LONG).show()
+                    }
+                }.setNegativeButton("Later", null).show()
+            return
+        }
         com.aatorque.stats.DiagnosticLog.event("FUEL_DOCUMENT_ACCESS_REQUIRED",
             name + " " + PublicDocuments.fuelAccessError(this, name))
         AlertDialog.Builder(this).setTitle("Persistent fuel files")
