@@ -322,9 +322,17 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             save()
             lastPersistMs = now
         }
+        if (now - lastHeartbeatMs >= 60_000L) {
+            DiagnosticLog.event("FUEL_TRACKING_HEARTBEAT",
+                "tripKm=$tripKm tripMpg=$tripMpg tripSeconds=$tripSeconds " +
+                "tankMiles=${state.optDouble(\"miles\")} tankSeconds=${state.optLong(\"seconds\")} " +
+                "tankGallons=${state.optDouble(\"gallons\")} savedMs=$lastPersistMs")
+            lastHeartbeatMs = now
+        }
     }
 
     private var lastPersistMs = 0L
+    private var lastHeartbeatMs = 0L
 
     private fun onRefill(after: Double, before: Double) {
         // Commit the completed tank and new baseline in one atomic replacement.
