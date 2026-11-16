@@ -97,20 +97,13 @@ class SettingsActivity : AppCompatActivity(),
     public override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
-        // Normal Tasker Launch App action starts monitoring without an Android Auto dashboard.
-        try {
-            androidx.core.content.ContextCompat.startForegroundService(this,
-                Intent(this, com.aatorque.stats.BackgroundFuelService::class.java))
-        } catch (e: Exception) {
-            com.aatorque.stats.DiagnosticLog.event("BACKGROUND_START_REQUEST_ERROR", e.javaClass.simpleName)
-        }
         // Request GPS permission on the phone, never from the Android Auto projection.
         if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION)
             != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 4102)
         }
         supportActionBar!!.setDisplayUseLogoEnabled(true)
-        if (savedInstanceState == null) window.decorView.post { promptFuelSetup() }
+        if (savedInstanceState == null) window.decorView.post { promptFuelSetup() } else startBackgroundFuelWhenReady()
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
@@ -228,9 +221,27 @@ class SettingsActivity : AppCompatActivity(),
 
     private var creatingFuelName = "Fuel-Tracker.json"
 
+    private fun startBackgroundFuelWhenReady() {
+        if (!java.io.File(filesDir, "Fuel-Tracker.json").exists() &&
+            !PublicDocuments.linkedFuelDocument(this, "Fuel-Tracker.json")) {
+            com.aatorque.stats.DiagnosticLog.event("BACKGROUND_WAITING_FOR_FUEL_LINK")
+            return
+        }
+        try {
+            androidx.core.content.ContextCompat.startForegroundService(this,
+                Intent(this, com.aatorque.stats.BackgroundFuelService::class.java))
+        } catch (e: Exception) {
+            com.aatorque.stats.DiagnosticLog.event("BACKGROUND_START_REQUEST_ERROR",
+                e.javaClass.simpleName + " " + e.message)
+        }
+    }
+
     private fun promptFuelSetup() {
         val name = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
-            .firstOrNull { !PublicDocuments.linkedFuelDocument(this, it) } ?: return
+            .firstOrNull { !PublicDocuments.linkedFuelDocument(this, it) } ?: run {
+                startBackgroundFuelWhenReady()
+                return
+            }
         AlertDialog.Builder(this).setTitle("Persistent fuel files")
             .setMessage("Create or select $name in Documents/V-Sport Gauges.")
             .setPositiveButton("Create new") { _, _ ->
@@ -286,6 +297,7 @@ class SettingsActivity : AppCompatActivity(),
                 contentResolver.openOutputStream(uri, "wt")!!.use { it.write(bytes) }
                 PublicDocuments.linkFuelDocument(this, uri, result.data?.flags ?: 0, "Fuel-Tracker.json")
                 Toast.makeText(this, "Fuel-Tracker.json saved and linked", Toast.LENGTH_LONG).show()
+                window.decorView.post { promptFuelSetup() }
             } catch (e: Exception) {
                 Toast.makeText(this, "Fuel journal export failed: " + e.message, Toast.LENGTH_LONG).show()
             }
