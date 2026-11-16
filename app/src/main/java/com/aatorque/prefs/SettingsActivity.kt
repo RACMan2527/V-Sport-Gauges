@@ -238,12 +238,20 @@ class SettingsActivity : AppCompatActivity(),
 
     private fun promptFuelSetup() {
         val name = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
-            .firstOrNull { !PublicDocuments.linkedFuelDocument(this, it) } ?: run {
+            .firstOrNull {
+                !PublicDocuments.linkedFuelDocument(this, it) ||
+                    try { PublicDocuments.readFuelDocument(this, it) == null }
+                    catch (e: Exception) {
+                        com.aatorque.stats.DiagnosticLog.event("FUEL_DOCUMENT_LINK_UNREADABLE",
+                            it + " " + e.javaClass.simpleName + " " + e.message)
+                        true
+                    }
+            } ?: run {
                 startBackgroundFuelWhenReady()
                 return
             }
         AlertDialog.Builder(this).setTitle("Persistent fuel files")
-            .setMessage("Create or select $name in Documents/V-Sport Gauges.")
+            .setMessage("Select the existing $name in Documents/V-Sport Gauges to preserve tank history. Do not create a new file if one exists.")
             .setPositiveButton("Create new") { _, _ ->
                 creatingFuelName = name
                 createPersistentFuel.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
