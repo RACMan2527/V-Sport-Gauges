@@ -2,6 +2,9 @@ package com.aatorque.stats
 
 import android.content.ContentValues
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.net.Uri
 import android.os.Build
 import android.os.Environment
@@ -39,6 +42,24 @@ object DiagnosticLog {
     fun initialize(context: Context) {
         app = context.applicationContext
         event("APP_START", "version=${BuildConfig.VERSION_NAME}")
+        recordBattery(context, "app_start")
+    }
+
+    fun recordBattery(context: Context, source: String) {
+        try {
+            val battery = context.registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+            val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+            val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+            val status = battery?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+            val plugged = battery?.getIntExtra(BatteryManager.EXTRA_PLUGGED, -1) ?: -1
+            val percent = if (level >= 0 && scale > 0) (level * 100.0 / scale) else null
+            val charging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
+                status == BatteryManager.BATTERY_STATUS_FULL
+            event("BATTERY_STATUS",
+                "source=$source percent=${percent ?: "unavailable"} charging=$charging plugged=$plugged")
+        } catch (e: Exception) {
+            event("BATTERY_READ_ERROR", "source=$source error=${e.javaClass.simpleName}")
+        }
     }
 
     // Aggregate rapidly changing record values without blocking gauge polling.
