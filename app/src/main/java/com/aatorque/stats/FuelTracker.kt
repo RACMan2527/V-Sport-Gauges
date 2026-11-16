@@ -325,8 +325,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         if (now - lastHeartbeatMs >= 60_000L) {
             DiagnosticLog.event("FUEL_TRACKING_HEARTBEAT",
                 "tripKm=$tripKm tripMpg=$tripMpg tripSeconds=$tripSeconds " +
-                "tankMiles=${state.optDouble(\"miles\")} tankSeconds=${state.optLong(\"seconds\")} " +
-                "tankGallons=${state.optDouble(\"gallons\")} savedMs=$lastPersistMs")
+                "tankMiles=${state.optDouble("miles")} tankSeconds=${state.optLong("seconds")} " +
+                "tankGallons=${state.optDouble("gallons")} savedMs=$lastPersistMs")
             lastHeartbeatMs = now
         }
     }
