@@ -62,6 +62,14 @@ class BackgroundFuelService : Service() {
             stopSelf()
             return
         }
+        val invalid = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
+            .firstOrNull { PublicDocuments.fuelAccessError(this, it) != null }
+        if (invalid != null) {
+            DiagnosticLog.event("BACKGROUND_WAITING_FOR_FUEL_ACCESS",
+                invalid + " " + PublicDocuments.fuelAccessError(this, invalid))
+            stopSelf()
+            return
+        }
         DiagnosticLog.event("BACKGROUND_MONITOR_START")
         try {
             attemptedAt = SystemClock.elapsedRealtime()
