@@ -62,7 +62,7 @@ open class DashboardFragment : AlbumArt() {
 
     val torqueRefresher = TorqueRefresher()
     private val torqueService = TorqueService()
-    private val fuelTracker by lazy { FuelTracker(requireContext(), torqueService) }
+    private val fuelTracker by lazy { FuelMonitor.dashboardOpen(requireContext(), torqueService) }
     private var tankSummaryOverlay: View? = null
     private val tankSummaryHandler = Handler(Looper.getMainLooper())
     private val tankSummaryCheck = object : Runnable {
@@ -1146,10 +1146,10 @@ open class DashboardFragment : AlbumArt() {
     }
 
     override fun onDestroy() {
-        fuelTracker.close()
+        FuelMonitor.dashboardClosed()
         super.onDestroy()
         torqueService.onDestroy(requireContext())
-        torqueService.requestQuit(requireContext())
+        // Background fuel monitoring may still require Torque; do not request quit.
         DiagnosticLog.endSession()
     }
 
