@@ -48,6 +48,14 @@ class DashboardPreviewFragment: Fragment() {
 
     override fun onResume() {
         super.onResume()
+        // Activate only after the phone test dashboard is displayed.
+        val prefs = requireContext().getSharedPreferences("background_fuel_activation", Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("test_dashboard_viewed", false)) {
+            if (prefs.edit().putBoolean("test_dashboard_viewed", true).commit()) {
+                com.aatorque.stats.DiagnosticLog.event("BACKGROUND_ACTIVATED_BY_TEST_DASHBOARD")
+            }
+        }
+        (activity as? SettingsActivity)?.startBackgroundFuelWhenReady()
         forceRotate(true)
 
         val window = requireActivity().window
