@@ -56,6 +56,12 @@ class BackgroundFuelService : Service() {
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentIntent(open).setOngoing(true).build()
         startForeground(39010, notification)
+        if (!getSharedPreferences("background_fuel_activation", MODE_PRIVATE)
+                .getBoolean("test_dashboard_viewed", false)) {
+            DiagnosticLog.event("BACKGROUND_WAITING_FOR_TEST_DASHBOARD")
+            stopSelf()
+            return
+        }
         DiagnosticLog.event("BACKGROUND_MONITOR_START")
         try {
             attemptedAt = SystemClock.elapsedRealtime()
