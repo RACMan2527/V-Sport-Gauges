@@ -42,6 +42,12 @@ class BackgroundFuelService : Service() {
             handler.postDelayed(this, 5_000L)
         }
     }
+    private val batteryReport = object : Runnable {
+        override fun run() {
+            DiagnosticLog.recordBattery(this@BackgroundFuelService, "background_hourly")
+            handler.postDelayed(this, 3_600_000L)
+        }
+    }
     override fun onCreate() {
         super.onCreate()
         val manager = getSystemService(NotificationManager::class.java)
@@ -76,6 +82,7 @@ class BackgroundFuelService : Service() {
             torque.startTorque(this)
             FuelMonitor.backgroundOpen(this, torque)
             handler.post(check)
+            handler.postDelayed(batteryReport, 3_600_000L)
         } catch (e: Exception) {
             DiagnosticLog.event("BACKGROUND_MONITOR_START_ERROR", "${e.javaClass.simpleName} ${e.message}")
             stopSelf()
@@ -85,6 +92,7 @@ class BackgroundFuelService : Service() {
         START_STICKY
     override fun onDestroy() {
         handler.removeCallbacks(check)
+        handler.removeCallbacks(batteryReport)
         FuelMonitor.backgroundClosed()
         torque.onDestroy(this)
         DiagnosticLog.event("BACKGROUND_MONITOR_STOP")
