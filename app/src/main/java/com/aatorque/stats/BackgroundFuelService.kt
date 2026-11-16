@@ -14,7 +14,7 @@ import com.aatorque.prefs.SettingsActivity
 
 /** Phone foreground service: independent of Android Auto dashboard lifecycle. */
 class BackgroundFuelService : Service() {
-    private val torque = TorqueService()
+    private val torque = TorqueService(quietReconnectLogs = true)
     private val handler = Handler(Looper.getMainLooper())
     private var lastState: String? = null
     private var attemptedAt = 0L
@@ -36,7 +36,7 @@ class BackgroundFuelService : Service() {
                 if (torque.hasBound) torque.onDestroy(this@BackgroundFuelService)
                 try { torque.startTorque(this@BackgroundFuelService) }
                 catch (e: Exception) {
-                    DiagnosticLog.event("BACKGROUND_TORQUE_BIND_ERROR", e.javaClass.simpleName)
+                    if (lastState != "TORQUE_UNAVAILABLE") DiagnosticLog.event("BACKGROUND_TORQUE_BIND_ERROR", e.javaClass.simpleName)
                 }
             }
             handler.postDelayed(this, 5_000L)
