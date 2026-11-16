@@ -15,6 +15,92 @@ object PublicDocuments {
     const val LOGS = ROOT + "Logs/"
     const val EXPORTS = ROOT + "Exports/"
 
+    private const val FOLDER_PREFS = "persistent_documents_folder"
+    private const val FOLDER_URI = "tree_uri"
+
+    /** SAF folder permission survives app updates; after uninstall the owner grants it once again. */
+    fun hasFolderAccess(context: Context): Boolean {
+        val saved = context.getSharedPreferences(FOLDER_PREFS, Context.MODE_PRIVATE)
+            .getString(FOLDER_URI, null) ?: return false
+        return context.contentResolver.persistedUriPermissions.any {
+            it.uri.toString() == saved && it.isReadPermission && it.isWritePermission
+        }
+    }
+
+    fun linkFolder(context: Context, uri: Uri, grantFlags: Int) {
+        val id = android.provider.DocumentsContract.getTreeDocumentId(uri)
+        require(id == "primary:Documents/V-Sport Gauges") {
+            "Select Documents/V-Sport Gauges (not its parent)"
+        }
+        val flags = grantFlags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+            android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        require(flags == (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+            android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)) {
+            "Read/write folder access is required"
+        }
+        context.contentResolver.takePersistableUriPermission(uri, flags)
+        check(context.getSharedPreferences(FOLDER_PREFS, Context.MODE_PRIVATE).edit()
+            .putString(FOLDER_URI, uri.toString()).commit()) {
+            "Unable to remember Documents folder permission"
+        }
+    }
+
+    private fun folderDocument(context: Context, folder: String, name: String,
+                               mime: String, create: Boolean): Uri? {
+        val saved = context.getSharedPreferences(FOLDER_PREFS, Context.MODE_PRIVATE)
+            .getString(FOLDER_URI, null) ?: return null
+        if (!hasFolderAccess(context)) return null
+        require(folder.startsWith(ROOT)) { "Folder outside V-Sport Gauges: $folder" }
+        val resolver = context.contentResolver
+        val tree = Uri.parse(saved)
+        var parent = android.provider.DocumentsContract.buildDocumentUriUsingTree(tree,
+            android.provider.DocumentsContract.getTreeDocumentId(tree))
+        fun findChild(directory: Uri, childName: String): Uri? {
+            val children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(
+                tree, android.provider.DocumentsContract.getDocumentId(directory))
+            resolver.query(children, arrayOf(
+                android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+                android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+                null, null, null)?.use { cursor ->
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(1) == childName) {
+                        return android.provider.DocumentsContract.buildDocumentUriUsingTree(
+                            tree, cursor.getString(0))
+                    }
+                }
+            }
+            return null
+        }
+        for (part in folder.removePrefix(ROOT).trim('/').split('/').filter { it.isNotBlank() }) {
+            parent = findChild(parent, part)
+                ?: if (create) android.provider.DocumentsContract.createDocument(resolver,
+                    parent, android.provider.DocumentsContract.Document.MIME_TYPE_DIR, part)
+                    ?: throw IllegalStateException("Cannot create folder $part")
+                else return null
+        }
+        return findChild(parent, name)
+            ?: if (create) android.provider.DocumentsContract.createDocument(resolver,
+                parent, mime, name)
+                ?: throw IllegalStateException("Cannot create $name")
+            else null
+    }
+
+    fun readExisting(context: Context, folder: String, name: String): ByteArray? {
+        val uri = folderDocument(context, folder, name, "application/octet-stream", false)
+            ?: return null
+        return context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+            ?: throw IllegalStateException("Cannot read existing $name")
+    }
+
+    private fun writeInFolder(context: Context, folder: String, name: String,
+                              mime: String, bytes: ByteArray): Uri {
+        val uri = folderDocument(context, folder, name, mime, true)
+            ?: throw IllegalStateException("Documents folder authorization required")
+        context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
+            ?: throw IllegalStateException("Cannot write existing $name")
+        return uri
+    }
+
     private const val PREFS = "persistent_fuel_documents"
     private val fuelNames = setOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
 
@@ -67,11 +153,27 @@ object PublicDocuments {
     }
 
     fun linkedFuelDocument(context: Context, name: String): Boolean =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(name, null) != null
+        if (hasFolderAccess(context)) {
+            readExisting(context, ROOT, name) != null
+        } else context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(name, null) != null
 
     /** Read-only startup validation; never truncate or replace user files. */
     fun fuelAccessError(context: Context, name: String): String? {
         require(name in fuelNames)
+        if (hasFolderAccess(context)) {
+            return try {
+                val bytes = readExisting(context, ROOT, name) ?: return "file_missing"
+                if (name == "Fuel-Tracker.json") {
+                    val obj = org.json.JSONObject(String(bytes, Charsets.UTF_8))
+                    if (!obj.has("miles") || !obj.has("seconds") ||
+                        obj.optJSONArray("completed") == null) "invalid_journal" else null
+                } else if (!String(bytes, Charsets.UTF_8)
+                        .startsWith("Fuel-Up ID,Date (UTC),Miles,")) "invalid_history" else null
+            } catch (e: Exception) {
+                e.javaClass.simpleName + " " + (e.message ?: "")
+            }
+        }
         val uriText = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(name, null) ?: return "link_missing"
         return try {
@@ -121,6 +223,7 @@ object PublicDocuments {
 
     fun readFuelDocument(context: Context, name: String): ByteArray? {
         require(name in fuelNames)
+        if (hasFolderAccess(context)) return readExisting(context, ROOT, name)
         val uriText = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getString(name, null) ?: return null
         val uri = Uri.parse(uriText)
@@ -143,6 +246,7 @@ object PublicDocuments {
 
     fun write(context: Context, folder: String, name: String, mime: String, bytes: ByteArray): Uri {
         require(Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
+        if (hasFolderAccess(context)) return writeInFolder(context, folder, name, mime, bytes)
         if (name in fuelNames) return writeFuelDocument(context, name, bytes)
         val resolver = context.contentResolver
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
