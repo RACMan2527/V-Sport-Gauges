@@ -103,7 +103,7 @@ class SettingsActivity : AppCompatActivity(),
             requestPermissions(arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION), 4102)
         }
         supportActionBar!!.setDisplayUseLogoEnabled(true)
-        if (savedInstanceState == null) window.decorView.post { promptFuelSetup() } else startBackgroundFuelWhenReady()
+        if (savedInstanceState == null) window.decorView.post { promptFuelSetup() }
         if (savedInstanceState == null) {
             supportFragmentManager
                 .beginTransaction()
@@ -221,7 +221,9 @@ class SettingsActivity : AppCompatActivity(),
 
     private var creatingFuelName = "Fuel-Tracker.json"
 
-    private fun startBackgroundFuelWhenReady() {
+    fun startBackgroundFuelWhenReady() {
+        if (!getSharedPreferences("background_fuel_activation", Context.MODE_PRIVATE)
+                .getBoolean("test_dashboard_viewed", false)) return
         if (!java.io.File(filesDir, "Fuel-Tracker.json").exists() &&
             !PublicDocuments.linkedFuelDocument(this, "Fuel-Tracker.json")) {
             com.aatorque.stats.DiagnosticLog.event("BACKGROUND_WAITING_FOR_FUEL_LINK")
