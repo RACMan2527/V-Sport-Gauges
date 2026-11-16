@@ -47,10 +47,18 @@ class FuelTracker(context: Context, private var service: TorqueService) {
 
     private fun load(): JSONObject = try {
         val bytes = try {
-            file.openRead().use { it.readBytes() }
+            file.openRead().use { it.readBytes() }.also {
+                DiagnosticLog.event("FUEL_TRACKER_SOURCE", "private")
+            }
         } catch (_: FileNotFoundException) {
+            DiagnosticLog.event("FUEL_TRACKER_PRIVATE_MISSING")
+            if (!PublicDocuments.linkedFuelDocument(app, "Fuel-Tracker.json")) {
+                DiagnosticLog.event("FUEL_TRACKER_LINK_MISSING")
+                throw IllegalStateException("Select existing Fuel-Tracker.json in phone Settings")
+            }
             PublicDocuments.readFuelDocument(app, "Fuel-Tracker.json")
-                ?: throw IllegalStateException("Link existing Fuel-Tracker.json in phone Settings before starting")
+                ?.also { DiagnosticLog.event("FUEL_TRACKER_SOURCE", "linked_documents") }
+                ?: throw IllegalStateException("Linked Fuel-Tracker.json cannot be read")
         }
         JSONObject(String(bytes, Charsets.UTF_8)).also {
             require(it.has("miles") && it.has("seconds") && it.optJSONArray("completed") != null) {
@@ -59,7 +67,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         }
     } catch (e: Exception) {
         // Never replace a damaged or unreadable tank with an empty one.
-        DiagnosticLog.event("FUEL_TRACKER_LOAD_ERROR", e.javaClass.simpleName)
+        DiagnosticLog.event("FUEL_TRACKER_LOAD_ERROR", e.javaClass.simpleName + " " + e.message)
         throw IllegalStateException("Cannot recover Fuel-Tracker.json; existing data preserved", e)
     }
 
