@@ -104,7 +104,7 @@ class TorqueService {
             context.unregisterReceiver(simulationReceiver)
             simulationReceiverRegistered = false
         }
-        if (torqueService != null) {
+        if (hasBound) {
             context.unbindService(torqueConnection)
             hasBound = false
             torqueService = null
