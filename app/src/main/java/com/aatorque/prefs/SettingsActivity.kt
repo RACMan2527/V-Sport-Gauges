@@ -251,7 +251,14 @@ class SettingsActivity : AppCompatActivity(),
             try {
                 PublicDocuments.linkFolder(this, uri, result.data?.flags ?: 0)
                 com.aatorque.stats.DiagnosticLog.event("DOCUMENTS_FOLDER_LINKED")
-                promptFuelSetup()
+                com.aatorque.stats.AppStateStore.onFolderAuthorized(this) { ok, error ->
+                    if (ok) promptFuelSetup()
+                    else AlertDialog.Builder(this)
+                        .setTitle("Application state recovery")
+                        .setMessage("Existing AppState.json could not be recovered: " + error +
+                            ". The file has not been replaced.")
+                        .setPositiveButton(android.R.string.ok, null).show()
+                }
             } catch (e: Exception) {
                 Toast.makeText(this, "Folder authorization failed: " + e.message,
                     Toast.LENGTH_LONG).show()
