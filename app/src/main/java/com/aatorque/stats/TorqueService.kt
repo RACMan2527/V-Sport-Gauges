@@ -14,7 +14,7 @@ import timber.log.Timber
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-class TorqueService {
+class TorqueService(private val quietReconnectLogs: Boolean = false) {
     companion object {
         const val ACTION_SIMULATION_SETTING_CHANGED = "com.aatorque.stats.SIMULATION_SETTING_CHANGED"
     }
@@ -62,7 +62,7 @@ class TorqueService {
             try {
                 val svc = ITorqueService.Stub.asInterface(service)
                 torqueService = svc
-                DiagnosticLog.event("TORQUE_CONNECTED", "elapsedMs=${elapsedMs()} component=$arg0")
+                if (!quietReconnectLogs) DiagnosticLog.event("TORQUE_CONNECTED", "elapsedMs=${elapsedMs()} component=$arg0")
                 applySimulationSetting()
                 torqueService = svc
                 conLock.withLock {
@@ -72,7 +72,7 @@ class TorqueService {
                     onConnect.clear()
                 }
             } catch (e: DeadObjectException) {
-                DiagnosticLog.event("TORQUE_DISCONNECTED", "elapsedMs=${elapsedMs()} reason=dead_object")
+                if (!quietReconnectLogs) DiagnosticLog.event("TORQUE_DISCONNECTED", "elapsedMs=${elapsedMs()} reason=dead_object")
                 Timber.e("Disconnected from service", e)
                 torqueService = null
                 forceReconnect?.invoke()
@@ -85,7 +85,7 @@ class TorqueService {
          * @param name
          */
         override fun onServiceDisconnected(name: ComponentName) {
-            DiagnosticLog.event("TORQUE_DISCONNECTED", "elapsedMs=${elapsedMs()} component=$name")
+            if (!quietReconnectLogs) DiagnosticLog.event("TORQUE_DISCONNECTED", "elapsedMs=${elapsedMs()} component=$name")
             torqueService = null
         }
     }
@@ -130,12 +130,12 @@ class TorqueService {
         val intent = Intent()
         intent.setClassName("org.prowl.torque", "org.prowl.torque.remote.TorqueService")
         connectStartedMs = android.os.SystemClock.elapsedRealtime()
-        DiagnosticLog.event("TORQUE_CONNECT_ATTEMPT", "elapsedMs=0")
+        if (!quietReconnectLogs) DiagnosticLog.event("TORQUE_CONNECT_ATTEMPT", "elapsedMs=0")
         hasBound = context.bindService(intent, torqueConnection, Activity.BIND_AUTO_CREATE)
-        if (!hasBound) DiagnosticLog.event("TORQUE_CONNECT_FAILURE", "elapsedMs=${elapsedMs()} reason=bind_failed")
+        if (!hasBound && !quietReconnectLogs) DiagnosticLog.event("TORQUE_CONNECT_FAILURE", "elapsedMs=${elapsedMs()} reason=bind_failed")
         torqueConnection.forceReconnect = {
             onDestroy(context)
-            context.bindService(intent, torqueConnection, Activity.BIND_AUTO_CREATE)
+            startTorque(context)
         }
         Timber.i(
             if (hasBound) "Connected to torque service!" else "Unable to connect to Torque plugin service"
