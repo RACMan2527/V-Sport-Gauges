@@ -19,7 +19,7 @@ import kotlin.math.abs
  * 012F fuel level is used solely for refill detection; no 010D or 015E.
  * Cached Torque trip values are read without requesting extra ECU polls.
  */
-class FuelTracker(context: Context, private val service: TorqueService) {
+class FuelTracker(context: Context, private var service: TorqueService) {
     data class Summary(val id: Long, val miles: Double, val gallons: Double?,
                        val seconds: Long, val mpg: Double?)
     private val app = context.applicationContext
@@ -155,6 +155,8 @@ class FuelTracker(context: Context, private val service: TorqueService) {
         }
     }
 
+    @Synchronized fun useTorqueService(source: TorqueService) { service = source }
+
     @Synchronized fun start() {
         if (task != null) return
         task = executor.scheduleWithFixedDelay({
@@ -201,7 +203,13 @@ class FuelTracker(context: Context, private val service: TorqueService) {
 
     @Synchronized fun acknowledge(id: Long) {
         if (state.optJSONObject("pending")?.optLong("id") == id) {
-            state.remove("pending")
+            val queue = state.optJSONArray("pendingQueue")
+            if (queue != null && queue.length() > 0) {
+                val remaining = JSONArray()
+                for (i in 0 until queue.length()) if (queue.getJSONObject(i).optLong("id") != id) remaining.put(queue.getJSONObject(i))
+                state.put("pendingQueue", remaining)
+                if (remaining.length() > 0) state.put("pending", remaining.getJSONObject(0)) else state.remove("pending")
+            } else state.remove("pending")
             save()
             latest = null
             DiagnosticLog.event("FUEL_TANK_ACKNOWLEDGED", "id=$id")
@@ -337,14 +345,19 @@ class FuelTracker(context: Context, private val service: TorqueService) {
             .put("seconds", state.optLong("seconds"))
             .put("beforeLevel", before).put("afterLevel", after)
         next.getJSONArray("completed").put(finished)
-        next.put("pending", finished)
+        val pendingQueue = next.optJSONArray("pendingQueue") ?: JSONArray().also { queue ->
+            next.optJSONObject("pending")?.let { queue.put(it) }
+        }
+        pendingQueue.put(finished)
+        next.put("pendingQueue", pendingQueue)
+        next.put("pending", pendingQueue.getJSONObject(0))
         next.put("miles", 0.0)
         next.put("gallons", 0.0)
         next.put("seconds", 0L)
         next.put("fuelRateValid", true)
         next.put("fuelRateSeen", false)
         commit(next)
-        latest = summaryFromJson(finished)
+        latest = summaryFromJson(next.getJSONObject("pending"))
         DiagnosticLog.event("FUEL_TANK_COMPLETED",
             "id=$id miles=${latest!!.miles} gallons=${latest!!.gallons} seconds=${latest!!.seconds}")
     }
