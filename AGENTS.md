@@ -23,6 +23,10 @@ These are standing project requirements for any AI assistant modifying or review
 10. Keep public documentation factual and user-oriented. Do not describe internal build status, unverified testing, or conversational process as product features. Do not assert a release was successful until the corresponding workflow has actually completed successfully.
 11. Preserve the established GitHub repository identity `RACMan2527/V-Sport-Gauges` and its existing build and release mechanisms unless a change is explicitly authorized.
 
+### Documentation gate (mandatory)
+
+Before proposing README or User Guide prose, check each proposed paragraph against the owner's documentation policy: **confirmed working, user-facing functionality only**. Do not draft verification-status notes, test plans, pending-validation statements, bug-fix chronology, or internal implementation commentary into public documentation. This applies to conversational drafts as well as repository edits. Keep unverified work in commits/PRs or development discussion until the owner confirms it works. The CI documentation policy check is a second safeguard, not a substitute for this editorial review. Do not bypass or weaken the check to make a documentation change pass.
+
 ## Verification and completion
 
 12. Before committing, review the full diff for unintended changes; check affected code paths, version consistency, README and User Guide coverage, and any relevant tests. Run available targeted checks when feasible.
