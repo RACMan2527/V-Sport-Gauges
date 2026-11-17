@@ -12,6 +12,8 @@ import android.provider.MediaStore
 import android.util.Log
 import java.io.File
 import java.time.ZonedDateTime
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
@@ -32,12 +34,13 @@ object DiagnosticLog {
         Thread(task, "V-Sport-Diagnostic-Log").apply { isDaemon = true }
     }
     private val timestamp = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX")
-    private val filenameStamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")
+    private val filenameStamp = DateTimeFormatter.ofPattern("yyyyMMdd")
     @Volatile private var app: Context? = null
     private var currentUri: Uri? = null
     private var currentFile: File? = null
     private var bytesWritten = 0L
-    private var sequence = 0
+    private var currentDay: String? = null
+    private var currentPart = 0
 
     fun initialize(context: Context) {
         app = context.applicationContext
@@ -160,15 +163,17 @@ object DiagnosticLog {
             return
         }
         val eventId = eventSequence.incrementAndGet()
-        val line = "${ZonedDateTime.now().format(timestamp)} seq=$eventId " +
+        val eventTime = ZonedDateTime.now(ZoneId.systemDefault())
+        val day = eventTime.format(filenameStamp)
+        val line = "${eventTime.format(timestamp)} seq=$eventId " +
             kind.replace(Regex("[^A-Za-z0-9_]"), "_") + " " +
             detail.replace('\n', ' ').replace('\r', ' ').take(1200) + "\n"
         worker.execute {
             try {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    writeMediaStore(context, line)
+                    writeMediaStore(context, line, day)
                 } else {
-                    writeLegacy(line)
+                    writeLegacy(line, day)
                 }
             } catch (e: Exception) {
                 Log.w("V-Sport-Diagnostic-Log", "Log write failed: ${e.message}")
@@ -179,19 +184,44 @@ object DiagnosticLog {
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
-    private fun writeMediaStore(context: Context, line: String) {
+    private fun writeMediaStore(context: Context, line: String, day: String) {
         val resolver = context.contentResolver
         val bytes = line.toByteArray(Charsets.UTF_8)
-        if (currentUri == null || bytesWritten + bytes.size > MAX_BYTES) {
-            val values = ContentValues().apply {
-                put(MediaStore.Files.FileColumns.DISPLAY_NAME, newName())
-                put(MediaStore.Files.FileColumns.MIME_TYPE, "text/plain")
-                put(MediaStore.Files.FileColumns.RELATIVE_PATH, PublicDocuments.LOGS)
+        if (currentDay != day || currentUri == null || bytesWritten + bytes.size > MAX_BYTES) {
+            if (currentDay != day) {
+                currentDay = day
+                currentPart = 0
+            } else if (currentUri != null) {
+                currentPart++
             }
-            currentUri = resolver.insert(MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY), values)
-                ?: throw IllegalStateException("Unable to create Documents log")
-            bytesWritten = 0L
-            trimMediaStore(context)
+            val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+            while (true) {
+                val name = newName(day, currentPart)
+                var existingUri: Uri? = null
+                var existingBytes = 0L
+                resolver.query(collection,
+                    arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.SIZE),
+                    "${MediaStore.Files.FileColumns.RELATIVE_PATH}=? AND ${MediaStore.Files.FileColumns.DISPLAY_NAME}=?",
+                    arrayOf(PublicDocuments.LOGS, name), null
+                )?.use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        existingUri = android.content.ContentUris.withAppendedId(collection, cursor.getLong(0))
+                        existingBytes = cursor.getLong(1).coerceAtLeast(0L)
+                    }
+                }
+                if (existingUri != null && existingBytes + bytes.size > MAX_BYTES) {
+                    currentPart++
+                    continue
+                }
+                currentUri = existingUri ?: resolver.insert(collection, ContentValues().apply {
+                    put(MediaStore.Files.FileColumns.DISPLAY_NAME, name)
+                    put(MediaStore.Files.FileColumns.MIME_TYPE, "text/plain")
+                    put(MediaStore.Files.FileColumns.RELATIVE_PATH, PublicDocuments.LOGS)
+                }) ?: throw IllegalStateException("Unable to create Documents log")
+                bytesWritten = existingBytes
+                if (existingUri == null) trimMediaStore(context)
+                break
+            }
         }
         resolver.openOutputStream(currentUri!!, "wa")?.use {
             it.write(bytes)
@@ -223,20 +253,34 @@ object DiagnosticLog {
     }
 
     @Suppress("DEPRECATION")
-    private fun writeLegacy(line: String) {
+    private fun writeLegacy(line: String, day: String) {
         val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "V-Sport Gauges/Logs")
         if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("Documents unavailable")
-        if (currentFile == null || bytesWritten + line.toByteArray().size > MAX_BYTES) {
-            currentFile = File(dir, newName())
-            bytesWritten = 0L
+        val bytes = line.toByteArray(Charsets.UTF_8).size
+        if (currentDay != day) {
+            currentDay = day
+            currentPart = 0
+            currentFile = null
+        }
+        if (currentFile == null || bytesWritten + bytes > MAX_BYTES) {
+            if (currentFile != null) currentPart++
+            while (true) {
+                val candidate = File(dir, newName(day, currentPart))
+                if (!candidate.exists() || candidate.length() + bytes <= MAX_BYTES) {
+                    currentFile = candidate
+                    bytesWritten = candidate.length()
+                    break
+                }
+                currentPart++
+            }
             dir.listFiles()?.filter {
                 it.name.startsWith(PREFIX) && it.name.endsWith(".log")
             }?.sortedBy { it.name }?.dropLast(KEEP_FILES)?.forEach { it.delete() }
         }
         currentFile!!.appendText(line)
-        bytesWritten += line.toByteArray(Charsets.UTF_8).size
+        bytesWritten += bytes
     }
 
-    private fun newName(): String =
-        "$PREFIX${ZonedDateTime.now().format(filenameStamp)}-${sequence++}.log"
+    private fun newName(day: String, part: Int): String =
+        "$PREFIX$day${if (part == 0) "" else "-part$part"}.log"
 }
