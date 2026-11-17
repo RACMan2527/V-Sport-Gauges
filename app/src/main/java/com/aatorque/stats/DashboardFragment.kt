@@ -56,6 +56,7 @@ import kotlin.math.abs
 
 
 open class DashboardFragment : AlbumArt() {
+    private val overlayDimColor = Color.argb(110, 0, 0, 0)
     lateinit var rootView: View
     lateinit var mLayoutDashboard: ConstraintLayout
 
@@ -79,7 +80,7 @@ open class DashboardFragment : AlbumArt() {
         val density = resources.displayMetrics.density
         fun dp(value: Int) = (value * density + 0.5f).toInt()
         val overlay = FrameLayout(ctx).apply {
-            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            setBackgroundColor(overlayDimColor)
             elevation = dp(120).toFloat()
             isClickable = true
             isFocusable = true
@@ -674,7 +675,7 @@ open class DashboardFragment : AlbumArt() {
         fun dp(value: Int): Int = (value * density).toInt()
 
         val overlay = FrameLayout(context).apply {
-            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            setBackgroundColor(overlayDimColor)
             elevation = dp(20).toFloat()
             isClickable = true
             isFocusable = true
@@ -819,7 +820,7 @@ open class DashboardFragment : AlbumArt() {
         val density = resources.displayMetrics.density
         fun dp(value: Int): Int = (value * density).toInt()
         val overlay = FrameLayout(context).apply {
-            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            setBackgroundColor(overlayDimColor)
             elevation = dp(20).toFloat()
             isClickable = true
             isFocusable = true
@@ -1251,7 +1252,7 @@ open class DashboardFragment : AlbumArt() {
         fun dp(n: Int) = (n * resources.displayMetrics.density).toInt()
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         val overlay = FrameLayout(context).apply {
-            setBackgroundColor(Color.argb(170, 0, 0, 0))
+            setBackgroundColor(overlayDimColor)
             // Gauges can have their own Z elevation; keep the modal above them.
             elevation = dp(100).toFloat()
             isClickable = true
