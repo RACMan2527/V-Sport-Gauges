@@ -181,10 +181,10 @@ open class DashboardFragment : AlbumArt() {
     private var quickIndex = 0
     private val quickHandler = Handler(Looper.getMainLooper())
     private val quickTimeout = Runnable {
-        if (quickPage != "diagnostics") closeQuickControls()
+        if (quickPage != "diagnostics" && quickPage != "battery") closeQuickControls()
     }
     private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "PID Polling",
-        "Screen Refresh", "Live Diagnostics", "Fuel Summary Preview", "Close Menu")
+        "Screen Refresh", "Live Diagnostics", "Battery Stats", "Fuel Summary Preview", "Close Menu")
     private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
     private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
     private var quickResetSelection = 0
@@ -1134,7 +1134,7 @@ open class DashboardFragment : AlbumArt() {
     private fun quickTouch() {
         quickHandler.removeCallbacks(quickTimeout)
         // Keep diagnostics open until the user explicitly exits it.
-        if (quickPage != "diagnostics") quickHandler.postDelayed(quickTimeout, 5_000L)
+        if (quickPage != "diagnostics" && quickPage != "battery") quickHandler.postDelayed(quickTimeout, 5_000L)
     }
 
     private fun closeQuickControls() {
@@ -1196,11 +1196,12 @@ open class DashboardFragment : AlbumArt() {
                 2 -> openQuickSlider(true)
                 3 -> openQuickSlider(false)
                 4 -> openQuickControls("diagnostics")
-                5 -> {
+                5 -> openQuickControls("battery")
+                6 -> {
                     closeQuickControls()
                     showTankSummary(fuelTracker.previewSummary(), preview = true)
                 }
-                6 -> closeQuickControls()
+                7 -> closeQuickControls()
                 else -> closeQuickControls()
             }
             "reset" -> if (quickIndex == 3) openQuickControls()
@@ -1215,7 +1216,7 @@ open class DashboardFragment : AlbumArt() {
                 1 -> changeQuickSize(false)
                 else -> openQuickControls()
             }
-            "diagnostics" -> openQuickControls()
+            "diagnostics", "battery" -> openQuickControls()
             else -> openQuickControls()
         }
     }
@@ -1288,6 +1289,7 @@ open class DashboardFragment : AlbumArt() {
             "reset" -> "DAILY MIN/MAX RESET"
             "sizes" -> "GAUGE SIZES"
             "confirm" -> "CONFIRM RESET"
+            "battery" -> "BATTERY STATS"
             else -> "LIVE DIAGNOSTICS"
         }
         row(heading) { quickTouch() }
@@ -1310,6 +1312,46 @@ open class DashboardFragment : AlbumArt() {
                 row("Clear today's " + listOf("MAX", "MIN", "MIN and MAX")[quickResetSelection] + "?") {}
                 row("CONFIRM", quickIndex == 0) { quickIndex = 0; quickSelect() }
                 row("CANCEL", quickIndex == 1) { quickIndex = 1; quickSelect() }
+            }
+            "battery" -> {
+                val battery = BatteryStats.display(context)
+                val rows = listOf(
+                    "Battery Level" to (battery.level?.let { "${it}%" } ?: "—"),
+                    "Charging" to (if (battery.charging) "Yes" else "No"),
+                    "Monitoring Time" to (battery.minutes?.let { "${it / 60}h ${it % 60}m" } ?: "—"),
+                    "Starting Battery" to (battery.start?.let { "${it}%" } ?: "—"),
+                    "Battery Consumed" to (battery.consumed?.let { "${it}%" } ?: "—"),
+                    "Est. Time to 20%" to (battery.remainingHours?.let {
+                        String.format(java.util.Locale.US, "%.1f hours", it)
+                    } ?: "—"),
+                    "Discharge Rate (Average)" to (battery.rate?.let {
+                        String.format(java.util.Locale.US, "%.2f%%/hour", it)
+                    } ?: "—")
+                )
+                rows.forEach { (label, value) ->
+                    val line = LinearLayout(context).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        setPadding(dp(10), dp(7), dp(10), dp(7))
+                        background = GradientDrawable().apply {
+                            setColor(Color.rgb(32, 47, 63))
+                            cornerRadius = dp(7).toFloat()
+                        }
+                    }
+                    line.addView(TextView(context).apply {
+                        text = label
+                        textSize = 13f
+                        setTextColor(Color.rgb(170, 200, 225))
+                    }, LinearLayout.LayoutParams(0, -2, 1f))
+                    line.addView(TextView(context).apply {
+                        text = value
+                        textSize = 16f
+                        setTextColor(Color.WHITE)
+                    })
+                    panel.addView(line, LinearLayout.LayoutParams(-1, -2).apply {
+                        bottomMargin = dp(3)
+                    })
+                }
+                row("BACK") { openQuickControls() }
             }
             else -> {
                 val state = TextView(context).apply {
