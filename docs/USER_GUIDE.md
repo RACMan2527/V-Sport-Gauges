@@ -2,87 +2,62 @@
 
 **For V-Sport Gauges 3.12.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
-This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
+This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
+## 1. First-time setup and Documents folder access
 
-## Automatic Trip and Fuel Tank Tracking
+V-Sport Gauges builds on AA Torque. Install and configure **Torque Pro** and a compatible OBD-II adapter first, then install V-Sport Gauges on the host Android phone. This guide covers the controls and features added by V-Sport Gauges, rather than repeating the original AA Torque setup instructions.
 
-![Trip and fuel tracking flow](images/trip-fuel-tracking.svg)
+### Authorize the Documents folder
 
-V-Sport Gauges accumulates tank information from **Torque Pro trip distance (ff1204), trip time (ff1266), and trip MPG (ff1205)**. It reuses available Torque trip readings instead of independently calculating distance or fuel economy from vehicle-speed or engine-fuel-rate PIDs. **Fuel level (012F)** is used to detect a refill.
+1. Open **V-Sport Gauges** on the Android phone. If Android requests location permission, respond to the phone's permission prompt.
+2. At the **V-Sport Gauges files** prompt, select **Select folder**.
+3. In Android's folder picker, select the existing **Documents/V-Sport Gauges** folder—not Documents itself or a subfolder—and grant read/write access.
+4. If the app finds a valid **AppState.json**, it recovers the saved application state. If recovery fails, the app reports the problem and preserves the original file.
+5. The app checks for **Fuel-Tracker.json** and **Fuel-Up-History.csv**. If a file is missing, the **Missing fuel file** dialog offers **Create if missing**. Use this only when the file truly does not exist; an existing unreadable file must be repaired or restored rather than overwritten.
+6. On reinstall, keep the Documents folder and select it again when prompted. The permission must be granted again after an uninstall.
 
-Valid trip information is accumulated across driving sessions. Background monitoring can continue when Android Auto is not showing the gauges. While the vehicle is parked and the ECU is disconnected, the service can remain ready; new driving information requires available Torque and ECU data.
+Choosing **Later** postpones folder authorization and can prevent persistent file recovery or background fuel tracking until the necessary files are accessible.
 
-After a confirmed refill, the completed tank is retained in the history and a **LAST TANK** summary can appear with accumulated miles, driving time, and MPG. Select **OK** to dismiss it. For an interim view of the current tank, use **Quick Controls → Fuel Summary Preview**. Previewing does not complete or reset a tank.
-
-The refill detector uses a persisted fuel-level baseline and multiple confirming readings to avoid reacting to a single fluctuation. Small top-ups may not reach the detection threshold.
-
-## Application Persistence and File Locations
-
-![Documents folder layout](images/documents-layout.svg)
-
-On Android 10 and later, user-accessible files are organized in the host phone's **Documents/V-Sport Gauges** folder. When prompted in the phone app, select that exact folder and grant read/write permission. After uninstalling and reinstalling, Android may require authorization again. Keep the existing files to recover their information.
+![Code-based Documents folder structure](images/documents-layout.svg)
 
 | Location | Purpose |
 | --- | --- |
-| `Documents/V-Sport Gauges/Fuel-Tracker.json` | Current tank and completed tank records |
-| `Documents/V-Sport Gauges/Fuel-Up-History.csv` | Fuel-up history for spreadsheet review |
-| `Documents/V-Sport Gauges/AppState.json` | All-time peaks, current-day records, gauge sizes, and battery statistics |
-| `Documents/V-Sport Gauges/Exports/` | Exported dashboard settings |
+| `Documents/V-Sport Gauges/Fuel-Tracker.json` | Current tank and completed-tank records |
+| `Documents/V-Sport Gauges/Fuel-Up-History.csv` | Fuel-up history |
+| `Documents/V-Sport Gauges/AppState.json` | All-time peaks, current-day records, gauge sizes, and phone battery statistics |
+| `Documents/V-Sport Gauges/Exports/` | Exported dashboards |
 | `Documents/V-Sport Gauges/Logs/` | Diagnostic logs |
 
-The fuel tracker also keeps private recovery data. Do not delete or replace existing Documents files during a reinstall. Application state and dashboard exports serve different purposes: PID polling and screen-refresh preferences remain part of dashboard settings/export, not the perpetual application state.
+The fuel tracker also maintains private recovery data. **Do not delete existing files during upgrades or reinstalls.**
 
-## Host Android Phone Battery Monitoring
+## 2. Global settings and appearance
 
-![Host phone battery statistics](images/phone-battery.svg)
+### Cadillac theme and font
 
-**Battery Stats monitors the Android phone running V-Sport Gauges, not the Escalade's 12-volt battery.**
+On the Android phone, open **V-Sport Gauges → Settings → Appearance**.
 
-Open **Quick Controls → Battery Stats** to see **Battery Level**, **Charging**, **Monitoring Time**, **Starting Battery**, **Battery Consumed**, **Discharge Rate (Average)**, and **Est. Time to 20%**.
+- **Theme → Cadillac V-Sport** selects the Cadillac-named appearance, based on the Audi TT gauge theme.
+- **Font → Cadillac Escalade** selects the Cadillac-named font option, based on Volkswagen Thesis.
+- The header's **V-Series logo** appears with the Cadillac V-Sport theme. Choosing the font alone does not turn the logo on.
 
-Battery consumption is measured during qualifying background monitoring while the ECU is disconnected and the phone is not charging. A completed measurement uses approximately two hours of qualifying monitoring. If conditions are interrupted, the measurement cycle resets; the last completed result remains available. The remaining-time figure is an estimate based on the observed discharge rate, not a guaranteed runtime.
+### Polling, refresh, and dashboard exports
 
-## Quick Controls and Live Diagnostics
+**PID Polling** controls the configured Torque request interval (50–500 ms; default 200 ms). **Screen Refresh** controls gauge animation timing (50–500 ms; default 300 ms), not the PID request rate. Both can also be adjusted through Quick Controls.
 
-Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it, rotate to highlight an item, and press to select. When the menu is closed, rotation continues to switch dashboards. The test screen can open Quick Controls with a three-second clock hold and supports tapping menu entries.
+The dashboard export/import feature preserves configured polling and refresh settings. Exported dashboards are stored under **Documents/V-Sport Gauges/Exports**; import uses Android's document picker. These settings are not duplicated in **AppState.json**.
 
-The menu offers **Daily MIN/MAX Reset**, **Gauge Sizes**, **PID Polling**, **Screen Refresh**, **Live Diagnostics**, **Battery Stats**, **Fuel Summary Preview**, and **Close Menu**. Daily reset leaves all-time peaks unchanged. **Battery Stats** reports the host Android phone battery; **Fuel Summary Preview** shows the accumulated current tank without recording a refill. Live Diagnostics and Battery Stats remain open until dismissed; ordinary menu pages time out after five seconds.
+## 3. Gauge configuration
 
-Dashboard **Export** saves configuration in `Documents/V-Sport Gauges/Exports`; **Import** uses Android's document picker. Exported dashboard settings and `AppState.json` are separate.
+These instructions cover the gauge settings and indicators added to the original AA Torque application. Other standard AA Torque gauge settings remain available.
 
-### Live Diagnostics display
-
-Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile panel. Values refresh approximately once per second while the panel is open. No extra ECU requests are issued.
-
-| Display | What it reports |
-| --- | --- |
-| **PID Polling Target** | Configured PID request interval, in milliseconds; a target, not a measured rate |
-| **Actual PID Rate** | Number of successful accepted PID polls per second across active gauge requests, measured over the preceding display interval |
-| **Torque Response** | Time spent retrieving the last PID value from Torque's API, in milliseconds; not confirmed ECU latency |
-| **Last PID Age** | Time since the most recent accepted PID reading; a dash appears until one is received |
-| **Stale Data** | Cumulative count and whole-number percentage of PID validation results with an unchanged source timestamp |
-| **Suspect Data** | Cumulative count and whole-number percentage of PID validation results that failed validation, including unavailable connection, invalid values or invalid timestamps |
-
-The six tiles are grouped by polling, timing, and data quality. The existing ECU status line, **Torque Connection** and **Data Stream** rows retain their original connection-state logic and placement. A **Monitoring** status does not by itself establish fresh ECU data. Stale and suspect percentages are cumulative since app startup, not a live rolling-window percentage. The Screen Refresh setting remains available in Quick Controls even though its value is no longer displayed in Live Diagnostics.
-
-The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
-
-## Persistent diagnostic logs
-
-V-Sport Gauges automatically writes diagnostic logs to **Documents/V-Sport Gauges/Logs** on the host Android phone. Logging starts when the application starts; it does not wait for the folder-selection prompt. Android 10 and later uses the system media storage service for log files.
-
-Events use the phone's **local time**. Daily filenames resemble `V-Sport-Gauges-20261117.log`; the next event after a date change starts the new day's log. A log larger than approximately **5 MB** rolls over to a `-partN` file. The logger retains up to eight matching files.
-
-Logs capture connection events, PID issues, daily MIN/MAX and all-time PEAK changes, selected settings changes, and battery observations. Writing occurs off the PID polling thread.
-
-## 1. Understand the round gauges
+### Round gauges
 
 ![Schematic round torque gauge with peak markers](images/gauge-examples.svg)
 
 A round gauge displays its configured Torque Pro PID, label, units, scale, live numeric value and animated needle. Its tick marks are rendered by the app, not baked into a background photograph.
 
-**Example:** the gauge reads **280 lb-ft**. The **red daily MAX triangle** points to **300 lb-ft**, about 30% lower than a 430 lb-ft example: the triangle **moves counterclockwise** on the same 0–500 scale; its physical size does not change. The **white triangle** marks a saved **455 lb-ft all-time maximum**.
+**Example:** the illustration shows a torque gauge with separate current, daily, and all-time readings. Marker positions follow the configured gauge scale; the example values are illustrative, not live vehicle measurements.
 
 | Indicator | Meaning | Persistence |
 | --- | --- | --- |
@@ -93,7 +68,7 @@ A round gauge displays its configured Torque Pro PID, label, units, scale, live 
 
 **Important:** A round gauge can show **MAX, MIN, or BOTH** daily markers. The diagram illustrates both colored triangles; the white all-time marker is independent.
 
-### Configure a round gauge
+#### Configure a round gauge
 
 1. On the Android phone, open **V-Sport Gauges → Settings → Dashboards**.
 2. Open the desired dashboard and select the **left, center or right round gauge**.
@@ -104,7 +79,7 @@ A round gauge displays its configured Torque Pro PID, label, units, scale, live 
 
 These **high/low selectors are available for round gauges**. They are intentionally hidden in the **horizontal-gauge** settings, where daily MAX is handled separately.
 
-### Saved all-time peak and the `PEAK:` label
+#### Saved all-time peak and the `PEAK:` label
 
 - All-time values are saved against the complete Torque PID identifier and can be shared by gauges using that PID.
 - **Show all-time peak marker** controls visibility of the **white triangle**, not whether the app records a peak.
@@ -112,17 +87,17 @@ These **high/low selectors are available for round gauges**. They are intentiona
 - When a saved peak is loaded, **`PEAK: <value>`** appears for approximately **three seconds**.
 - When a **new all-time maximum** is reached while the all-time marker is enabled, the `PEAK:` label remains visible until the gauge is reinitialized. It is not a continuously displayed live measurement.
 
-### Daily minimum startup protection
+#### Daily minimum startup protection
 
 A candidate daily minimum is not accepted immediately. The app checks that **RPM exceeds 300**, waits **five seconds**, and checks **RPM above 300** again before recording that candidate. It does **not** monitor RPM continuously between the checks. This avoids accepting an unqualified low reading during engine startup.
 
 Daily records are scoped to the **local calendar date** and the PID/conversion. They do not replace the saved all-time maximum.
 
-### Daily record notification
+#### Daily record notification
 
 Daily MIN/MAX records continue updating with every accepted improvement. The round gauge's unit label blinks for **3 seconds** (half a second visible, half a second hidden) only when the record improves by at least **5% of that gauge's configured range** relative to the last notification baseline, and at least **60 seconds** have passed since that PID/direction last blinked. The first observed record establishes a baseline without blinking. Improvements during cooldown are recorded but do not queue a later notification; a subsequent qualifying record change is needed. MIN and MAX are gated independently, and dashboards sharing a PID/conversion share notification state during the app session. This notification does not alter the live numeric value, needle, daily triangles, or all-time `PEAK:` label.
 
-## 2. Horizontal gauge — one per dashboard
+### Horizontal gauge — one per dashboard
 
 ![Schematic horizontal engine-load gauge](images/horizontal-gauge.svg)
 
@@ -136,18 +111,31 @@ The horizontal gauge has its **own configuration on each dashboard**, rather tha
 
 The bar's appearance, tick marks and colored peak marker are theme/rendering dependent. The diagram is a functional explanation, not a screenshot. The horizontal settings intentionally do **not** expose round-gauge MIN/MAX selectors.
 
-## 3. Choose the Cadillac appearance
+## 4. Features and on-road operation
 
-On the Android phone, open **V-Sport Gauges → Settings → Appearance**.
+### Dashboard navigation and startup
 
-- **Theme → Cadillac V-Sport** selects the new Cadillac-named theme. Its gauge appearance currently inherits the **Audi TT** theme unchanged; the original Audi TT selection remains available.
-- **Font → Cadillac Escalade** selects the same underlying **Volkswagen Thesis** typeface under a separate Cadillac-named option. The original Volkswagen Thesis option remains available.
-- The **V-Series logo in the dashboard header is visible only with the Cadillac V-Sport theme**. Changing the font alone does not show or hide the logo.
-- Theme and font choices are saved in the app's existing settings and are included in normal settings export/import. An imported configuration restores its saved selections.
+#### Change dashboards and views
 
-The Cadillac V-Sport theme does not place a logo inside the round gauges. The logo is decorative; gauge refresh is accessible from Quick Controls and phone settings.
+- **Swipe horizontally** across the dashboard to switch between configured dashboards.
+- **Rotary/directional inputs** can also change dashboards: left/up and right/down navigate in opposite directions.
+- **Vertical swipe** or the supported **center/select button** toggles the alternate chart view.
+- Dashboard titles, round gauges, four smaller display fields and horizontal gauge are configured for each dashboard on the phone.
+- The **clock and direction** remain part of the dashboard header while ECU data is being connected. The **V-Series logo** also remains visible during connection when Cadillac V-Sport is selected; it is hidden for other themes. A connection-state/title change should not require the entire layout to move.
 
-## 4. Adjust gauges through Quick Controls
+The precise vehicle rotary mappings can vary by Android Auto receiver; the list above describes the events handled by the app code.
+
+#### Clock, travel direction, and startup
+
+- The **clock** comes from the phone, not a Torque Pro PID.
+- **Travel direction** is derived from phone GPS movement; when a fresh direction is unavailable, the last known direction is retained.
+- Engine data requires **Torque Pro**, a working OBD connection, and the requested PID. The gauges may wait for ECU data while the header remains visible.
+- The app considers the ECU **connected** after receiving a qualifying nonzero reading; a zero-only stream may still display as waiting. That status rule does not mean every legitimate zero value is invalid.
+
+### Quick Controls
+
+![Quick Controls menu labels in their code-defined order](images/quick-controls.svg)
+
 
 Press the rotary controller to open Quick Controls, rotate to choose an item, and press to select. In the test screen, hold the clock for three seconds to open the same menu, then tap items. The previous logo and round-gauge long holds are no longer assigned.
 
@@ -164,35 +152,65 @@ Press the rotary controller to open Quick Controls, rotate to choose an item, an
 Ordinary Quick Controls pages close after five seconds without interaction. Live Diagnostics and Battery Stats remain open until explicitly dismissed. A timeout cancels unconfirmed resets and unsaved slider adjustments.
 
 
-### Exporting and importing PID polling settings
+#### Exporting and importing PID polling settings
 
 Settings export includes the manually selected **PID Polling Interval** as well as gauge animation settings. Import restores the saved polling interval and applies it to active polling. Older exports without this setting use the 200 ms default. The polling slider reflects the restored value after import.
 
-## 5. Change dashboards and views
+### Trip and fuel tank tracking
 
-- **Swipe horizontally** across the dashboard to switch between configured dashboards.
-- **Rotary/directional inputs** can also change dashboards: left/up and right/down navigate in opposite directions.
-- **Vertical swipe** or the supported **center/select button** toggles the alternate chart view.
-- Dashboard titles, round gauges, four smaller display fields and horizontal gauge are configured for each dashboard on the phone.
-- The **clock and direction** remain part of the dashboard header while ECU data is being connected. The **V-Series logo** also remains visible during connection when Cadillac V-Sport is selected; it is hidden for other themes. A connection-state/title change should not require the entire layout to move.
+![Trip tracking and refill flow derived from the current fuel tracker](images/trip-fuel-tracking.svg)
 
-The precise vehicle rotary mappings can vary by Android Auto receiver; the list above describes the events handled by the app code.
+V-Sport Gauges accumulates tank information from **Torque Pro trip distance (ff1204), trip time (ff1266), and trip MPG (ff1205)**. It reuses available Torque trip readings instead of independently calculating distance or fuel economy from vehicle-speed or engine-fuel-rate PIDs. **Fuel level (012F)** is used to detect a refill.
 
-## 6. Clock, travel direction and startup
+Valid trip information is accumulated across driving sessions. Background monitoring can continue when Android Auto is not showing the gauges. While the vehicle is parked and the ECU is disconnected, the service can remain ready; new driving information requires available Torque and ECU data.
 
-- The **clock** comes from the phone, not a Torque Pro PID.
-- **Travel direction** is derived from phone GPS movement; when a fresh direction is unavailable, the last known direction is retained.
-- Engine data requires **Torque Pro**, a working OBD connection, and the requested PID. The gauges may wait for ECU data while the header remains visible.
-- The app considers the ECU **connected** after receiving a qualifying nonzero reading; a zero-only stream may still display as waiting. That status rule does not mean every legitimate zero value is invalid.
+After a confirmed refill, the completed tank is retained in the history and a **LAST TANK** summary can appear with accumulated miles, driving time, and MPG. Select **OK** to dismiss it. For an interim view of the current tank, use **Quick Controls → Fuel Summary Preview**. Previewing does not complete or reset a tank.
 
-## 7. Data quality, custom PIDs and calculated power
+The refill detector uses a persisted fuel-level baseline and multiple confirming readings to avoid reacting to a single fluctuation. Small top-ups may not reach the detection threshold.
+
+### Host Android phone battery monitoring
+
+![Battery Stats labels from the current Android Auto screen](images/phone-battery.svg)
+
+**Battery Stats monitors the Android phone running V-Sport Gauges, not the Escalade's 12-volt battery.**
+
+Open **Quick Controls → Battery Stats** to see **Battery Level**, **Charging**, **Monitoring Time**, **Starting Battery**, **Battery Consumed**, **Discharge Rate (Average)**, and **Est. Time to 20%**.
+
+Battery consumption is measured during qualifying background monitoring while the ECU is disconnected and the phone is not charging. A completed measurement uses approximately two hours of qualifying monitoring. If conditions are interrupted, the measurement cycle resets; the last completed result remains available. The remaining-time figure is an estimate based on the observed discharge rate, not a guaranteed runtime.
+
+#### Live Diagnostics display
+
+Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile panel. Values refresh approximately once per second while the panel is open. No extra ECU requests are issued.
+
+| Display | What it reports |
+| --- | --- |
+| **PID Polling Target** | Configured PID request interval, in milliseconds; a target, not a measured rate |
+| **Actual PID Rate** | Number of successful accepted PID polls per second across active gauge requests, measured over the preceding display interval |
+| **Torque Response** | Time spent retrieving the last PID value from Torque's API, in milliseconds; not confirmed ECU latency |
+| **Last PID Age** | Time since the most recent accepted PID reading; a dash appears until one is received |
+| **Stale Data** | Cumulative count and whole-number percentage of PID validation results with an unchanged source timestamp |
+| **Suspect Data** | Cumulative count and whole-number percentage of PID validation results that failed validation, including unavailable connection, invalid values or invalid timestamps |
+
+The six tiles are grouped by polling, timing, and data quality. The existing ECU status line, **Torque Connection** and **Data Stream** rows retain their original connection-state logic and placement. A **Monitoring** status does not by itself establish fresh ECU data. Stale and suspect percentages are cumulative since app startup, not a live rolling-window percentage. The Screen Refresh setting remains available in Quick Controls even though its value is no longer displayed in Live Diagnostics.
+
+The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
+
+### Persistent diagnostic logs
+
+V-Sport Gauges automatically writes diagnostic logs to **Documents/V-Sport Gauges/Logs** on the host Android phone. Logging starts when the application starts; it does not wait for the folder-selection prompt. Android 10 and later uses the system media storage service for log files.
+
+Events use the phone's **local time**. Daily filenames resemble `V-Sport-Gauges-20261117.log`; the next event after a date change starts the new day's log. A log larger than approximately **5 MB** rolls over to a `-partN` file. The logger retains up to eight matching files.
+
+Logs capture connection events, PID issues, daily MIN/MAX and all-time PEAK changes, selected settings changes, and battery observations. Writing occurs off the PID polling thread.
+
+### Data quality and calculated power
 
 - V-Sport Gauges rejects **non-finite readings**, invalid converted values, certain shutdown sentinel values and readings **above twice the configured display maximum** before they update the gauge or peak records.
 - Negative readings are **allowed** for PIDs that legitimately produce them. The visual gauge may clamp a reading to the dial minimum without changing the underlying value.
 - This is a **plausibility filter**, not a guarantee that every ECU/adapter error is detected.
 - Custom Torque Pro PIDs and formulas can supply calculated **horsepower and torque**. These are **ECU-based estimates**, not dynamometer measurements. Verify the PID definition, units and formula for your vehicle.
 
-## 8. Troubleshooting
+## 5. Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
@@ -206,7 +224,7 @@ The precise vehicle rotary mappings can vary by Android Auto receiver; the list 
 | Polling slider changes response time | This is expected: polling actually reschedules diagnostic requests |
 | Needle slider changes animation but not PID speed | This is expected: animation and polling are independent |
 
-## Connection indicators
+### Connection indicators
 
 During startup, **Connecting to ECU** appears with a small cyan rotating spinner when Torque is available but ECU communication is not yet established. The spinner and message are centered together and disappear when the existing connection state reports connected.
 
@@ -214,7 +232,7 @@ The amber **Broken Link** symbol appears beside the time and direction display i
 
 The indicator reports detectable Torque service/PID request failures. It does not prove that Torque's adapter or ECU is connected, and valid zero readings alone do not trigger the warning. The existing **Connecting to ECU** text remains a startup-only message.
 
-## 9. Feature scope
+### Scope
 
 This guide covers the application's controls and features, including `DashboardFragment.kt`, `TorqueGauge.kt`, `TorqueLoadBar.kt`, `TorqueRefresher.kt`, `TorqueData.kt`, `DailyPeakStore.kt`, `AllTimePeakStore.kt`, `SettingsPIDFragment.kt` and the settings XML.
 
