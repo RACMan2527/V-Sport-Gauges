@@ -156,6 +156,23 @@ Ordinary Quick Controls pages close after five seconds without interaction. Live
 
 Settings export includes the manually selected **PID Polling Interval** as well as gauge animation settings. Import restores the saved polling interval and applies it to active polling. Older exports without this setting use the 200 ms default. The polling slider reflects the restored value after import.
 
+### Live Diagnostics display
+
+Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile panel. Values refresh approximately once per second while the panel is open. No extra ECU requests are issued.
+
+| Display | What it reports |
+| --- | --- |
+| **PID Polling Target** | Configured PID request interval, in milliseconds; a target, not a measured rate |
+| **Actual PID Rate** | Number of successful accepted PID polls per second across active gauge requests, measured over the preceding display interval |
+| **Torque Response** | Time spent retrieving the last PID value from Torque's API, in milliseconds; not confirmed ECU latency |
+| **Last PID Age** | Time since the most recent accepted PID reading; a dash appears until one is received |
+| **Stale Data** | Cumulative count and whole-number percentage of PID validation results with an unchanged source timestamp |
+| **Suspect Data** | Cumulative count and whole-number percentage of PID validation results that failed validation, including unavailable connection, invalid values or invalid timestamps |
+
+The six tiles are grouped by polling, timing, and data quality. The existing ECU status line, **Torque Connection** and **Data Stream** rows retain their original connection-state logic and placement. A **Monitoring** status does not by itself establish fresh ECU data. Stale and suspect percentages are cumulative since app startup, not a live rolling-window percentage. The Screen Refresh setting remains available in Quick Controls even though its value is no longer displayed in Live Diagnostics.
+
+The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
+
 ### Trip and fuel tank tracking
 
 ![Trip tracking and refill flow derived from the current fuel tracker](images/trip-fuel-tracking.svg)
@@ -177,23 +194,6 @@ The refill detector uses a persisted fuel-level baseline and multiple confirming
 Open **Quick Controls → Battery Stats** to see **Battery Level**, **Charging**, **Monitoring Time**, **Starting Battery**, **Battery Consumed**, **Discharge Rate (Average)**, and **Est. Time to 20%**.
 
 Battery consumption is measured during qualifying background monitoring while the ECU is disconnected and the phone is not charging. A completed measurement uses approximately two hours of qualifying monitoring. If conditions are interrupted, the measurement cycle resets; the last completed result remains available. The remaining-time figure is an estimate based on the observed discharge rate, not a guaranteed runtime.
-
-#### Live Diagnostics display
-
-Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile panel. Values refresh approximately once per second while the panel is open. No extra ECU requests are issued.
-
-| Display | What it reports |
-| --- | --- |
-| **PID Polling Target** | Configured PID request interval, in milliseconds; a target, not a measured rate |
-| **Actual PID Rate** | Number of successful accepted PID polls per second across active gauge requests, measured over the preceding display interval |
-| **Torque Response** | Time spent retrieving the last PID value from Torque's API, in milliseconds; not confirmed ECU latency |
-| **Last PID Age** | Time since the most recent accepted PID reading; a dash appears until one is received |
-| **Stale Data** | Cumulative count and whole-number percentage of PID validation results with an unchanged source timestamp |
-| **Suspect Data** | Cumulative count and whole-number percentage of PID validation results that failed validation, including unavailable connection, invalid values or invalid timestamps |
-
-The six tiles are grouped by polling, timing, and data quality. The existing ECU status line, **Torque Connection** and **Data Stream** rows retain their original connection-state logic and placement. A **Monitoring** status does not by itself establish fresh ECU data. Stale and suspect percentages are cumulative since app startup, not a live rolling-window percentage. The Screen Refresh setting remains available in Quick Controls even though its value is no longer displayed in Live Diagnostics.
-
-The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
 
 ### Persistent diagnostic logs
 
