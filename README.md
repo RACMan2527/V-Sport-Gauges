@@ -18,7 +18,7 @@ The result is an Android Auto instrumentation application designed to complement
 
 ## User Guide — Features & Controls
 
-**[Read the illustrated V-Sport Gauges User Guide](docs/USER_GUIDE.md)** for round and horizontal gauges, all-time and daily peak markers, the `PEAK:` display, three-second logo/clock adjustments, dashboard navigation, polling and animation, startup behavior, and troubleshooting. The guide includes recreated gauge diagrams and step-by-step instructions.
+**[Read the illustrated V-Sport Gauges User Guide](docs/USER_GUIDE.md)** for first-time folder authorization, global settings, gauge configuration, Quick Controls, trip and fuel tracking, phone battery monitoring, diagnostics, and troubleshooting. The guide includes code-based explanatory diagrams and step-by-step instructions.
 
 ---
 
@@ -304,7 +304,7 @@ The daily MIN feature therefore uses a simple two-part check: engine speed must 
 
 **3.5.4–3.5.6** brought a dedicated About screen and selectable **Cadillac V-Sport** theme and **Cadillac Escalade** font. The V-Series emblem in the header is associated with the Cadillac theme, giving the display a more distinct identity without changing the underlying gauge data.
 
-**3.5.7–3.5.8** introduced larger round-gauge layouts and refined the positioning of the four smaller data views between them. The dashboard can present all three gauges at normal size, enlarge only the center, or enlarge all three. The horizontal gauge retains its own proportions. The current sizing controls are described in the [User Guide](docs/USER_GUIDE.md#4-adjust-gauges-through-quick-controls).
+**3.5.7–3.5.8** introduced larger round-gauge layouts and refined the positioning of the four smaller data views between them. The dashboard can present all three gauges at normal size, enlarge only the center, or enlarge all three. The horizontal gauge retains its own proportions. The current sizing controls are described in the [User Guide](docs/USER_GUIDE.md#quick-controls).
 
 **3.5.17** added the manually selected PID polling interval to settings export and import, so an established configuration can be carried between installations without resetting that adjustment.
 
@@ -368,7 +368,7 @@ The next step was keeping the host Android phone ready to collect trip informati
 
 After a confirmed refill, a **Last Tank** summary displays accumulated miles, driving time, and average MPG. Completed tanks are retained in the fuel-up history. A **Fuel Summary Preview** in Quick Controls also provides an immediate view of the current tank without waiting for the next refill.
 
-This was the transition from watching a drive unfold to building a record across many drives. The [User Guide](docs/USER_GUIDE.md#automatic-trip-and-fuel-tank-tracking) explains how the tracking and summary screens work.
+This was the transition from watching a drive unfold to building a record across many drives. The [User Guide](docs/USER_GUIDE.md#trip-and-fuel-tank-tracking) explains how the tracking and summary screens work.
 
 ---
 
@@ -381,7 +381,7 @@ As the application collected information over longer periods, I wanted that info
 
 I also brought the application's user-accessible files together under **Documents/V-Sport Gauges** on the host Android phone. Tank tracking, fuel-up history, application state, dashboard exports, and diagnostic logs now have recognizable locations. Folder authorization allows existing files to be recovered after reinstalling, without selecting each file individually.
 
-These changes made the application easier to update without starting over. The [User Guide](docs/USER_GUIDE.md#application-persistence-and-file-locations) describes the folder layout and recovery process.
+These changes made the application easier to update without starting over. The [User Guide](docs/USER_GUIDE.md#1-first-time-setup-and-documents-folder-access) describes the folder layout and recovery process.
 
 ---
 
