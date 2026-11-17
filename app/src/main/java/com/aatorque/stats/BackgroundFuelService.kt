@@ -27,6 +27,8 @@ class BackgroundFuelService : Service() {
                 try { api.isConnectedToECU } catch (_: Exception) { false } -> "ECU_CONNECTED"
                 else -> "ECU_DISCONNECTED"
             }
+            BatteryStats.sample(this@BackgroundFuelService, monitoring = true,
+                ecuDisconnected = state != "ECU_CONNECTED")
             if (state != lastState) {
                 DiagnosticLog.event("BACKGROUND_CONNECTION", "old=${lastState ?: "START"} new=$state")
                 lastState = state
@@ -91,6 +93,7 @@ class BackgroundFuelService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
         START_STICKY
     override fun onDestroy() {
+        BatteryStats.interrupted(this)
         handler.removeCallbacks(check)
         handler.removeCallbacks(batteryReport)
         FuelMonitor.backgroundClosed()
