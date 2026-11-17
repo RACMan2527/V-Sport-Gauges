@@ -347,11 +347,54 @@ Unlike the brief Quick Controls pages, **Live Diagnostics remains displayed unti
 
 Live Diagnostics answers an immediate question: *What is the app doing right now?* Persistent logging addresses the next one: *What happened a few minutes ago, when a reading changed unexpectedly?*
 
-**3.8.0** introduced **automatic, timestamped diagnostic logs** saved to **Downloads/V-Sport Gauges** on the Android phone. There is no need to start a recording or manually export a file before driving.
+**3.8.0** introduced **automatic, timestamped diagnostic logs** saved on the Android phone (now under **Documents/V-Sport Gauges/Logs**). There is no need to start a recording or manually export a file before driving.
 
 The logs provide a record of events that can be difficult to catch on the screen: PID request failures, Torque and ECU connection changes, daily MIN qualification, daily MIN/MAX and all-time PEAK changes, dashboard changes, and selected adjustments. Repetitive high-frequency events are summarized so the useful sequence is easier to follow.
 
 Together, the live panel and persistent logs provide two complementary views: one for understanding the system *as it runs*, and another for investigating an event *after it occurs*. See the [User Guide](docs/USER_GUIDE.md#persistent-diagnostic-logs) for where to find the files and what they contain.
+
+---
+
+## Phase 14 — Automatic Trip and Fuel Tank Tracking
+### November 2026 | Versions 3.9–3.12
+
+As V-Sport Gauges became more useful during individual drives, I wanted it to capture the larger picture: how far the Escalade traveled on a tank, how long the driving took, and what fuel economy it achieved.
+
+**Automatic trip and fuel tank tracking** extended the dashboard beyond live instrumentation. Using Torque Pro's trip distance, trip time, and trip MPG readings, the application accumulates tank information across driving sessions. Fuel-level readings are used to detect a refill, rather than to calculate distance or MPG.
+
+### Monitoring beyond the dashboard
+
+The next step was keeping the host Android phone ready to collect trip information even when Android Auto was not displaying the gauges. Background monitoring maintains that continuity while the vehicle is parked, and available trip readings are accumulated when Torque and ECU data return.
+
+After a confirmed refill, a **Last Tank** summary displays accumulated miles, driving time, and average MPG. Completed tanks are retained in the fuel-up history. A **Fuel Summary Preview** in Quick Controls also provides an immediate view of the current tank without waiting for the next refill.
+
+This was the transition from watching a drive unfold to building a record across many drives. The [User Guide](docs/USER_GUIDE.md#automatic-trip-and-fuel-tank-tracking) explains how the tracking and summary screens work.
+
+---
+
+## Phase 15 — Application Persistence and Recovery
+### November 2026 | Versions 3.11–3.12
+
+As the application collected information over longer periods, I wanted that information to survive not only individual drives but also the frequent updates made during development.
+
+**Persistent application state** preserves all-time peak records, current-day MIN/MAX values, round-gauge sizing choices, and host-phone battery statistics in a recoverable file. Daily records still follow the phone's local calendar date, while all-time records retain their longer history.
+
+I also brought the application's user-accessible files together under **Documents/V-Sport Gauges** on the host Android phone. Tank tracking, fuel-up history, application state, dashboard exports, and diagnostic logs now have recognizable locations. Folder authorization allows existing files to be recovered after reinstalling, without selecting each file individually.
+
+These changes made the application easier to update without starting over. The [User Guide](docs/USER_GUIDE.md#application-persistence-and-file-locations) describes the folder layout and recovery process.
+
+---
+
+## Phase 16 — Host Android Phone Battery Monitoring
+### November 2026 | Versions 3.11–3.12
+
+Background monitoring raised a practical question: how long could the Samsung S10 remain ready for the next drive while the Escalade was parked? The host phone might remain in the vehicle for days, making battery consumption an important part of the design.
+
+V-Sport Gauges now displays the **host Android phone's** charge level and charging status. During qualifying parked monitoring, it measures battery consumption and estimates an average discharge rate and remaining time to a 20% charge level.
+
+**Battery Stats** in Quick Controls provides direct visibility into those measurements. This is monitoring of the Android phone running V-Sport Gauges, **not the Escalade's 12-volt vehicle battery**.
+
+Together, these features make it easier to balance persistent trip monitoring with the phone's available battery life. The [User Guide](docs/USER_GUIDE.md#host-android-phone-battery-monitoring) explains the displayed measurements.
 
 ---
 
