@@ -1,31 +1,55 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.8.1** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.12.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This is the **how-to guide** for the features added to the original AA Torque app. It covers the Android Auto display and the settings configured on the Android phone. The diagrams are **recreated explanatory schematics**, not photographs or pixel-perfect screenshots. No Cadillac logo is drawn inside the gauges.
 
 
-## Automatic Fuel Tank Tracking (awaiting vehicle verification)
+## Automatic Trip and Fuel Tank Tracking
 
-The app independently samples standard ECU fuel level (PID 012F), vehicle speed (010D), and engine fuel rate (015E) through Torque Pro. It tracks distance from speed and elapsed time, and fuel consumed from the fuel-rate reading when available. It does **not** use Torque Pro's trip MPG or trip-distance counters. Fuel consumption and MPG display as **Unavailable** when a valid fuel-rate stream has not been established. The accuracy and availability of these PIDs on the Escalade must be confirmed in the vehicle.
+![Trip and fuel tracking flow](images/trip-fuel-tracking.svg)
 
-A refuel candidate requires an increase of at least **25 percentage points** from the last persisted fuel-level baseline. Engine shutdown, restart, and RPM are not required: a refill may be detected while the engine is running or between app sessions. Confirmation requires five distinct Torque fuel-level source updates that remain within three percentage points of the candidate. A single high reading or repeated cached values must not count as five updates. The fuel-level baseline is retained between sessions, and lower readings can update it as fuel is consumed. Refills smaller than 25 percentage points are not detected by this rule.
+V-Sport Gauges accumulates tank information from **Torque Pro trip distance (ff1204), trip time (ff1266), and trip MPG (ff1205)**. It reuses available Torque trip readings instead of independently calculating distance or fuel economy from vehicle-speed or engine-fuel-rate PIDs. **Fuel level (012F)** is used to detect a refill.
 
-A confirmed refill completes the accumulated tank, preserves distance, driving time, fuel used and MPG when available, and queues the **Last Tank** popup. The popup remains until **OK**; pending summaries are preserved across normal app restarts. Refill events with less than one mile of accumulated travel do not create a summary.
+Valid trip information is accumulated across driving sessions. Background monitoring can continue when Android Auto is not showing the gauges. While the vehicle is parked and the ECU is disconnected, the service can remain ready; new driving information requires available Torque and ECU data.
 
-The authoritative `Fuel-Tracker.json` is saved atomically in app-private storage. The app no longer attempts a continuously synchronized Downloads copy. Normal shutdown triggers a save; an unexpected termination recovers the last completed save. Do not clear app data or uninstall the app if you want to retain this history. A damaged existing file is not silently replaced with an empty tank. These behaviors await vehicle verification.
+After a confirmed refill, the completed tank is retained in the history and a **LAST TANK** summary can appear with accumulated miles, driving time, and MPG. Select **OK** to dismiss it. For an interim view of the current tank, use **Quick Controls → Fuel Summary Preview**. Previewing does not complete or reset a tank.
+
+The refill detector uses a persisted fuel-level baseline and multiple confirming readings to avoid reacting to a single fluctuation. Small top-ups may not reach the detection threshold.
+
+## Application Persistence and File Locations
+
+![Documents folder layout](images/documents-layout.svg)
+
+On Android 10 and later, user-accessible files are organized in the host phone's **Documents/V-Sport Gauges** folder. When prompted in the phone app, select that exact folder and grant read/write permission. After uninstalling and reinstalling, Android may require authorization again. Keep the existing files to recover their information.
+
+| Location | Purpose |
+| --- | --- |
+| `Documents/V-Sport Gauges/Fuel-Tracker.json` | Current tank and completed tank records |
+| `Documents/V-Sport Gauges/Fuel-Up-History.csv` | Fuel-up history for spreadsheet review |
+| `Documents/V-Sport Gauges/AppState.json` | All-time peaks, current-day records, gauge sizes, and battery statistics |
+| `Documents/V-Sport Gauges/Exports/` | Exported dashboard settings |
+| `Documents/V-Sport Gauges/Logs/` | Diagnostic logs |
+
+The fuel tracker also keeps private recovery data. Do not delete or replace existing Documents files during a reinstall. Application state and dashboard exports serve different purposes: PID polling and screen-refresh preferences remain part of dashboard settings/export, not the perpetual application state.
+
+## Host Android Phone Battery Monitoring
+
+![Host phone battery statistics](images/phone-battery.svg)
+
+**Battery Stats monitors the Android phone running V-Sport Gauges, not the Escalade's 12-volt battery.**
+
+Open **Quick Controls → Battery Stats** to see **Battery Level**, **Charging**, **Monitoring Time**, **Starting Battery**, **Battery Consumed**, **Discharge Rate (Average)**, and **Est. Time to 20%**.
+
+Battery consumption is measured during qualifying background monitoring while the ECU is disconnected and the phone is not charging. A completed measurement uses approximately two hours of qualifying monitoring. If conditions are interrupted, the measurement cycle resets; the last completed result remains available. The remaining-time figure is an estimate based on the observed discharge rate, not a guaranteed runtime.
 
 ## Quick Controls and Live Diagnostics
 
 Quick Controls is an overlay on the current dashboard. Press the Android Auto rotary controller to open it, rotate to highlight an item, and press to select. When the menu is closed, rotation continues to switch dashboards. The test screen can open Quick Controls with a three-second clock hold and supports tapping menu entries.
 
-The main menu offers **Daily MIN/MAX Reset**, **Gauge Sizes**, **PID Polling**, **Screen Refresh**, **Live Diagnostics**, **Fuel Summary Preview**, and **Close Menu**. Reset offers MAX, MIN, or both with confirmation, without clearing all-time peaks. Gauge Sizes controls the normal and enlarged round-gauge layouts. PID Polling and Screen Refresh open their existing adjustment sliders.
+The menu offers **Daily MIN/MAX Reset**, **Gauge Sizes**, **PID Polling**, **Screen Refresh**, **Live Diagnostics**, **Battery Stats**, **Fuel Summary Preview**, and **Close Menu**. Daily reset leaves all-time peaks unchanged. **Battery Stats** reports the host Android phone battery; **Fuel Summary Preview** shows the accumulated current tank without recording a refill. Live Diagnostics and Battery Stats remain open until dismissed; ordinary menu pages time out after five seconds.
 
-Dashboard settings **Export** writes `dashboards.pb` directly into `Documents/V-Sport Gauges/Exports` on Android 10 and later, creating the directory through Android's media storage service as needed. Exporting again replaces the existing app-owned file. **Import** still uses Android's document picker, requesting that folder as its starting location; Android may ignore the hint. The settings format is unchanged.
-
-**Fuel Summary Preview** opens the same fuel summary popup on demand, showing current accumulated distance, time, fuel and MPG where valid. It is labeled PREVIEW, requires OK to close, and does not mark a refill, reset tracking, or acknowledge a genuine pending summary.
-
-The preview popup heading is **FUEL SUMMARY PREVIEW**. After a confirmed refill, the automatic completed-tank popup instead reads **LAST TANK**. Each completed tank is retained in `Fuel-Tracker.json` and copied to the separate internal `Fuel-Up-History.csv` file (UTC date/time, distance, gallons and MPG when available, driving time, and before/after fuel levels). Existing completed records are copied when the updated tracker starts; the CSV is rebuilt from the retained records after an interrupted write. The CSV is also published to `Documents/V-Sport Gauges/Fuel-Up-History.csv` for Files/Excel; the private CSV and JSON are retained for recovery. Diagnostic logs are written to `Documents/V-Sport Gauges/Logs` on Android 10 and later. A Quick Controls history viewer is not yet available.\n\n**Timeout behavior:** Ordinary Quick Controls pages close after **five seconds** without interaction. **Live Diagnostics stays open until you explicitly exit** using BACK or the controller select action. It does not time out.
+Dashboard **Export** saves configuration in `Documents/V-Sport Gauges/Exports`; **Import** uses Android's document picker. Exported dashboard settings and `AppState.json` are separate.
 
 ### Live Diagnostics display
 
@@ -46,7 +70,11 @@ The diagnostics screen deliberately **does not display the application version**
 
 ## Persistent diagnostic logs
 
-V-Sport Gauges automatically writes timestamped diagnostic logs to **Downloads/V-Sport Gauges** on the phone, using filenames `V-Sport-Gauges-*.log`. No folder selection or manual export is required. Logs capture PID failures, correlated daily MIN validation, daily MIN/MAX and all-time PEAK record changes, resets, gauge size changes, dashboard changes, connection status changes, and selected configuration changes. Rapid MAX/PEAK updates and repeated invalid-RPM daily MIN rejections are summarized to reduce logging overhead. The writer runs in the background and does not add ECU requests. Each file is limited to approximately 5 MB and the eight most recent log files are retained. On Android versions before 10, public Downloads write access may require the platform storage permission.
+V-Sport Gauges automatically writes diagnostic logs to **Documents/V-Sport Gauges/Logs** on the host Android phone. Logging starts when the application starts; it does not wait for the folder-selection prompt. Android 10 and later uses the system media storage service for log files.
+
+Events use the phone's **local time**. Daily filenames resemble `V-Sport-Gauges-20261117.log`; the next event after a date change starts the new day's log. A log larger than approximately **5 MB** rolls over to a `-partN` file. The logger retains up to eight matching files.
+
+Logs capture connection events, PID issues, daily MIN/MAX and all-time PEAK changes, selected settings changes, and battery observations. Writing occurs off the PID polling thread.
 
 ## 1. Understand the round gauges
 
@@ -131,9 +159,9 @@ Press the rotary controller to open Quick Controls, rotate to choose an item, an
 
 **Daily MIN/MAX Reset** clears today's MAX, MIN, or both, across all dashboards sharing PID identities. Reset requires confirmation and does not affect saved all-time peaks.
 
-**Live Diagnostics** shows six live measurement tiles for polling target, actual PID rate, screen refresh setting, ECU response, PID failures, and last PID age. It also shows the existing connection-state summaries. It does not show the application version.
+**Live Diagnostics** displays polling, timing, connection, and data-quality information. It also shows the existing connection-state summaries. It does not show the application version.
 
-Ordinary Quick Controls pages close after five seconds without interaction. Live Diagnostics remains open until explicitly dismissed. A timeout cancels unconfirmed resets and unsaved slider adjustments.
+Ordinary Quick Controls pages close after five seconds without interaction. Live Diagnostics and Battery Stats remain open until explicitly dismissed. A timeout cancels unconfirmed resets and unsaved slider adjustments.
 
 
 ### Exporting and importing PID polling settings
@@ -186,7 +214,7 @@ The amber **Broken Link** symbol appears beside the time and direction display i
 
 The indicator reports detectable Torque service/PID request failures. It does not prove that Torque's adapter or ECU is connected, and valid zero readings alone do not trigger the warning. The existing **Connecting to ECU** text remains a startup-only message.
 
-## 9. Feature status and scope
+## 9. Feature scope
 
 This guide covers the application's controls and features, including `DashboardFragment.kt`, `TorqueGauge.kt`, `TorqueLoadBar.kt`, `TorqueRefresher.kt`, `TorqueData.kt`, `DailyPeakStore.kt`, `AllTimePeakStore.kt`, `SettingsPIDFragment.kt` and the settings XML.
 
