@@ -242,6 +242,7 @@ open class DashboardFragment : AlbumArt() {
     }
 
     private fun updateConnectionIndicators() {
+        binding.lowBattery = BatteryStats.warning(requireContext())
         binding.connectingEcu = currentConnectionStatus == ConnectStatus.CONNECTING_ECU
         binding.brokenLink = (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE &&
             torqueStartupTimedOut) ||
