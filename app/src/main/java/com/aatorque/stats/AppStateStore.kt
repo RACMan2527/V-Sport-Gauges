@@ -122,6 +122,7 @@ object AppStateStore {
                 .put("all", prefs(context, "round_gauge_display")
                     .getBoolean("all_round_gauges_large", false))
                 .put("center", center))
+            .put("batteryStats", BatteryStats.snapshot(context))
     }
 
     private fun writeSnapshot(context: Context) {
@@ -173,6 +174,7 @@ object AppStateStore {
         }
         check(dailyEditor.commit()) { "Cannot restore daily preferences" }
 
+        BatteryStats.restore(context, json.optJSONObject("batteryStats"))
         val sizes = json.getJSONObject("gaugeSizes")
         val all = sizes.getBoolean("all")
         val center = sizes.getBoolean("center")
