@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.14.1** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.14.2** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
