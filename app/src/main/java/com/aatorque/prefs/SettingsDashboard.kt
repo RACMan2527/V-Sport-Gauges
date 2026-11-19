@@ -13,6 +13,7 @@ import androidx.preference.PreferenceCategory
 import androidx.preference.PreferenceFragmentCompat
 import com.aatorque.stats.R
 import com.aatorque.stats.TorqueServiceWrapper
+import com.aatorque.stats.VirtualPid
 import kotlinx.coroutines.launch
 import timber.log.Timber
 
@@ -68,9 +69,10 @@ class SettingsDashboard : PreferenceFragmentCompat() {
                                         optionsCat.addPreference(
                                             Preference(requireContext()).also {
                                                 it.key = "${type}_${dbIndex}_${j}"
-                                                it.summary = pids.firstOrNull { pid ->
-                                                    "torque_${pid.first}" == screen.pid
-                                                }?.second?.get(0) ?: ""
+                                                it.summary = VirtualPid.find(screen.pid)?.name
+                                                    ?: pids.firstOrNull { pid ->
+                                                        "torque_${pid.first}" == screen.pid
+                                                    }?.second?.get(0) ?: ""
                                                 it.title = texts[i][j]
                                                 it.icon = AppCompatResources.getDrawable(
                                                     requireContext(),
@@ -85,9 +87,10 @@ class SettingsDashboard : PreferenceFragmentCompat() {
                                 optionsCat.addPreference(Preference(requireContext()).also {
                                     it.key = "horizontal_${dbIndex}_0"
                                     it.title = "Horizontal Gauge"
-                                    it.summary = pids.firstOrNull { pid ->
-                                        "torque_${pid.first}" == screen.horizontalGauge.pid
-                                    }?.second?.get(0) ?: "PID not set"
+                                    it.summary = VirtualPid.find(screen.horizontalGauge.pid)?.name
+                                        ?: pids.firstOrNull { pid ->
+                                            "torque_${pid.first}" == screen.horizontalGauge.pid
+                                        }?.second?.get(0) ?: "PID not set"
                                     it.fragment = SettingsPIDFragment::class.java.canonicalName
                                 })
                             }
