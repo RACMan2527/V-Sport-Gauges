@@ -12,6 +12,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
+import java.time.LocalDate
 
 /**
  * Tank accounting from verified Torque trip PIDs ONLY:
@@ -31,6 +32,33 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     private var task: ScheduledFuture<*>? = null
     private var state = load().also { migrateLegacyFuelAccounting(it); writeHistory(it) }
     private var lastSampleMs = 0L
+    // Daily totals are independent of the tank and use the phone's local date.
+    private fun daily(): JSONObject {
+        val today = LocalDate.now().toString()
+        val current = state.optJSONObject("daily")
+        if (current != null && current.optString("date") == today) return current
+        return JSONObject().put("date", today).put("miles", 0.0)
+            .put("seconds", 0.0).put("gallons", 0.0).also {
+                state.put("daily", it)
+                DiagnosticLog.event("DAILY_TRIP_RESET", "date=$today")
+                save()
+            }
+    }
+
+    @Synchronized fun dailyValue(id: String): Double {
+        val today = daily()
+        return when (id) {
+            "VS_DAILY_DISTANCE" -> today.optDouble("miles")
+            "VS_DAILY_TIME" -> today.optDouble("seconds") / 60.0
+            "VS_DAILY_GALLONS" -> today.optDouble("gallons")
+            "VS_DAILY_MPG" -> {
+                val gallons = today.optDouble("gallons")
+                if (gallons > 0.0) today.optDouble("miles") / gallons else 0.0
+            }
+            else -> 0.0
+        }
+    }
+
     private var previousTripMiles: Double? = null
     private var previousTripGallons: Double? = null
     private var previousTripSeconds: Double? = null
@@ -259,6 +287,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
             ?: run { lastSampleMs = 0L; return }
         // These are the same raw Torque trip values displayed on the dashboards.
+        daily() // Advance the local date before consuming the next sample.
         val tripKm = read(ts, "ff1204,0")
         val tripMpg = read(ts, "ff1205,0")?.takeIf { it > 0.0 && it < 1000.0 }
         val tripSeconds = read(ts, "ff1266,0")
@@ -279,10 +308,14 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 val secondsDelta = (tripSeconds - oldSeconds).coerceAtLeast(0.0)
                 state.put("miles", state.optDouble("miles") + milesDelta)
                 state.put("seconds", state.optLong("seconds") + secondsDelta.toLong())
+                val today = daily()
+                today.put("miles", today.optDouble("miles") + milesDelta)
+                today.put("seconds", today.optDouble("seconds") + secondsDelta)
                 if (tripGallons != null && oldGallons != null) {
                     val gallonsDelta = tripGallons - oldGallons
                     if (gallonsDelta >= 0.0) {
                         state.put("gallons", state.optDouble("gallons") + gallonsDelta)
+                        daily().let { it.put("gallons", it.optDouble("gallons") + gallonsDelta) }
                         state.put("fuelRateSeen", true)
                     } else if (gallonsDelta < -0.02) {
                         DiagnosticLog.event("FUEL_TRIP_GALLONS_DECREASE", "delta=$gallonsDelta")
