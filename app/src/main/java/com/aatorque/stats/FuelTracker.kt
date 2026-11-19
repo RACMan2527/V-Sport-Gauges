@@ -53,7 +53,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             "VS_DAILY_GALLONS" -> today.optDouble("gallons")
             "VS_DAILY_MPG" -> {
                 val gallons = today.optDouble("gallons")
-                if (gallons > 0.0) today.optDouble("miles") / gallons else 0.0
+                if (gallons > 0.0) today.optDouble("mpgMiles") / gallons else 0.0
             }
             else -> 0.0
         }
@@ -67,7 +67,14 @@ class FuelTracker(context: Context, private var service: TorqueService) {
      */
     private fun recordDailyTrip(miles: Double, seconds: Double, mpg: Double?) {
         val today = daily()
-        val currentGallons = mpg?.takeIf { it > 0.0 }?.let { miles / it }
+        // Existing 3.14.4 daily fuel totals may be mismatched with distance.
+        // Begin a fresh MPG-only accounting baseline without touching distance/time.
+        if (!today.has("mpgMiles")) {
+            today.put("mpgMiles", 0.0)
+            today.put("gallons", 0.0)
+            today.remove("tripBaselineGallons")
+        }
+        val currentGallons = mpg?.takeIf { it.isFinite() && it > 0.0 }?.let { miles / it }
         val previousMiles = today.optDouble("tripBaselineMiles", Double.NaN)
         val previousSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
         val previousGallons = today.optDouble("tripBaselineGallons", Double.NaN)
@@ -98,6 +105,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             }
             if (gallonsDelta >= 0.0) {
                 today.put("gallons", today.optDouble("gallons") + gallonsDelta)
+                val pairedMiles = if (includeFirst) miles else if (first || !previousGallons.isFinite()) 0.0 else milesDelta
+                today.put("mpgMiles", today.optDouble("mpgMiles") + pairedMiles)
             } else {
                 DiagnosticLog.event("DAILY_TRIP_FUEL_REBASE",
                     "delta=$gallonsDelta mpg=$mpg")
