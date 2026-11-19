@@ -59,6 +59,60 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         }
     }
 
+    /**
+     * Daily trip accounting is independent of tank accounting. Persist the Torque
+     * cumulative baseline so reopening the app cannot count the same trip twice.
+     * A fresh trip's first sample is included only when its counters are near zero;
+     * otherwise an unknown prior segment is deliberately not backfilled.
+     */
+    private fun recordDailyTrip(miles: Double, seconds: Double, mpg: Double?) {
+        val today = daily()
+        val currentGallons = mpg?.takeIf { it > 0.0 }?.let { miles / it }
+        val previousMiles = today.optDouble("tripBaselineMiles", Double.NaN)
+        val previousSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
+        val previousGallons = today.optDouble("tripBaselineGallons", Double.NaN)
+        val baselineKnown = previousMiles.isFinite() && previousSeconds.isFinite()
+        val reset = baselineKnown && (miles + 0.01 < previousMiles ||
+            seconds + 0.5 < previousSeconds)
+        val first = !baselineKnown || reset
+        // Only accept an initial trip snapshot when it is demonstrably early in
+        // the trip. Never count a full cached Torque trip after app installation.
+        val includeFirst = first && seconds <= 120.0 && miles <= 2.0
+        val milesDelta = when {
+            includeFirst -> miles
+            first -> 0.0
+            else -> (miles - previousMiles).coerceAtLeast(0.0)
+        }
+        val secondsDelta = when {
+            includeFirst -> seconds
+            first -> 0.0
+            else -> (seconds - previousSeconds).coerceAtLeast(0.0)
+        }
+        today.put("miles", today.optDouble("miles") + milesDelta)
+        today.put("seconds", today.optDouble("seconds") + secondsDelta)
+        if (currentGallons != null && currentGallons.isFinite()) {
+            val gallonsDelta = when {
+                includeFirst -> currentGallons
+                first || !previousGallons.isFinite() -> 0.0
+                else -> currentGallons - previousGallons
+            }
+            if (gallonsDelta >= 0.0) {
+                today.put("gallons", today.optDouble("gallons") + gallonsDelta)
+            } else {
+                DiagnosticLog.event("DAILY_TRIP_FUEL_REBASE",
+                    "delta=$gallonsDelta mpg=$mpg")
+            }
+            // Always rebase after a negative cumulative fuel correction. Keeping
+            // the old baseline would omit subsequent legitimate consumption.
+            today.put("tripBaselineGallons", currentGallons)
+        } else {
+            today.remove("tripBaselineGallons")
+        }
+        today.put("tripBaselineMiles", miles)
+        today.put("tripBaselineSeconds", seconds)
+        if (reset) DiagnosticLog.event("DAILY_TRIP_RESET_DETECTED", "trip counters restarted")
+    }
+
     private var previousTripMiles: Double? = null
     private var previousTripGallons: Double? = null
     private var previousTripSeconds: Double? = null
@@ -290,6 +344,10 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val tripGallons = if (tripMiles != null && tripMpg != null) tripMiles / tripMpg else null
 
         if (tripMiles != null && tripSeconds != null) {
+            recordDailyTrip(tripMiles, tripSeconds, tripMpg)
+        }
+
+        if (tripMiles != null && tripSeconds != null) {
             val oldMiles = previousTripMiles
             val oldSeconds = previousTripSeconds
             val oldGallons = previousTripGallons
@@ -303,14 +361,10 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 val secondsDelta = (tripSeconds - oldSeconds).coerceAtLeast(0.0)
                 state.put("miles", state.optDouble("miles") + milesDelta)
                 state.put("seconds", state.optLong("seconds") + secondsDelta.toLong())
-                val today = daily()
-                today.put("miles", today.optDouble("miles") + milesDelta)
-                today.put("seconds", today.optDouble("seconds") + secondsDelta)
                 if (tripGallons != null && oldGallons != null) {
                     val gallonsDelta = tripGallons - oldGallons
                     if (gallonsDelta >= 0.0) {
                         state.put("gallons", state.optDouble("gallons") + gallonsDelta)
-                        daily().let { it.put("gallons", it.optDouble("gallons") + gallonsDelta) }
                         state.put("fuelRateSeen", true)
                     } else if (gallonsDelta < -0.02) {
                         DiagnosticLog.event("FUEL_TRIP_GALLONS_DECREASE", "delta=$gallonsDelta")
