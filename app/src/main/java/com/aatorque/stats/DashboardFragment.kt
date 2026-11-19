@@ -183,8 +183,9 @@ open class DashboardFragment : AlbumArt() {
     private val quickTimeout = Runnable {
         if (quickPage != "diagnostics" && quickPage != "battery") closeQuickControls()
     }
-    private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "PID Polling",
-        "Screen Refresh", "Live Diagnostics", "Battery Stats", "Fuel Summary Preview", "Close Menu")
+    private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "Polling & Refresh",
+        "Live Diagnostics", "Battery Stats", "Fuel Summary Preview", "Close Menu")
+    private val quickTiming = listOf("PID Polling", "Screen Refresh", "Back")
     private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
     private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
     private var quickResetSelection = 0
@@ -1185,6 +1186,7 @@ open class DashboardFragment : AlbumArt() {
             "main" -> quickMain.size
             "reset" -> quickReset.size
             "sizes" -> quickSizes.size
+            "timing" -> quickTiming.size
             "confirm" -> 2
             else -> 1
         }
@@ -1198,16 +1200,20 @@ open class DashboardFragment : AlbumArt() {
             "main" -> when (quickIndex) {
                 0 -> openQuickControls("reset")
                 1 -> openQuickControls("sizes")
-                2 -> openQuickSlider(true)
-                3 -> openQuickSlider(false)
-                4 -> openQuickControls("diagnostics")
-                5 -> openQuickControls("battery")
-                6 -> {
+                2 -> openQuickControls("timing")
+                3 -> openQuickControls("diagnostics")
+                4 -> openQuickControls("battery")
+                5 -> {
                     closeQuickControls()
                     showTankSummary(fuelTracker.previewSummary(), preview = true)
                 }
-                7 -> closeQuickControls()
+                6 -> closeQuickControls()
                 else -> closeQuickControls()
+            }
+            "timing" -> when (quickIndex) {
+                0 -> openQuickSlider(true)
+                1 -> openQuickSlider(false)
+                else -> openQuickControls()
             }
             "reset" -> if (quickIndex == 3) openQuickControls()
                 else { quickResetSelection = quickIndex; openQuickControls("confirm") }
@@ -1293,6 +1299,7 @@ open class DashboardFragment : AlbumArt() {
             "main" -> "QUICK CONTROLS"
             "reset" -> "DAILY MIN/MAX RESET"
             "sizes" -> "GAUGE SIZES"
+            "timing" -> "POLLING & REFRESH"
             "confirm" -> "CONFIRM RESET"
             "battery" -> "BATTERY STATS"
             else -> "LIVE DIAGNOSTICS"
@@ -1303,6 +1310,9 @@ open class DashboardFragment : AlbumArt() {
                 row(label, i == quickIndex) { quickIndex = i; quickSelect() }
             }
             "reset" -> quickReset.forEachIndexed { i, label ->
+                row(label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "timing" -> quickTiming.forEachIndexed { i, label ->
                 row(label, i == quickIndex) { quickIndex = i; quickSelect() }
             }
             "sizes" -> quickSizes.forEachIndexed { i, label ->
