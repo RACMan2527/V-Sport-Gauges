@@ -5,6 +5,8 @@ import android.content.Context
 /** Exactly one fuel sampler and file writer per app process. */
 object FuelMonitor {
     private var tracker: FuelTracker? = null
+
+    @Synchronized fun dailyValue(id: String): Double? = tracker?.dailyValue(id)
     private var dashboardSource: TorqueService? = null
     private var backgroundSource: TorqueService? = null
 
