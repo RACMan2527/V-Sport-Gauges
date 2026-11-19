@@ -11,10 +11,16 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import com.aatorque.prefs.SettingsActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 /** Phone foreground service: independent of Android Auto dashboard lifecycle. */
 class BackgroundFuelService : Service() {
     private val torque = TorqueService(quietReconnectLogs = true)
+    private val performanceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+    private val performance by lazy { BackgroundPerformancePoller(this, torque, performanceScope) }
     private val handler = Handler(Looper.getMainLooper())
     private var lastState: String? = null
     private var attemptedAt = 0L
@@ -27,6 +33,8 @@ class BackgroundFuelService : Service() {
                 try { api.isConnectedToECU } catch (_: Exception) { false } -> "ECU_CONNECTED"
                 else -> "ECU_DISCONNECTED"
             }
+            if (state == "ECU_CONNECTED" && !PerformancePollingOwnership.isForeground()) performance.start()
+            else performance.stop()
             BatteryStats.sample(this@BackgroundFuelService, monitoring = true,
                 ecuDisconnected = state != "ECU_CONNECTED")
             if (state != lastState) {
@@ -83,6 +91,7 @@ class BackgroundFuelService : Service() {
             attemptedAt = SystemClock.elapsedRealtime()
             torque.startTorque(this)
             FuelMonitor.backgroundOpen(this, torque)
+            PerformancePollingOwnership.registerBackgroundStop { performance.stop() }
             handler.post(check)
             handler.postDelayed(batteryReport, 3_600_000L)
         } catch (e: Exception) {
@@ -96,6 +105,9 @@ class BackgroundFuelService : Service() {
         BatteryStats.interrupted(this)
         handler.removeCallbacks(check)
         handler.removeCallbacks(batteryReport)
+        PerformancePollingOwnership.unregisterBackgroundStop()
+        performance.stop()
+        performanceScope.cancel()
         FuelMonitor.backgroundClosed()
         torque.onDestroy(this)
         DiagnosticLog.event("BACKGROUND_MONITOR_STOP")
