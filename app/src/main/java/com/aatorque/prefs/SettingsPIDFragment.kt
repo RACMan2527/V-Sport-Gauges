@@ -1,6 +1,7 @@
 package com.aatorque.prefs
 
 import com.aatorque.stats.DiagnosticLog
+import com.aatorque.stats.VirtualPid
 
 import android.content.ComponentName
 import android.content.ServiceConnection
@@ -73,8 +74,10 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 requireActivity().runOnUiThread {
                     val valuesQuery = pids.map { "torque_${it.first}" }.toTypedArray()
                     val names = pids.map { it.second[0] }.toTypedArray()
-                    pidPref.entryValues = arrayOf("") + valuesQuery
-                    pidPref.entries = arrayOf(getString(R.string.element_none)) + names
+                    pidPref.entryValues = arrayOf("") + valuesQuery +
+                        VirtualPid.definitions.map { VirtualPid.PREFIX + it.id }.toTypedArray()
+                    pidPref.entries = arrayOf(getString(R.string.element_none)) + names +
+                        VirtualPid.definitions.map { "V-Sport — " + it.name }.toTypedArray()
                     prefCat.isEnabled = true
                     prefCat.summary = null
                 }
@@ -179,8 +182,15 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 enableItems(false)
                 refreshAllTimePeakPreference("")
             } else {
-                val pidOnly = (newValue as String).substring("torque_".length)
-                torqueService!!.pids!!.firstOrNull {
+                val selected = newValue as String
+                VirtualPid.find(selected)?.let { native ->
+                    labelPref.text = native.name
+                    minValuePref.text = "0"
+                    maxValuePref.text = native.maximum.toString()
+                    unitPref.text = native.unit
+                }
+                val pidOnly = selected.removePrefix("torque_")
+                torqueService?.pids?.firstOrNull {
                     it.first == pidOnly
                 }?.let {entryVal ->
                     var minVal = ceil(entryVal.second[3].toDouble()).toInt()
@@ -244,7 +254,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                     } else it
                 }
                 jsPref.setValue(display.customScript)
-                if (pidPref.value.startsWith("torque")) {
+                if (pidPref.value.startsWith("torque") || VirtualPid.find(pidPref.value) != null) {
                     enableItems(true)
                 }
             }
