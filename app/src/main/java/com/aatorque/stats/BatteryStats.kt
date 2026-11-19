@@ -36,7 +36,10 @@ object BatteryStats {
             val next = if (level <= 20) true else if (level >= 25) false else warning
             if (next != warning) p.edit().putBoolean("warning", next).apply()
         }
-        val eligible = monitoring && ecuDisconnected && !charging && level != null
+        val previousLevel = p.getInt("previousLevel", -1)
+        val increased = level != null && previousLevel >= 0 && level > previousLevel
+        if (level != null) p.edit().putInt("previousLevel", level).apply()
+        val eligible = monitoring && ecuDisconnected && !charging && !increased && level != null
         val startAt = p.getLong("startElapsed", 0L)
         val bootAt = p.getLong("bootAt", 0L)
         val boot = System.currentTimeMillis() - now
@@ -51,6 +54,12 @@ object BatteryStats {
         if (startAt == 0L) {
             p.edit().putLong("startElapsed", now).putLong("bootAt", boot)
                 .putInt("startLevel", level!!).putInt("sampleCount", 0).apply()
+            AppStateStore.changed(context)
+            return
+        }
+        if (level!! > p.getInt("startLevel", level)) {
+            p.edit().remove("startElapsed").remove("startLevel").remove("sampleCount")
+                .remove("bootAt").apply()
             AppStateStore.changed(context)
             return
         }
@@ -87,7 +96,8 @@ object BatteryStats {
         val (level, charging) = battery(context)
         val p = prefs(context)
         val activeAt = p.getLong("startElapsed", 0L)
-        val active = activeAt > 0L && SystemClock.elapsedRealtime() >= activeAt
+        val active = !charging && activeAt > 0L && SystemClock.elapsedRealtime() >= activeAt &&
+            (level == null || level <= p.getInt("startLevel", level))
         val start = if (active) p.getInt("startLevel", -1) else p.getInt("lastStart", -1)
         val end = if (active) level else p.getInt("lastEnd", -1).takeIf { it >= 0 }
         val minutes = if (active) (SystemClock.elapsedRealtime() - activeAt) / 60_000L
