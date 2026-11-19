@@ -139,9 +139,9 @@ The precise vehicle rotary mappings can vary by Android Auto receiver; the list 
 
 Press the rotary controller to open Quick Controls, rotate to choose an item, and press to select. In the test screen, hold the clock for three seconds to open the same menu, then tap items. The previous logo and round-gauge long holds are no longer assigned.
 
-**PID Polling** opens the existing 50–500 ms polling slider (default 200 ms). It controls the request interval, not necessarily the measured per-PID update rate.
+**Polling & Refresh → PID Polling** opens the existing 50–500 ms polling slider (default 200 ms). It controls the request interval, not necessarily the measured per-PID update rate.
 
-**Screen Refresh** opens the existing 50–500 ms gauge animation slider (default 300 ms). It changes needle transition timing, not ECU polling. SAVE retains a value and CANCEL restores the previous one.
+**Polling & Refresh → Screen Refresh** opens the existing 50–500 ms gauge animation slider (default 300 ms). It changes needle transition timing, not ECU polling. SAVE retains a value and CANCEL restores the previous one.
 
 **Gauge Sizes** selects all round gauges or the center gauge. The three modes are all normal (100%), center enlarged (110%), and all enlarged (110%). The horizontal gauge is not scaled.
 
