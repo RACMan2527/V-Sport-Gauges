@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.13.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.14.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
@@ -23,7 +23,7 @@ Choosing **Later** postpones folder authorization and can prevent persistent fil
 
 | Location | Purpose |
 | --- | --- |
-| `Documents/V-Sport Gauges/Fuel-Tracker.json` | Current tank and completed-tank records |
+| `Documents/V-Sport Gauges/Fuel-Tracker.json` | Current tank, daily driving totals, and completed-tank records |
 | `Documents/V-Sport Gauges/Fuel-Up-History.csv` | Fuel-up history |
 | `Documents/V-Sport Gauges/AppState.json` | All-time peaks, current-day records, gauge sizes, and phone battery statistics |
 | `Documents/V-Sport Gauges/Exports/` | Exported dashboards |
@@ -72,7 +72,7 @@ A round gauge displays its configured Torque Pro PID, label, units, scale, live 
 
 1. On the Android phone, open **V-Sport Gauges → Settings → Dashboards**.
 2. Open the desired dashboard and select the **left, center or right round gauge**.
-3. Select the **PID**. Configure **Enabled**, **Show label**, **Label**, **Unit**, **Minimum**, **Maximum**, **Whole numbers**, and **Ticks** as needed.
+3. Select the **PID**. The selector includes Torque Pro session PIDs and four **V-Sport daily** virtual PIDs: Daily Distance (mi), Daily Drive Time (min), Daily MPG, and Daily Fuel Used (gal). Configure **Enabled**, **Show label**, **Label**, **Unit**, **Minimum**, **Maximum**, **Whole numbers**, and **Ticks** as needed.
 4. Set **High/low markers** (`maxMarksActive`) to **Off**, **Max**, **Min**, or **Both**. This controls the colored triangle. The marker color is theme-dependent for MAX; MIN is cyan.
 5. Set **High/low values** (`maxValuesActive`) independently if you want the separate numeric high/low readout. This is **not** the `PEAK:` all-time label.
 6. Enable **Show all-time peak marker** to display the **white triangle** when a saved peak exists.
@@ -172,6 +172,12 @@ Select **Live Diagnostics** from Quick Controls to open the two-column, six-tile
 The six tiles are grouped by polling, timing, and data quality. The existing ECU status line, **Torque Connection** and **Data Stream** rows retain their original connection-state logic and placement. A **Monitoring** status does not by itself establish fresh ECU data. Stale and suspect percentages are cumulative since app startup, not a live rolling-window percentage. The Screen Refresh setting remains available in Quick Controls even though its value is no longer displayed in Live Diagnostics.
 
 The diagnostics screen deliberately **does not display the application version**. Use the phone's About/Info screen to find the version.
+
+### Torque session trips and V-Sport daily statistics
+
+The existing **Torque Pro Trip Distance, Trip Time, and Trip MPG** PIDs continue to represent Torque's own trip session. To show totals accumulated throughout the local calendar day, configure another dashboard with the four **V-Sport daily** PIDs from the same gauge PID selector. These are app-generated readings, not additional ECU requests.
+
+Daily Distance and Daily Drive Time accumulate accepted trip-distance and trip-time changes across sessions. Daily Fuel Used accumulates the accepted gallons calculated from Torque trip distance and trip MPG; **Daily MPG** is total daily miles divided by total daily gallons, not an average of individual trip MPG readings. The daily counters reset at midnight according to the phone's local date. They are separate from the tank totals and do not reset when a refill is detected. Both daily and tank totals are saved in `Fuel-Tracker.json`.
 
 ### Trip and fuel tank tracking
 
