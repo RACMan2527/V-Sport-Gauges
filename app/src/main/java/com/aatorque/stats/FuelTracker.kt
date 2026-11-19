@@ -179,16 +179,11 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         try {
             stream.write(bytes)
             file.finishWrite(stream)
-            // TEMPORARY VERIFICATION: remove success/read-back diagnostics after validation.
-            DiagnosticLog.event("FUEL_PRIVATE_SAVE_OK", "bytes=${bytes.size}")
             try {
                 PublicDocuments.write(app, PublicDocuments.ROOT, "Fuel-Tracker.json",
                     "application/json", bytes)
-                DiagnosticLog.event("FUEL_PUBLIC_SAVE_OK", "bytes=${bytes.size}")
                 val actual = PublicDocuments.readFuelDocument(app, "Fuel-Tracker.json")
-                if (actual != null && actual.contentEquals(bytes)) {
-                    DiagnosticLog.event("FUEL_PUBLIC_VERIFY_OK", "bytes=${bytes.size}")
-                } else {
+                if (actual == null || !actual.contentEquals(bytes)) {
                     DiagnosticLog.event("FUEL_PUBLIC_VERIFY_ERROR",
                         "readback_mismatch expected=${bytes.size} actual=${actual?.size ?: -1}")
                 }
@@ -374,17 +369,9 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             save()
             lastPersistMs = now
         }
-        if (now - lastHeartbeatMs >= 60_000L) {
-            DiagnosticLog.event("FUEL_TRACKING_HEARTBEAT",
-                "tripKm=$tripKm tripMpg=$tripMpg tripSeconds=$tripSeconds " +
-                "tankMiles=${state.optDouble("miles")} tankSeconds=${state.optLong("seconds")} " +
-                "tankGallons=${state.optDouble("gallons")} savedMs=$lastPersistMs")
-            lastHeartbeatMs = now
-        }
     }
 
     private var lastPersistMs = 0L
-    private var lastHeartbeatMs = 0L
 
     private fun onRefill(after: Double, before: Double) {
         // Commit the completed tank and new baseline in one atomic replacement.
