@@ -1320,6 +1320,24 @@ open class DashboardFragment : AlbumArt() {
             }
             "battery" -> {
                 val battery = BatteryStats.display(context)
+                val headline = LinearLayout(context).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(12), dp(10), dp(12), dp(10))
+                }
+                headline.addView(TextView(context).apply {
+                    text = "Discharge Rate"
+                    textSize = 22f
+                    setTextColor(Color.rgb(232, 61, 61))
+                }, LinearLayout.LayoutParams(0, -2, 1f))
+                headline.addView(TextView(context).apply {
+                    text = battery.rate?.let {
+                        String.format(java.util.Locale.US, "%.2f%%/hour", it)
+                    } ?: "—"
+                    textSize = 27f
+                    setTextColor(Color.WHITE)
+                })
+                panel.addView(headline)
                 val rows = listOf(
                     "Battery Level" to (battery.level?.let { "${it}%" } ?: "—"),
                     "Charging" to (if (battery.charging) "Yes" else "No"),
@@ -1328,9 +1346,6 @@ open class DashboardFragment : AlbumArt() {
                     "Battery Consumed" to (battery.consumed?.let { "${it}%" } ?: "—"),
                     "Est. Time to 20%" to (battery.remainingHours?.let {
                         String.format(java.util.Locale.US, "%.1f hours", it)
-                    } ?: "—"),
-                    "Discharge Rate (Average)" to (battery.rate?.let {
-                        String.format(java.util.Locale.US, "%.2f%%/hour", it)
                     } ?: "—")
                 )
                 rows.forEach { (label, value) ->
