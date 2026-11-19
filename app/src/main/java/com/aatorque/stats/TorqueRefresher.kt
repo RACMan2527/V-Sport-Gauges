@@ -192,6 +192,17 @@ class TorqueRefresher {
     }
 
     fun doRefresh(service: TorqueService, torqueData: TorqueData) {
+        // Native virtual readings come from the existing fuel sampler, never Torque.
+        val virtual = VirtualPid.find(torqueData.display.pid)
+        if (virtual != null) {
+            val value = FuelMonitor.dailyValue(virtual.id) ?: return
+            if (torqueData.updateReading(value)) {
+                torqueData.hasReceivedReading = true
+                torqueData.hasReceivedNonZero = torqueData.hasReceivedNonZero || value != 0.0
+                handler.post { torqueData.sendNotifyUpdate() }
+            }
+            return
+        }
         val queried = service.runIfConnected { ts ->
             val requestStarted = android.os.SystemClock.elapsedRealtime()
             val value = try {
