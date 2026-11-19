@@ -362,6 +362,10 @@ As V-Sport Gauges became more useful during individual drives, I wanted it to ca
 
 **Automatic trip and fuel tank tracking** extended the dashboard beyond live instrumentation. Using Torque Pro's trip distance, trip time, and trip MPG readings, the application accumulates tank information across driving sessions. Fuel-level readings are used to detect a refill, rather than to calculate distance or MPG.
 
+### Daily virtual PIDs — Version 3.14.0
+
+V-Sport Gauges adds four app-owned PID selections—**Daily Distance**, **Daily Drive Time**, **Daily MPG**, and **Daily Fuel Used**—to the existing gauge configuration menu. They can be displayed on a separate dashboard while the original Torque Pro session trip PIDs remain available on another. Daily totals use the existing trip samples and reset at local midnight, independently of the accumulated tank statistics. Both daily and tank totals are retained in the fuel tracker file.
+
 ### Monitoring beyond the dashboard
 
 The next step was keeping the host Android phone ready to collect trip information even when Android Auto was not displaying the gauges. Background monitoring maintains that continuity while the vehicle is parked, and available trip readings are accumulated when Torque and ECU data return.
