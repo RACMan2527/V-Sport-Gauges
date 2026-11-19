@@ -362,10 +362,6 @@ As V-Sport Gauges became more useful during individual drives, I wanted it to ca
 
 **Automatic trip and fuel tank tracking** extended the dashboard beyond live instrumentation. Using Torque Pro's trip distance, trip time, and trip MPG readings, the application accumulates tank information across driving sessions. Fuel-level readings are used to detect a refill, rather than to calculate distance or MPG.
 
-### Daily virtual PIDs — Version 3.14.0
-
-V-Sport Gauges adds four app-owned PID selections—**Daily Distance**, **Daily Drive Time**, **Daily MPG**, and **Daily Fuel Used**—to the existing gauge configuration menu. They can be displayed on a separate dashboard while the original Torque Pro session trip PIDs remain available on another. Daily totals use the existing trip samples and reset at local midnight, independently of the accumulated tank statistics. Both daily and tank totals are retained in the fuel tracker file.
-
 ### Monitoring beyond the dashboard
 
 The next step was keeping the host Android phone ready to collect trip information even when Android Auto was not displaying the gauges. Background monitoring maintains that continuity while the vehicle is parked, and available trip readings are accumulated when Torque and ECU data return.
@@ -412,6 +408,15 @@ The same daily **MIN/MAX** rules apply to those readings, including RPM qualific
 Foreground and background performance polling are coordinated so the visible dashboard takes precedence; performance polling pauses when ECU data is unavailable. The existing fuel, trip, and host-phone battery monitoring remain separate.
 
 The [User Guide](docs/USER_GUIDE.md#background-performance-recording) explains which dashboard is monitored and when recording runs.
+
+---
+
+## Phase 18 — Daily Trip Statistics with Virtual PIDs
+### November 2026 | Version 3.14.0
+
+To complement Torque Pro's session trip readings, V-Sport Gauges adds four selectable **daily virtual PIDs**: **Daily Distance**, **Daily Drive Time**, **Daily MPG**, and **Daily Fuel Used**. These can be assigned to gauges or data views on a separate dashboard, while the original Torque session trip PIDs remain available.
+
+The daily readings accumulate trip information across sessions and reset at the phone's local midnight, independently of fuel-tank totals and refill detection. They use existing Torque trip data rather than additional ECU requests. Daily Distance and Daily Drive Time use Torque-compatible units (kilometers and seconds); Daily MPG is expressed in MPG and Daily Fuel Used in gallons. The [User Guide](docs/USER_GUIDE.md#torque-session-trips-and-v-sport-daily-statistics) describes the selections and display conversions.
 
 ---
 
