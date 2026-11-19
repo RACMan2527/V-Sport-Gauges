@@ -110,6 +110,9 @@ class TorqueData(var display: Display) {
         val value = display.pid
         if (value.startsWith(PREFIX)) {
             pid = value.substring(PREFIX.length)
+        } else if (VirtualPid.find(value) != null) {
+            pid = value
+            allowInitialZeroUpdates = true
         }
     }
 
