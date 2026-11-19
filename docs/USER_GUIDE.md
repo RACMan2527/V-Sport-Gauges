@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.12.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.13.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
@@ -184,6 +184,16 @@ Valid trip information is accumulated across driving sessions. Background monito
 After a confirmed refill, the completed tank is retained in the history and a **LAST TANK** summary can appear with accumulated miles, driving time, and MPG. Select **OK** to dismiss it. For an interim view of the current tank, use **Quick Controls → Fuel Summary Preview**. Previewing does not complete or reset a tank.
 
 The refill detector uses a persisted fuel-level baseline and multiple confirming readings to avoid reacting to a single fluctuation. Small top-ups may not reach the detection threshold.
+
+### Background performance recording
+
+**Dashboard 1** is the source for background performance monitoring. The app uses the PIDs configured in its three round gauges, four smaller displays, and horizontal gauge, where enabled. It does not switch background monitoring to whichever dashboard was last viewed.
+
+When V-Sport Gauges is not visible—for example, while Android Auto shows Maps, or when the gauge screen was never opened during the drive—the existing background service can poll those Dashboard 1 PIDs when Torque Pro is available and the ECU is connected. Opening the gauge dashboard gives normal foreground polling priority; leaving it allows background performance polling to resume. Performance PID polling stops while the ECU is disconnected, while the existing connection checks remain active.
+
+Accepted readings can update **daily MAX**, **daily MIN** (subject to the existing five-second RPM validation), and **all-time PEAK** records. All-time PEAK recording does not require the white peak marker to be visible. The saved records are available when the gauges are displayed again. The usual PID configuration, validity checks, and local-day record rules still apply.
+
+This feature does not require opening Dashboard 1 before a drive, provided the background service has already been activated and its required file access is available. It does not change fuel and trip accumulation or phone battery monitoring.
 
 ### Host Android phone battery monitoring
 
