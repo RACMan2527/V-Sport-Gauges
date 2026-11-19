@@ -212,6 +212,15 @@ class TorqueRefresher {
             }
             markPollResult(torqueData, true)
             torqueData.hasReceivedReading = true
+            // All-time PEAK must persist even when no gauge view exists.
+            if (quality.quality == PidValidator.Quality.VALID &&
+                data.entries.any { it.key in 0..2 && it.value === torqueData }) {
+                val display = torqueData.display
+                val previous = AllTimePeakStore.get(appContext, display)
+                if (display.pid.isNotBlank() && (previous == null || torqueData.lastData > previous)) {
+                    AllTimePeakStore.set(appContext, display.pid, torqueData.lastData, display.label)
+                }
+            }
             if (quality.quality == PidValidator.Quality.VALID && data[7] === torqueData) {
                 if (!torqueData.display.hasHorizontalDailyMaxEnabled() || torqueData.display.horizontalDailyMaxEnabled) {
                     DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData, horizontalBar = true)
