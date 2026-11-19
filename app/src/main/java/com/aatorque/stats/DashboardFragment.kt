@@ -351,7 +351,7 @@ open class DashboardFragment : AlbumArt() {
                         displays[index]?.setupElement(td)
                     }
                 }
-                torqueRefresher.makeExecutors(torqueService)
+                if (isResumed) torqueRefresher.makeExecutors(torqueService)
             }
         }
         registerWithView {
@@ -1013,6 +1013,7 @@ open class DashboardFragment : AlbumArt() {
     }
 
     override fun onResume() {
+        PerformancePollingOwnership.foregroundOpened()
         Timber.d("onResume")
         super.onResume()
         tankSummaryHandler.removeCallbacks(tankSummaryCheck)
@@ -1050,6 +1051,7 @@ open class DashboardFragment : AlbumArt() {
         dismissPollingIntervalOverlay(restore = true)
         super.onPause()
         torqueRefresher.stopExecutors()
+        PerformancePollingOwnership.foregroundClosed()
     }
 
     override fun onDestroy() {
