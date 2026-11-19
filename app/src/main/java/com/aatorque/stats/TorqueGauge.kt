@@ -402,20 +402,13 @@ class TorqueGauge : Fragment() {
 
     private fun onUpdate(data: TorqueData) {
         val fVal = data.lastData.toFloat()
-        if (data.hasReceivedReading && data.lastData.isFinite()) {
-            val key = allTimePeakKey
-            if (key != null) {
-                val previous = data.display.pid.takeIf { it.isNotBlank() }
-                    ?.let { AllTimePeakStore.get(requireContext(), it) }
-                if (previous == null || data.lastData > previous) {
-                    data.display.pid.takeIf { it.isNotBlank() }?.let {
-                        AllTimePeakStore.set(requireContext(), it, data.lastData, data.display.label)
-                    }
-                    if (allTimePeakEnabled) {
-                        mAllTime.setSpeedAt(data.lastData.toFloat())
-                        mAllTime.visibility = View.VISIBLE
-                        showAllTimePeakLabel(data.lastData, data.display.wholeNumbers, persistent = true)
-                    }
+        if (data.hasReceivedReading && data.lastData.isFinite() && allTimePeakEnabled) {
+            val saved = AllTimePeakStore.get(requireContext(), data.display)
+            if (saved != null && saved.isFinite()) {
+                mAllTime.setSpeedAt(saved.toFloat())
+                mAllTime.visibility = View.VISIBLE
+                if (data.lastData >= saved) {
+                    showAllTimePeakLabel(saved, data.display.wholeNumbers, persistent = true)
                 }
             }
         }
