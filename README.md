@@ -398,6 +398,19 @@ Together, these features make it easier to balance persistent trip monitoring wi
 
 ---
 
+## Phase 17 — Background Performance Recording
+### November 2026 | Version 3.13.0
+
+V-Sport Gauges extends its background monitoring beyond fuel and trip information to **performance records from Dashboard 1**. When Android Auto is showing Maps or the Gauges dashboard is otherwise not visible, the app can continue requesting the configured Dashboard 1 performance PIDs while Torque Pro and the ECU are connected.
+
+The same daily **MIN/MAX** rules apply to those readings, including RPM qualification for daily minima. **All-time PEAK** recording also continues without requiring the round gauges to be displayed. Records remain available when the dashboard is opened again.
+
+Foreground and background performance polling are coordinated so the visible dashboard takes precedence; performance polling pauses when ECU data is unavailable. The existing fuel, trip, and host-phone battery monitoring remain separate.
+
+The [User Guide](docs/USER_GUIDE.md#background-performance-recording) explains which dashboard is monitored and when recording runs.
+
+---
+
 # My Development and Testing Environment
 
 | Component | Configuration |
