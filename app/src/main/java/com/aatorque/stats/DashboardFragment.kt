@@ -1023,7 +1023,9 @@ open class DashboardFragment : AlbumArt() {
             torqueStartupHandler.postDelayed(torqueStartupTimeout, 5_000L)
         }
         lifecycleScope.launch {
-            torqueRefresher.makeExecutors(torqueService)
+            if (isResumed && PerformancePollingOwnership.isForeground()) {
+                torqueRefresher.makeExecutors(torqueService)
+            }
         }
     }
 
