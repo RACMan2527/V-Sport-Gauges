@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.14.0** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.14.1** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
@@ -72,7 +72,7 @@ A round gauge displays its configured Torque Pro PID, label, units, scale, live 
 
 1. On the Android phone, open **V-Sport Gauges → Settings → Dashboards**.
 2. Open the desired dashboard and select the **left, center or right round gauge**.
-3. Select the **PID**. The selector includes Torque Pro session PIDs and four **V-Sport daily** virtual PIDs: Daily Distance (mi), Daily Drive Time (min), Daily MPG, and Daily Fuel Used (gal). Configure **Enabled**, **Show label**, **Label**, **Unit**, **Minimum**, **Maximum**, **Whole numbers**, and **Ticks** as needed.
+3. Select the **PID**. The selector includes Torque Pro session PIDs and four **V-Sport daily** virtual PIDs: Daily Distance (km), Daily Drive Time (s), Daily MPG, and Daily Fuel Used (gal). Configure **Enabled**, **Show label**, **Label**, **Unit**, **Minimum**, **Maximum**, **Whole numbers**, and **Ticks** as needed.
 4. Set **High/low markers** (`maxMarksActive`) to **Off**, **Max**, **Min**, or **Both**. This controls the colored triangle. The marker color is theme-dependent for MAX; MIN is cyan.
 5. Set **High/low values** (`maxValuesActive`) independently if you want the separate numeric high/low readout. This is **not** the `PEAK:` all-time label.
 6. Enable **Show all-time peak marker** to display the **white triangle** when a saved peak exists.
@@ -177,7 +177,7 @@ The diagnostics screen deliberately **does not display the application version**
 
 The existing **Torque Pro Trip Distance, Trip Time, and Trip MPG** PIDs continue to represent Torque's own trip session. To show totals accumulated throughout the local calendar day, configure another dashboard with the four **V-Sport daily** PIDs from the same gauge PID selector. These are app-generated readings, not additional ECU requests.
 
-Daily Distance and Daily Drive Time accumulate accepted trip-distance and trip-time changes across sessions. Daily Fuel Used accumulates the accepted gallons calculated from Torque trip distance and trip MPG; **Daily MPG** is total daily miles divided by total daily gallons, not an average of individual trip MPG readings. The daily counters reset at midnight according to the phone's local date. They are separate from the tank totals and do not reset when a refill is detected. Both daily and tank totals are saved in `Fuel-Tracker.json`.
+Daily Distance and Daily Drive Time accumulate accepted trip-distance and trip-time changes across sessions in Torque's original units: kilometers (km) and seconds (s). To display miles or minutes, use the same gauge conversion formulas as for Torque's original trip PIDs (distance: `a * 0.621371192`; time: `a / 60`). Daily Fuel Used accumulates the accepted gallons calculated from Torque trip distance and trip MPG; **Daily MPG** is total daily miles divided by total daily gallons, not an average of individual trip MPG readings. The daily counters reset at midnight according to the phone's local date. They are separate from the tank totals and do not reset when a refill is detected. Both daily and tank totals are saved in `Fuel-Tracker.json`.
 
 ### Trip and fuel tank tracking
 
