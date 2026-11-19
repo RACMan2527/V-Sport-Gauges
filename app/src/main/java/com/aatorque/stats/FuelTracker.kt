@@ -48,8 +48,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     @Synchronized fun dailyValue(id: String): Double {
         val today = daily()
         return when (id) {
-            "VS_DAILY_DISTANCE" -> today.optDouble("miles")
-            "VS_DAILY_TIME" -> today.optDouble("seconds") / 60.0
+            "VS_DAILY_DISTANCE" -> today.optDouble("miles") / 0.621371192
+            "VS_DAILY_TIME" -> today.optDouble("seconds")
             "VS_DAILY_GALLONS" -> today.optDouble("gallons")
             "VS_DAILY_MPG" -> {
                 val gallons = today.optDouble("gallons")
