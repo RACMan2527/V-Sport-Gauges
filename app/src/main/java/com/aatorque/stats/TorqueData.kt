@@ -1,5 +1,6 @@
 package com.aatorque.stats
 
+import android.os.SystemClock
 import android.icu.math.BigDecimal
 import android.icu.text.NumberFormat
 import androidx.lifecycle.MutableLiveData
@@ -11,6 +12,7 @@ import com.ezylang.evalex.Expression
 import com.ezylang.evalex.data.EvaluationValue
 import timber.log.Timber
 import java.util.concurrent.ScheduledFuture
+import java.util.ArrayDeque
 
 class TorqueData(var display: Display) {
     companion object {
@@ -52,6 +54,63 @@ class TorqueData(var display: Display) {
     var lastData: Double = 0.0
         private set
 
+    // Stage 1 of the statistical modifiers: apply Trend AFTER unit/script conversion.
+    // A zero window preserves the original gauge behavior and existing saved settings.
+    private data class TrendSample(val elapsedMs: Long, val convertedValue: Double)
+    private val trendSamples = ArrayDeque<TrendSample>()
+    private var trendWindowMs: Long = 0L
+    var trendWindowComplete: Boolean = true
+        private set
+
+    @Synchronized
+    fun configureTrendWindow(windowSeconds: Int) {
+        require(windowSeconds >= 0) { "Trend window must be non-negative" }
+        val newWindow = windowSeconds.toLong() * 1000L
+        if (trendWindowMs != newWindow) {
+            trendWindowMs = newWindow
+            trendSamples.clear()
+            trendWindowComplete = newWindow == 0L
+        }
+    }
+
+    @Synchronized
+    fun resetTrendHistory() {
+        trendSamples.clear()
+        trendWindowComplete = trendWindowMs == 0L
+    }
+
+    // A sliding difference, not a rate: current converted reading minus the
+    // oldest converted reading at the requested time boundary.
+    // Never treat a polling interruption as elapsed observed history.
+    private fun trendValue(converted: Double, nowMs: Long): Double {
+        if (trendWindowMs == 0L) return converted
+        val previous = trendSamples.peekLast()
+        val gapLimitMs = maxOf(2000L, minOf(10000L, trendWindowMs / 4L))
+        if (previous != null && (nowMs <= previous.elapsedMs ||
+                    nowMs - previous.elapsedMs > gapLimitMs)) {
+            trendSamples.clear()
+        }
+        trendSamples.addLast(TrendSample(nowMs, converted))
+        val cutoff = nowMs - trendWindowMs
+        while (trendSamples.size > 1) {
+            val first = trendSamples.peekFirst()
+            val second = trendSamples.elementAt(1)
+            if (second.elapsedMs > cutoff) break
+            trendSamples.removeFirst()
+        }
+        val first = trendSamples.peekFirst()
+        trendWindowComplete = first.elapsedMs <= cutoff
+        val baseline = if (trendWindowComplete && trendSamples.size > 1) {
+            val next = trendSamples.elementAt(1)
+            val span = (next.elapsedMs - first.elapsedMs).toDouble()
+            if (span > 0.0) {
+                first.convertedValue + (next.convertedValue - first.convertedValue) *
+                    ((cutoff - first.elapsedMs).toDouble() / span)
+            } else first.convertedValue
+        } else first.convertedValue
+        return converted - baseline
+    }
+
     // Accept only finite raw and converted readings. Rejected samples leave the
     // last valid display value, min/max, and alarm state unchanged.
     fun updateReading(value: Double): Boolean {
@@ -78,8 +137,13 @@ class TorqueData(var display: Display) {
             return false
         }
 
-        lastData = converted.first
-        lastDataStr = converted.second
+        val output = synchronized(this) {
+            trendValue(converted.first, SystemClock.elapsedRealtime())
+        }
+        lastData = output
+        lastDataStr = if (trendWindowMs > 0L) {
+            (if (display.wholeNumbers) intPlaces else twoPlaces).format(output)
+        } else converted.second
         if (lastData > maxValue) maxValue = lastData
         if (lastData < minValue) minValue = lastData
         updateAlarm(lastData)
