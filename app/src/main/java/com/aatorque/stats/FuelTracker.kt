@@ -92,7 +92,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             dailyResetCandidate = 0
         }
         val first = !baselineKnown || reset || dailyLastAcceptedMs == 0L
-        // Do not backfill an unverified cached Torque trip on startup or reset.
+        // On a confirmed Torque reset, the new counters are already part of
+        // today's driving. Count only a demonstrably fresh, short first segment.
         val includeFirst = reset && seconds <= 120.0 && miles <= 2.0 &&
             dailyLastAcceptedMs != 0L
         val milesDelta = if (includeFirst) miles else if (first) 0.0 else miles - previousMiles
@@ -118,14 +119,16 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             }
             if (gallonsDelta >= 0.0) {
                 today.put("gallons", today.optDouble("gallons") + gallonsDelta)
+                // MPG numerator and denominator must cover the same interval.
+                // A negative/rebased fuel counter must not add unmatched miles.
                 val pairedMiles = if (includeFirst) miles else if (first || !previousGallons.isFinite()) 0.0 else milesDelta
-                today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + pairedMiles)
+                if (gallonsDelta > 0.0) {
+                    today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + pairedMiles)
+                }
             } else {
                 DiagnosticLog.event("DAILY_TRIP_FUEL_REBASE",
                     "delta=$gallonsDelta mpg=$mpg")
             }
-            // Always rebase after a negative cumulative fuel correction. Keeping
-            // the old baseline would omit subsequent legitimate consumption.
             today.put("tripBaselineGallons", currentGallons)
         } else {
             today.remove("tripBaselineGallons")
