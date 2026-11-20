@@ -219,14 +219,33 @@ class EngineLoadBarView @JvmOverloads constructor(
         val track = RectF(horizontalInset, 0f, w - horizontalInset, h)
         canvas.drawRoundRect(track, cornerRadius, cornerRadius, trackPaint)
 
+        // For ranges crossing zero (including a maximum of zero), fill outward
+        // from zero in either direction. Other ranges retain minimum-origin fill.
         val fraction = ((reading - minimum) / (maximum - minimum)).coerceIn(0f, 1f)
-        val filledWidth = usableWidth * fraction
-        if (filledWidth > 0f) {
-            val fill = RectF(horizontalInset, 0f, horizontalInset + filledWidth, h)
-            canvas.save()
-            canvas.clipRect(horizontalInset, 0f, horizontalInset + filledWidth, h)
-            canvas.drawRoundRect(fill, cornerRadius, cornerRadius, progressPaint)
-            canvas.restore()
+        if (minimum < 0f && maximum >= 0f) {
+            val zeroFraction = ((0f - minimum) / (maximum - minimum)).coerceIn(0f, 1f)
+            val zeroX = horizontalInset + usableWidth * zeroFraction
+            val readingX = horizontalInset + usableWidth * fraction
+            val left = minOf(zeroX, readingX)
+            val right = maxOf(zeroX, readingX)
+            if (right > left) {
+                canvas.save()
+                val trackPath = Path().apply {
+                    addRoundRect(track, cornerRadius, cornerRadius, Path.Direction.CW)
+                }
+                canvas.clipPath(trackPath)
+                canvas.drawRect(left, 0f, right, h, progressPaint)
+                canvas.restore()
+            }
+        } else {
+            val filledWidth = usableWidth * fraction
+            if (filledWidth > 0f) {
+                val fill = RectF(horizontalInset, 0f, horizontalInset + filledWidth, h)
+                canvas.save()
+                canvas.clipRect(horizontalInset, 0f, horizontalInset + filledWidth, h)
+                canvas.drawRoundRect(fill, cornerRadius, cornerRadius, progressPaint)
+                canvas.restore()
+            }
         }
 
         // Mark the highest reading received with a soft glow and a crisp triangle.
