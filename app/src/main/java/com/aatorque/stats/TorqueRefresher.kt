@@ -234,6 +234,12 @@ class TorqueRefresher {
             if (modifierEnabled && quality.quality != PidValidator.Quality.VALID) {
                 return@runIfConnected
             }
+            // The first observed timestamp may belong to Torque's old cache.
+            // Wait for a subsequent distinct source timestamp before seeding history.
+            if (modifierEnabled && torqueData.modifierAwaitingFreshSample) {
+                torqueData.modifierAwaitingFreshSample = false
+                return@runIfConnected
+            }
             if (!torqueData.updateReading(value)) {
                 DiagnosticLog.event("PID_REJECTED", "${diagnosticPid(torqueData)} raw=$value")
                 markPollResult(torqueData, false)
