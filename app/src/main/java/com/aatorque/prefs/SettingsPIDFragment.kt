@@ -224,8 +224,8 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                         maxVal = 100
                     }
                     labelPref.text = entryVal.second[1]
-                    maxValuePref.text = minVal.toString()
-                    minValuePref.text = maxVal.toString()
+                    minValuePref.text = minVal.toString()
+                    maxValuePref.text = maxVal.toString()
                     unitPref.text = entryVal.second[2]
                 }
                 enableItems(true)
@@ -380,7 +380,14 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         ).setChartColor(
             colorPref.colorValue
         )
-        if (isHorizontal) display = display.setHorizontalDailyMaxEnabled(horizontalDailyMaxPref.isChecked)
+        if (isHorizontal) {
+            display = display.setHorizontalDailyMaxEnabled(horizontalDailyMaxPref.isChecked)
+            if (oldPid != display.pid) {
+                // A new PID starts with its own Torque min/max; do not inherit
+                // horizontal range overrides from the previously assigned PID.
+                display = display.clearHorizontalMinValue().clearHorizontalMaxValue()
+            }
+        }
         if (imagePref.value != null) {
             display = display.setIcon(imagePref.value)
         }
