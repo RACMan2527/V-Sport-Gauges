@@ -98,7 +98,7 @@ class TorqueDisplay : Fragment() {
         binding.value = data.lastDataStr + unit
         binding.valueElement.setTextColor(
             if (data.currentAlarm.value != null) data.currentAlarm.value!!.color else
-                if (data.modifierWindowIncomplete) android.graphics.Color.YELLOW else android.graphics.Color.WHITE
+                if (data.modifierWindowIncomplete) android.graphics.Color.rgb(0, 223, 255) else android.graphics.Color.WHITE
         )
     }
 
@@ -107,7 +107,7 @@ class TorqueDisplay : Fragment() {
     val alarmObserver = object : AwareObserver<Coloring>() {
         override fun onChanged(value: Coloring?) {
             binding.alarm = value?.color
-            binding.valueElement.setTextColor(value?.color ?: if (currentDisplayData?.modifierWindowIncomplete == true) android.graphics.Color.YELLOW else android.graphics.Color.WHITE)
+            binding.valueElement.setTextColor(value?.color ?: if (currentDisplayData?.modifierWindowIncomplete == true) android.graphics.Color.rgb(0, 223, 255) else android.graphics.Color.WHITE)
         }
     }
 }

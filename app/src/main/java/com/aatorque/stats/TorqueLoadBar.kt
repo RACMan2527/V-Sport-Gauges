@@ -26,7 +26,7 @@ class TorqueLoadBar : Fragment() {
     private var maximum = 100.0
     private var useWholeNumbers = true
     private var displayUnit = ""
-    private var allTimePid = ""
+    private var allTimeDisplay: com.aatorque.datastore.Display? = null
     private var allTimeEnabled = false
 
     override fun onCreateView(
@@ -48,7 +48,7 @@ class TorqueLoadBar : Fragment() {
         useWholeNumbers = wholeNumbers
         displayUnit = unit.trim()
         gauge.showTicks = showTicks
-        allTimePid = data.display.pid
+        allTimeDisplay = data.display
         allTimeEnabled = showPeak
         gauge.showAllTimePeak = showPeak
         gauge.setAllTimePeak(if (showPeak) AllTimePeakStore.get(requireContext(), data.display)?.toFloat() else null)
@@ -56,14 +56,14 @@ class TorqueLoadBar : Fragment() {
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
         gauge.setProgress(data.lastData.toFloat())
         gauge.setDailyPeak(DailyPeakStore.get(requireContext(), data.display)?.toFloat())
-        recordAllTimePeak(data.lastData)
+        recordAllTimePeak(data)
         valueText.text = formatReading(data.lastData)
         updateModifierValueColor(data)
         data.notifyUpdate = {
             val value = it.lastData
             gauge.animateProgress(value.toFloat(), TorqueRefresher.REFRESH_INTERVAL)
             gauge.setDailyPeak(DailyPeakStore.get(requireContext(), it.display)?.toFloat())
-            recordAllTimePeak(value)
+            recordAllTimePeak(it)
             valueText.text = formatReading(value)
             updateModifierValueColor(it)
         }
@@ -72,15 +72,17 @@ class TorqueLoadBar : Fragment() {
     private fun updateModifierValueColor(data: TorqueData) {
         valueText.setTextColor(
             if (data.currentAlarm.value != null) data.currentAlarm.value!!.color else
-                if (data.modifierWindowIncomplete) android.graphics.Color.YELLOW else android.graphics.Color.WHITE
+                if (data.modifierWindowIncomplete) android.graphics.Color.rgb(0, 223, 255) else android.graphics.Color.WHITE
         )
     }
 
-    private fun recordAllTimePeak(value: Double) {
-        if (!value.isFinite() || allTimePid.isBlank()) return
-        val saved = AllTimePeakStore.get(requireContext(), allTimePid)
+    private fun recordAllTimePeak(data: TorqueData) {
+        val value = data.lastData
+        val display = allTimeDisplay ?: return
+        if (!value.isFinite() || display.pid.isBlank() || data.modifierWindowIncomplete) return
+        val saved = AllTimePeakStore.get(requireContext(), display)
         if (saved == null || value > saved) {
-            AllTimePeakStore.set(requireContext(), allTimePid, value)
+            AllTimePeakStore.set(requireContext(), display, value)
             if (allTimeEnabled) gauge.setAllTimePeak(value.toFloat())
         }
     }

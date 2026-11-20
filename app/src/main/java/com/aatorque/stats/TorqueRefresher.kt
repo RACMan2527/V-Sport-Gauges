@@ -224,19 +224,19 @@ class TorqueRefresher {
             markPollResult(torqueData, true)
             torqueData.hasReceivedReading = true
             // All-time PEAK must persist even when no gauge view exists.
-            if (quality.quality == PidValidator.Quality.VALID &&
+            if (quality.quality == PidValidator.Quality.VALID && !torqueData.modifierWindowIncomplete &&
                 data.entries.any { it.key in 0..2 && it.value === torqueData }) {
                 val display = torqueData.display
                 val previous = AllTimePeakStore.get(appContext, display)
                 if (display.pid.isNotBlank() && (previous == null || torqueData.lastData > previous)) {
-                    AllTimePeakStore.set(appContext, display.pid, torqueData.lastData, display.label)
+                    AllTimePeakStore.set(appContext, display, torqueData.lastData, display.label)
                 }
             }
-            if (quality.quality == PidValidator.Quality.VALID && data[7] === torqueData) {
+            if (quality.quality == PidValidator.Quality.VALID && !torqueData.modifierWindowIncomplete && data[7] === torqueData) {
                 if (!torqueData.display.hasHorizontalDailyMaxEnabled() || torqueData.display.horizontalDailyMaxEnabled) {
                     DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData, horizontalBar = true)
                 }
-            } else if (quality.quality == PidValidator.Quality.VALID) when (torqueData.display.maxMarksActive) {
+            } else if (quality.quality == PidValidator.Quality.VALID && !torqueData.modifierWindowIncomplete) when (torqueData.display.maxMarksActive) {
                 MaxControl.MAX -> DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData)
                 MaxControl.MIN -> validateMinimumIfNeeded(service, torqueData, torqueData.lastData)
                 MaxControl.BOTH -> {
@@ -271,7 +271,7 @@ class TorqueRefresher {
      * RPM is checked only at the beginning and end of the window.
      */
     private fun validateMinimumIfNeeded(service: TorqueService, gauge: TorqueData, candidate: Double) {
-        if (!pollingEnabled) return
+        if (!pollingEnabled || gauge.modifierWindowIncomplete) return
         synchronized(pendingMinimums) {
             // Existing windows consume only readings from this gauge's normal PID polling.
             val existing = pendingMinimums[gauge]
@@ -346,7 +346,7 @@ class TorqueRefresher {
                                         if (!finalRpmValid) DiagnosticLog.event("MIN_REJECT", "id=${pending.id} ${diagnosticPid(gauge)} value=$minimum reason=${if (initialRpm != null && finalRpm == initialRpm) "unchanged_rpm" else "final_rpm"}")
                                         if (finalRpmValid && (pendingMinimums[gauge] !== pending || !pollingEnabled || activeService !== service || gauge !in data.values || date != LocalDate.now().toString())) DiagnosticLog.event("MIN_REJECT", "id=${pending.id} ${diagnosticPid(gauge)} reason=state_changed")
                                         if (finalRpmValid && pendingMinimums[gauge] === pending &&
-                                            pollingEnabled && activeService === service &&
+                                            pollingEnabled && !gauge.modifierWindowIncomplete && activeService === service &&
                                             gauge in data.values && date == LocalDate.now().toString()) {
                                             DiagnosticLog.event("MIN_ACCEPT", "id=${pending.id} ${diagnosticPid(gauge)} value=$minimum")
                                             DailyPeakStore.recordMinimum(appContext, gauge.display, minimum, date)

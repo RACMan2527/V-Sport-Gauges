@@ -20,6 +20,12 @@ object AllTimePeakStore {
         return "peak_$encoded"
     }
 
+    private fun modifiedKey(display: Display): String? {
+        if (!display.modifierEnabled || display.modifierType !in 1..2) return null
+        val window = display.modifierWindowSeconds.takeIf { it in 1..3600 } ?: 30
+        return key(display.pid + "\u0000modifier:${display.modifierType}:$window")
+    }
+
     fun get(context: Context, pid: String): Double? =
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
             .getString(key(pid), null)
@@ -31,6 +37,10 @@ object AllTimePeakStore {
      * PID + unit + script key when that old display configuration is available.
      */
     fun get(context: Context, display: Display): Double? {
+        modifiedKey(display)?.let { modified ->
+            return context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+                .getString(modified, null)?.toDoubleOrNull()?.takeIf { it.isFinite() }
+        }
         get(context, display.pid)?.let { return it }
         val legacyIdentity = listOf(
             display.pid,
@@ -50,6 +60,22 @@ object AllTimePeakStore {
             set(context, display.pid, legacyValue)
         }
         return legacyValue
+    }
+
+    fun set(context: Context, display: Display, value: Double, label: String? = null) {
+        val modified = modifiedKey(display)
+        if (modified == null) {
+            set(context, display.pid, value, label)
+            return
+        }
+        if (!value.isFinite()) return
+        val previous = get(context, display)
+        context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE).edit()
+            .putString(modified, value.toString()).apply()
+        if (previous != value) {
+            DiagnosticLog.recordChange("PEAK_UPDATE", display.pid, previous, value, label)
+            AppStateStore.changed(context)
+        }
     }
 
     fun set(context: Context, pid: String, value: Double, label: String? = null) {

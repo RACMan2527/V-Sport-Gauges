@@ -15,7 +15,8 @@ object DailyPeakStore {
 
     private fun key(display: Display): String {
         val identity = listOf(display.pid, display.enableScript.toString(),
-            if (display.enableScript) display.customScript else "").joinToString("\u0000")
+            if (display.enableScript) display.customScript else "").joinToString("\u0000") +
+            (if (display.modifierEnabled && display.modifierType in 1..2) "\u0000modifier:${display.modifierType}:${display.modifierWindowSeconds.takeIf { it in 1..3600 } ?: 30}" else "")
         return Base64.encodeToString(identity.toByteArray(Charsets.UTF_8),
             Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
     }
