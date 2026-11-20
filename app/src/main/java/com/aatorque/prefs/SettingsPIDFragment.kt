@@ -118,6 +118,12 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         modifierEnabledPref = findPreference("modifierEnabled")!!
         modifierTypePref = findPreference("modifierType")!!
         modifierWindowPref = findPreference("modifierWindow")!!
+        modifierEnabledPref.setOnPreferenceChangeListener { _, newValue ->
+            val active = (newValue as Boolean) && !pidPref.value.isNullOrBlank()
+            modifierTypePref.isEnabled = active
+            modifierWindowPref.isEnabled = active
+            true
+        }
         modifierTypePref.entries = arrayOf("Trend", "Rolling Average")
         modifierTypePref.entryValues = arrayOf("1", "2")
         modifierTypePref.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
