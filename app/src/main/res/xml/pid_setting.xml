@@ -60,11 +60,6 @@
         android:enabled="false"
         android:persistent="false"
     />
-    <PreferenceCategory android:title="Statistical Modifier">
-        <CheckBoxPreference android:key="modifierEnabled" android:title="Enable Modifier" android:persistent="false" />
-        <ListPreference android:key="modifierType" android:title="Modifier Type" android:dependency="modifierEnabled" android:persistent="false" />
-        <EditTextPreference android:key="modifierWindow" android:title="Time Window (seconds)" android:dependency="modifierEnabled" android:persistent="false" />
-    </PreferenceCategory>
     <Preference
         android:key="indicatorColor"
         android:title="@string/alarms"
@@ -93,6 +88,11 @@
         android:dependency="runcustomScript"
         android:persistent="false"
         />
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Statistical Modifier">
+        <CheckBoxPreference android:key="modifierEnabled" android:title="Enable Modifier" android:persistent="false" />
+        <ListPreference android:key="modifierType" android:title="Modifier Type" android:dependency="modifierEnabled" android:persistent="false" />
+        <EditTextPreference android:key="modifierWindow" android:title="Time Window (seconds)" android:dependency="modifierEnabled" android:persistent="false" />
     </PreferenceCategory>
     <PreferenceCategory
         android:key="gaugeSettings"
