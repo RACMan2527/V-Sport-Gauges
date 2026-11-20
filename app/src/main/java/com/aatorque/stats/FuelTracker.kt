@@ -67,13 +67,6 @@ class FuelTracker(context: Context, private var service: TorqueService) {
      */
     private fun recordDailyTrip(miles: Double, seconds: Double, mpg: Double?) {
         val today = daily()
-        // Existing 3.14.4 daily fuel totals may be mismatched with distance.
-        // Begin a fresh MPG-only accounting baseline without touching distance/time.
-        if (!today.has("mpgMiles")) {
-            today.put("mpgMiles", 0.0)
-            today.put("gallons", 0.0)
-            today.remove("tripBaselineGallons")
-        }
         val currentGallons = mpg?.takeIf { it.isFinite() && it > 0.0 }?.let { miles / it }
         val previousMiles = today.optDouble("tripBaselineMiles", Double.NaN)
         val previousSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
