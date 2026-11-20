@@ -65,7 +65,14 @@ class FuelTracker(context: Context, private var service: TorqueService) {
      * A fresh trip's first sample is included only when its counters are near zero;
      * otherwise an unknown prior segment is deliberately not backfilled.
      */
+    // Monotonic clock is used only for validating increments within this process.
+    // A restart never authorizes an unbounded catch-up increment.
+    private var dailyLastAcceptedMs = 0L
+    private var dailyResetCandidate = 0
+
     private fun recordDailyTrip(miles: Double, seconds: Double, mpg: Double?) {
+        if (!miles.isFinite() || !seconds.isFinite() || miles < 0.0 || seconds < 0.0) return
+        val now = SystemClock.elapsedRealtime()
         val today = daily()
         val currentGallons = mpg?.takeIf { it.isFinite() && it > 0.0 }?.let { miles / it }
         val previousMiles = today.optDouble("tripBaselineMiles", Double.NaN)
@@ -74,19 +81,32 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val baselineKnown = previousMiles.isFinite() && previousSeconds.isFinite()
         val reset = baselineKnown && (miles + 0.01 < previousMiles ||
             seconds + 0.5 < previousSeconds)
-        val first = !baselineKnown || reset
-        // Only accept an initial trip snapshot when it is demonstrably early in
-        // the trip. Never count a full cached Torque trip after app installation.
-        val includeFirst = first && seconds <= 120.0 && miles <= 2.0
-        val milesDelta = when {
-            includeFirst -> miles
-            first -> 0.0
-            else -> (miles - previousMiles).coerceAtLeast(0.0)
+        if (reset) {
+            // One backward snapshot may be a stale Torque cache. Confirm before rebasing.
+            dailyResetCandidate++
+            if (dailyResetCandidate < 2) {
+                DiagnosticLog.event("DAILY_TRIP_SAMPLE_REJECTED", "reason=possible_reset")
+                return
+            }
+        } else {
+            dailyResetCandidate = 0
         }
-        val secondsDelta = when {
-            includeFirst -> seconds
-            first -> 0.0
-            else -> (seconds - previousSeconds).coerceAtLeast(0.0)
+        val first = !baselineKnown || reset || dailyLastAcceptedMs == 0L
+        // Do not backfill an unverified cached Torque trip on startup or reset.
+        val includeFirst = reset && seconds <= 120.0 && miles <= 2.0 &&
+            dailyLastAcceptedMs != 0L
+        val milesDelta = if (includeFirst) miles else if (first) 0.0 else miles - previousMiles
+        val secondsDelta = if (includeFirst) seconds else if (first) 0.0 else seconds - previousSeconds
+        val elapsedSeconds = if (dailyLastAcceptedMs == 0L) 0.0
+            else (now - dailyLastAcceptedMs).coerceAtLeast(0L) / 1000.0
+        // Permit a generous 180 mph and 30 seconds of polling lag; never
+        // allow a single bad Torque snapshot to inflate persistent daily totals.
+        if (!first && (milesDelta < 0.0 || secondsDelta < 0.0 ||
+                milesDelta > (elapsedSeconds + 30.0) * 180.0 / 3600.0 ||
+                secondsDelta > elapsedSeconds + 30.0)) {
+            DiagnosticLog.event("DAILY_TRIP_SAMPLE_REJECTED",
+                "reason=implausible_delta miles=$milesDelta seconds=$secondsDelta elapsed=$elapsedSeconds")
+            return
         }
         today.put("miles", today.optDouble("miles") + milesDelta)
         today.put("seconds", today.optDouble("seconds") + secondsDelta)
@@ -112,7 +132,11 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         }
         today.put("tripBaselineMiles", miles)
         today.put("tripBaselineSeconds", seconds)
-        if (reset) DiagnosticLog.event("DAILY_TRIP_RESET_DETECTED", "trip counters restarted")
+        dailyLastAcceptedMs = now
+        if (reset) {
+            dailyResetCandidate = 0
+            DiagnosticLog.event("DAILY_TRIP_RESET_DETECTED", "confirmed trip counters restarted")
+        }
     }
 
     private var previousTripMiles: Double? = null
@@ -335,8 +359,6 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             lastSampleMs = 0L
             return
         }
-        val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
-            ?: run { lastSampleMs = 0L; return }
         // These are the same raw Torque trip values displayed on the dashboards.
         daily() // Advance the local date before consuming the next sample.
         val tripKm = read(ts, "ff1204,0")
@@ -348,6 +370,10 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         if (tripMiles != null && tripSeconds != null) {
             recordDailyTrip(tripMiles, tripSeconds, tripMpg)
         }
+
+        // Fuel-level availability must not gate daily trip accounting.
+        val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
+            ?: run { lastSampleMs = 0L; return }
 
         if (tripMiles != null && tripSeconds != null) {
             val oldMiles = previousTripMiles
