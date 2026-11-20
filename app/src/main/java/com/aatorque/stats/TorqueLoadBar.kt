@@ -311,21 +311,16 @@ class EngineLoadBarView @JvmOverloads constructor(
                     tickValue != 0f && formatTick(tickValue) == "0") {
                     String.format(java.util.Locale.US, "%.1f", tickValue)
                 } else formatTick(tickValue)
-                canvas.drawText(label, x, labelY, labelPaint)
+                val overlapsZero = zeroFraction != null && !zeroAtMajor &&
+                    kotlin.math.abs(x - (horizontalInset + usableWidth * zeroFraction)) <
+                    (labelPaint.measureText(label) + labelPaint.measureText("0")) / 2f + 2f * density
+                if (!overlapsZero) canvas.drawText(label, x, labelY, labelPaint)
             }
         }
         if (zeroFraction != null && !zeroAtMajor) {
             val zeroX = horizontalInset + usableWidth * zeroFraction
             canvas.drawLine(zeroX, tickTop, zeroX, tickBottom, tickPaint)
-            if (showTicks) {
-                // Keep the zero label clear of adjacent major tick labels.
-                val nearestMajorDistance = (0..5).minOf {
-                    kotlin.math.abs(zeroX - (horizontalInset + usableWidth * (it / 5f)))
-                }
-                if (nearestMajorDistance >= labelPaint.measureText("0") * 1.5f) {
-                    canvas.drawText("0", zeroX, labelY, labelPaint)
-                }
-            }
+            if (showTicks) canvas.drawText("0", zeroX, labelY, labelPaint)
         }
     }
 
