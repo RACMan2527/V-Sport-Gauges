@@ -42,6 +42,8 @@ class TorqueData(var display: Display) {
     var refreshTimer: ScheduledFuture<*>? = null
     var hasReceivedNonZero = false
     var hasReceivedReading = false
+    // A modifier must observe a source update after activation before seeding history.
+    @Volatile var modifierAwaitingFreshSample = display.modifierEnabled && display.modifierType in 1..2
     var allowInitialZeroUpdates = false
     var currentAlarm = MutableLiveData<Coloring?>()
 
@@ -154,6 +156,8 @@ class TorqueData(var display: Display) {
     @Synchronized
     fun resetStatisticalHistory() {
         resetTrendHistory()
+        modifierAwaitingFreshSample = modifier != StatisticalModifier.NONE
+        hasReceivedReading = false
         pendingInitialZero = false
         averageSamples.clear()
         averageSum = 0.0
