@@ -54,10 +54,10 @@ class TorqueLoadBar : Fragment() {
         gauge.setAllTimePeak(if (showPeak) AllTimePeakStore.get(requireContext(), data.display)?.toFloat() else null)
         gauge.showPeak = !data.display.hasHorizontalDailyMaxEnabled() || data.display.horizontalDailyMaxEnabled
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
-        gauge.setProgress(data.lastData.toFloat())
+        gauge.setProgress(if (data.hasReceivedReading) data.lastData.toFloat() else minimum.toFloat())
         gauge.setDailyPeak(DailyPeakStore.get(requireContext(), data.display)?.toFloat())
         recordAllTimePeak(data)
-        valueText.text = formatReading(data.lastData)
+        valueText.text = if (data.hasReceivedReading) formatReading(data.lastData) else "--"
         updateModifierValueColor(data)
         data.notifyUpdate = {
             val value = it.lastData
@@ -79,7 +79,7 @@ class TorqueLoadBar : Fragment() {
     private fun recordAllTimePeak(data: TorqueData) {
         val value = data.lastData
         val display = allTimeDisplay ?: return
-        if (!value.isFinite() || display.pid.isBlank() || data.modifierWindowIncomplete) return
+        if (!data.hasReceivedReading || !value.isFinite() || display.pid.isBlank() || data.modifierWindowIncomplete) return
         val saved = AllTimePeakStore.get(requireContext(), display)
         if (saved == null || value > saved) {
             AllTimePeakStore.set(requireContext(), display, value)
