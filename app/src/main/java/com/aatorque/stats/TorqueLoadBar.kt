@@ -71,7 +71,7 @@ class TorqueLoadBar : Fragment() {
 
     private fun updateModifierValueColor(data: TorqueData) {
         valueText.setTextColor(
-            if (data.currentAlarm.value != null) android.graphics.Color.WHITE else
+            if (data.currentAlarm.value != null) data.currentAlarm.value!!.color else
                 if (data.modifierWindowIncomplete) android.graphics.Color.YELLOW else android.graphics.Color.WHITE
         )
     }

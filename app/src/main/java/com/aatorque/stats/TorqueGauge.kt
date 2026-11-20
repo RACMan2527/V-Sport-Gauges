@@ -402,7 +402,7 @@ class TorqueGauge : Fragment() {
     }
 
     private fun updateModifierValueColor(data: TorqueData) {
-        mClock.speedTextColor = if (data.currentAlarm.value != null) Color.WHITE else
+        mClock.speedTextColor = if (data.currentAlarm.value != null) data.currentAlarm.value!!.color else
             if (data.modifierWindowIncomplete) Color.YELLOW else Color.WHITE
     }
 
@@ -451,7 +451,7 @@ class TorqueGauge : Fragment() {
         override fun onChanged(value: Coloring?) {
             mClock.setAlarm(value)
             // The alarm overrides the temporary modifier warm-up indicator.
-            mClock.speedTextColor = if (value != null) Color.WHITE else
+            mClock.speedTextColor = if (value != null) value.color else
                 if (currentGaugeData?.modifierWindowIncomplete == true) Color.YELLOW else Color.WHITE
         }
     }

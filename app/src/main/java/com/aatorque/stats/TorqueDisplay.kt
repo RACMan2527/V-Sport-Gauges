@@ -94,17 +94,20 @@ class TorqueDisplay : Fragment() {
 
     @SuppressLint("SetTextI18n")
     fun onUpdate(data: TorqueData) {
+        currentDisplayData = data
         binding.value = data.lastDataStr + unit
         binding.valueElement.setTextColor(
-            if (data.currentAlarm.value != null) android.graphics.Color.WHITE else
+            if (data.currentAlarm.value != null) data.currentAlarm.value!!.color else
                 if (data.modifierWindowIncomplete) android.graphics.Color.YELLOW else android.graphics.Color.WHITE
         )
     }
 
+    private var currentDisplayData: TorqueData? = null
+
     val alarmObserver = object : AwareObserver<Coloring>() {
         override fun onChanged(value: Coloring?) {
             binding.alarm = value?.color
-            if (value != null) binding.valueElement.setTextColor(android.graphics.Color.WHITE)
+            binding.valueElement.setTextColor(value?.color ?: if (currentDisplayData?.modifierWindowIncomplete == true) android.graphics.Color.YELLOW else android.graphics.Color.WHITE)
         }
     }
 }
