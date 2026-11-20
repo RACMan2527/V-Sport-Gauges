@@ -176,6 +176,19 @@ class TorqueData(var display: Display) {
         return averageSum / averageSamples.size
     }
 
+    // The protobuf fields travel with each Display through dashboard export/import.
+    // Legacy dashboards have modifierEnabled=false and retain their original readings.
+    init {
+        if (display.modifierEnabled) {
+            val seconds = display.modifierWindowSeconds.takeIf { it in 1..3600 } ?: 30
+            when (display.modifierType) {
+                1 -> selectTrend(seconds)
+                2 -> configureRollingAverageWindow(seconds)
+                else -> clearStatisticalModifier()
+            }
+        }
+    }
+
     // Accept only finite raw and converted readings. Rejected samples leave the
     // last valid display value, min/max, and alarm state unchanged.
     fun updateReading(value: Double): Boolean {

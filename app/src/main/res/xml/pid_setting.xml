@@ -73,6 +73,11 @@
         android:summary="@string/whole_numbers_desc"
         android:persistent="false"
         />
+    <PreferenceCategory android:title="Statistical Modifier">
+        <CheckBoxPreference android:key="modifierEnabled" android:title="Enable Modifier" android:persistent="false" />
+        <ListPreference android:key="modifierType" android:title="Modifier Type" android:dependency="modifierEnabled" android:persistent="false" />
+        <EditTextPreference android:key="modifierWindow" android:title="Time Window (seconds)" android:dependency="modifierEnabled" android:persistent="false" />
+    </PreferenceCategory>
     <PreferenceCategory
         android:title="@string/custom_script">
      <CheckBoxPreference

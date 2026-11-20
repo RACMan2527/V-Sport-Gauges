@@ -52,6 +52,9 @@ message Display {
   optional double horizontalMaxValue = 28;
   bool allTimePeakActive = 29;
   optional bool horizontalDailyMaxEnabled = 30;
+  bool modifierEnabled = 31;
+  int32 modifierType = 32; // 1 = Trend, 2 = Rolling Average
+  int32 modifierWindowSeconds = 33; // 0 in legacy files means 30 seconds
 }
 
 message Screen {

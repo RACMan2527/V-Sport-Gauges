@@ -51,6 +51,9 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
     lateinit var minValuePref: EditTextPreference
     lateinit var maxValuePref: EditTextPreference
     lateinit var unitPref: EditTextPreference
+    lateinit var modifierEnabledPref: CheckBoxPreference
+    lateinit var modifierTypePref: ListPreference
+    lateinit var modifierWindowPref: EditTextPreference
     lateinit var runcustomScriptPref: CheckBoxPreference
     lateinit var jsPref: FormulaPreference
     lateinit var wholeNumberPref: CheckBoxPreference
@@ -112,6 +115,21 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         minValuePref = findPreference("minValue")!!
         maxValuePref = findPreference("maxValue")!!
         unitPref = findPreference("unit")!!
+        modifierEnabledPref = findPreference("modifierEnabled")!!
+        modifierTypePref = findPreference("modifierType")!!
+        modifierWindowPref = findPreference("modifierWindow")!!
+        modifierTypePref.entries = arrayOf("Trend", "Rolling Average")
+        modifierTypePref.entryValues = arrayOf("1", "2")
+        modifierTypePref.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
+        modifierWindowPref.summaryProvider = EditTextPreference.SimpleSummaryProvider.getInstance()
+        modifierWindowPref.setOnBindEditTextListener { it.inputType = InputType.TYPE_CLASS_NUMBER }
+        modifierWindowPref.setOnPreferenceChangeListener { _, value ->
+            val seconds = (value as? String)?.toIntOrNull()
+            if (seconds == null || seconds !in 1..3600) {
+                android.widget.Toast.makeText(requireContext(), "Enter 1 to 3600 seconds", android.widget.Toast.LENGTH_SHORT).show()
+                false
+            } else true
+        }
         runcustomScriptPref = findPreference("runcustomScript")!!
         jsPref = findPreference("customScript")!!
         wholeNumberPref = findPreference("wholeNumbers")!!
@@ -233,6 +251,9 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 minValuePref.text = display.minValue.toString()
                 maxValuePref.text = display.maxValue.toString()
                 unitPref.text = display.unit
+                modifierEnabledPref.isChecked = display.modifierEnabled
+                modifierTypePref.value = if (display.modifierType == 2) "2" else "1"
+                modifierWindowPref.text = (if (display.modifierWindowSeconds in 1..3600) display.modifierWindowSeconds else 30).toString()
                 runcustomScriptPref.isChecked = display.enableScript
                 wholeNumberPref.isChecked = display.wholeNumbers
                 ticksActivePref.isChecked = display.ticksActive
@@ -278,6 +299,9 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
 
     fun enableItems(enabled: Boolean) {
         unitPref.isEnabled = enabled
+        modifierEnabledPref.isEnabled = enabled
+        modifierTypePref.isEnabled = enabled && modifierEnabledPref.isChecked
+        modifierWindowPref.isEnabled = enabled && modifierEnabledPref.isChecked
         runcustomScriptPref.isEnabled = enabled
         showLabelPref.isEnabled = enabled
         if (isClock) {
@@ -325,6 +349,12 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
             maxVal.coerceAtLeast(minVal)
         ).setUnit(
             unitPref.text
+        ).setModifierEnabled(
+            modifierEnabledPref.isChecked
+        ).setModifierType(
+            if (modifierTypePref.value == "2") 2 else 1
+        ).setModifierWindowSeconds(
+            (modifierWindowPref.text?.toIntOrNull() ?: 30).coerceIn(1, 3600)
         ).setEnableScript(
             runcustomScriptPref.isChecked
         ).setCustomScript(
