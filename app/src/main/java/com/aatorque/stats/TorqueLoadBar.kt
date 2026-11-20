@@ -58,13 +58,22 @@ class TorqueLoadBar : Fragment() {
         gauge.setDailyPeak(DailyPeakStore.get(requireContext(), data.display)?.toFloat())
         recordAllTimePeak(data.lastData)
         valueText.text = formatReading(data.lastData)
+        updateModifierValueColor(data)
         data.notifyUpdate = {
             val value = it.lastData
             gauge.animateProgress(value.toFloat(), TorqueRefresher.REFRESH_INTERVAL)
             gauge.setDailyPeak(DailyPeakStore.get(requireContext(), it.display)?.toFloat())
             recordAllTimePeak(value)
             valueText.text = formatReading(value)
+            updateModifierValueColor(it)
         }
+    }
+
+    private fun updateModifierValueColor(data: TorqueData) {
+        valueText.setTextColor(
+            if (data.currentAlarm.value != null) android.graphics.Color.WHITE else
+                if (data.modifierWindowIncomplete) android.graphics.Color.YELLOW else android.graphics.Color.WHITE
+        )
     }
 
     private fun recordAllTimePeak(value: Double) {

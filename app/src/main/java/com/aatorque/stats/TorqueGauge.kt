@@ -62,6 +62,7 @@ class TorqueGauge : Fragment() {
     private var allTimePeakKey: String? = null
     lateinit var settingsViewModel: SettingsViewModel
 
+    private var currentGaugeData: TorqueData? = null
     private var rayOn = false
     private lateinit var binding: FragmentGaugeBinding
 
@@ -400,7 +401,14 @@ class TorqueGauge : Fragment() {
             binding.showLimitBelow = if (dailyMin == null) MaxControl.OFF else MaxControl.MIN
     }
 
+    private fun updateModifierValueColor(data: TorqueData) {
+        mClock.speedTextColor = if (data.currentAlarm.value != null) Color.WHITE else
+            if (data.modifierWindowIncomplete) Color.YELLOW else Color.WHITE
+    }
+
     private fun onUpdate(data: TorqueData) {
+        currentGaugeData = data
+        updateModifierValueColor(data)
         val fVal = data.lastData.toFloat()
         if (data.hasReceivedReading && data.lastData.isFinite() && allTimePeakEnabled) {
             val saved = AllTimePeakStore.get(requireContext(), data.display)
@@ -442,6 +450,9 @@ class TorqueGauge : Fragment() {
     val alarmObserver = object: AwareObserver<Coloring>() {
         override fun onChanged(value: Coloring?) {
             mClock.setAlarm(value)
+            // The alarm overrides the temporary modifier warm-up indicator.
+            mClock.speedTextColor = if (value != null) Color.WHITE else
+                if (currentGaugeData?.modifierWindowIncomplete == true) Color.YELLOW else Color.WHITE
         }
     }
 }

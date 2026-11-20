@@ -120,6 +120,7 @@ class TorqueData(var display: Display) {
     private var averageSum = 0.0
     var averageWindowComplete: Boolean = true
         private set
+    private var averageStartedMs: Long? = null
 
     @Synchronized
     fun configureRollingAverageWindow(windowSeconds: Int) {
@@ -153,6 +154,7 @@ class TorqueData(var display: Display) {
         resetTrendHistory()
         averageSamples.clear()
         averageSum = 0.0
+        averageStartedMs = null
         averageWindowComplete = modifier != StatisticalModifier.ROLLING_AVERAGE
     }
 
@@ -163,18 +165,27 @@ class TorqueData(var display: Display) {
                     nowMs - previous.elapsedMs > gapLimitMs)) {
             averageSamples.clear()
             averageSum = 0.0
+            averageStartedMs = null
         }
+        if (averageStartedMs == null) averageStartedMs = nowMs
         averageSamples.addLast(TrendSample(nowMs, converted))
         averageSum += converted
         val cutoff = nowMs - averageWindowMs
         // The window is complete only after a continuous observation interval.
-        averageWindowComplete = averageSamples.peekFirst().elapsedMs <= cutoff
+        averageWindowComplete = nowMs - (averageStartedMs ?: nowMs) >= averageWindowMs
         while (averageSamples.size > 1 &&
             averageSamples.peekFirst().elapsedMs < cutoff) {
             averageSum -= averageSamples.removeFirst().convertedValue
         }
         return averageSum / averageSamples.size
     }
+
+    val modifierWindowIncomplete: Boolean
+        get() = when (modifier) {
+            StatisticalModifier.NONE -> false
+            StatisticalModifier.TREND -> !trendWindowComplete
+            StatisticalModifier.ROLLING_AVERAGE -> !averageWindowComplete
+        }
 
     // The protobuf fields travel with each Display through dashboard export/import.
     // Legacy dashboards have modifierEnabled=false and retain their original readings.
