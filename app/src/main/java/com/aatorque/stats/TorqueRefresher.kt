@@ -222,7 +222,18 @@ class TorqueRefresher {
             } finally {
                 diagLastResponseMs.set(android.os.SystemClock.elapsedRealtime() - requestStarted)
             }
-            val quality = PidValidator.inspect(ts, torqueData.pid!!, value)
+            // Statistical history must contain fresh ECU samples only. A cached
+            // startup zero (or any repeated timestamp) must never seed Trend.
+            // Track each gauge independently: dashboards can share the same PID.
+            val modifierEnabled = torqueData.display.modifierEnabled &&
+                torqueData.display.modifierType in 1..2
+            val quality = PidValidator.inspect(
+                ts, torqueData.pid!!, value,
+                consumer = if (modifierEnabled) "modifier-${System.identityHashCode(torqueData)}" else "gauges"
+            )
+            if (modifierEnabled && quality.quality != PidValidator.Quality.VALID) {
+                return@runIfConnected
+            }
             if (!torqueData.updateReading(value)) {
                 DiagnosticLog.event("PID_REJECTED", "${diagnosticPid(torqueData)} raw=$value")
                 markPollResult(torqueData, false)
