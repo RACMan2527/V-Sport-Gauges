@@ -111,6 +111,71 @@ class TorqueData(var display: Display) {
         return converted - baseline
     }
 
+    // Stage 2: a rolling arithmetic mean of valid, post-conversion samples.
+    // Only one statistical modifier may be active on a gauge at a time.
+    enum class StatisticalModifier { NONE, TREND, ROLLING_AVERAGE }
+    private var modifier = StatisticalModifier.NONE
+    private var averageWindowMs = 0L
+    private val averageSamples = ArrayDeque<TrendSample>()
+    private var averageSum = 0.0
+    var averageWindowComplete: Boolean = true
+        private set
+
+    @Synchronized
+    fun configureRollingAverageWindow(windowSeconds: Int) {
+        require(windowSeconds > 0) { "Rolling average window must be positive" }
+        val newWindow = windowSeconds.toLong() * 1000L
+        if (modifier != StatisticalModifier.ROLLING_AVERAGE ||
+            averageWindowMs != newWindow) {
+            averageWindowMs = newWindow
+            modifier = StatisticalModifier.ROLLING_AVERAGE
+            resetStatisticalHistory()
+        }
+    }
+
+    @Synchronized
+    fun selectTrend(windowSeconds: Int) {
+        require(windowSeconds > 0) { "Trend window must be positive" }
+        val changed = modifier != StatisticalModifier.TREND
+        modifier = StatisticalModifier.TREND
+        configureTrendWindow(windowSeconds)
+        if (changed) resetStatisticalHistory()
+    }
+
+    @Synchronized
+    fun clearStatisticalModifier() {
+        modifier = StatisticalModifier.NONE
+        resetStatisticalHistory()
+    }
+
+    @Synchronized
+    fun resetStatisticalHistory() {
+        resetTrendHistory()
+        averageSamples.clear()
+        averageSum = 0.0
+        averageWindowComplete = modifier != StatisticalModifier.ROLLING_AVERAGE
+    }
+
+    private fun rollingAverage(converted: Double, nowMs: Long): Double {
+        val previous = averageSamples.peekLast()
+        val gapLimitMs = maxOf(2000L, minOf(10000L, averageWindowMs / 4L))
+        if (previous != null && (nowMs <= previous.elapsedMs ||
+                    nowMs - previous.elapsedMs > gapLimitMs)) {
+            averageSamples.clear()
+            averageSum = 0.0
+        }
+        averageSamples.addLast(TrendSample(nowMs, converted))
+        averageSum += converted
+        val cutoff = nowMs - averageWindowMs
+        // The window is complete only after a continuous observation interval.
+        averageWindowComplete = averageSamples.peekFirst().elapsedMs <= cutoff
+        while (averageSamples.size > 1 &&
+            averageSamples.peekFirst().elapsedMs < cutoff) {
+            averageSum -= averageSamples.removeFirst().convertedValue
+        }
+        return averageSum / averageSamples.size
+    }
+
     // Accept only finite raw and converted readings. Rejected samples leave the
     // last valid display value, min/max, and alarm state unchanged.
     fun updateReading(value: Double): Boolean {
@@ -138,10 +203,15 @@ class TorqueData(var display: Display) {
         }
 
         val output = synchronized(this) {
-            trendValue(converted.first, SystemClock.elapsedRealtime())
+            val nowMs = SystemClock.elapsedRealtime()
+            when (modifier) {
+                StatisticalModifier.NONE -> converted.first
+                StatisticalModifier.TREND -> trendValue(converted.first, nowMs)
+                StatisticalModifier.ROLLING_AVERAGE -> rollingAverage(converted.first, nowMs)
+            }
         }
         lastData = output
-        lastDataStr = if (trendWindowMs > 0L) {
+        lastDataStr = if (modifier != StatisticalModifier.NONE) {
             (if (display.wholeNumbers) intPlaces else twoPlaces).format(output)
         } else converted.second
         if (lastData > maxValue) maxValue = lastData
