@@ -99,7 +99,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             if (gallonsDelta >= 0.0) {
                 today.put("gallons", today.optDouble("gallons") + gallonsDelta)
                 val pairedMiles = if (includeFirst) miles else if (first || !previousGallons.isFinite()) 0.0 else milesDelta
-                today.put("mpgMiles", today.optDouble("mpgMiles") + pairedMiles)
+                today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + pairedMiles)
             } else {
                 DiagnosticLog.event("DAILY_TRIP_FUEL_REBASE",
                     "delta=$gallonsDelta mpg=$mpg")
