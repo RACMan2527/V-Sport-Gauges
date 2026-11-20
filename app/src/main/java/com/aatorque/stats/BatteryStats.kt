@@ -39,11 +39,12 @@ object BatteryStats {
         val previousLevel = p.getInt("previousLevel", -1)
         val increased = level != null && previousLevel >= 0 && level > previousLevel
         if (level != null) p.edit().putInt("previousLevel", level).apply()
-        val eligible = monitoring && ecuDisconnected && !charging && !increased && level != null
+        val eligible = !charging && !increased && level != null
         val startAt = p.getLong("startElapsed", 0L)
         val bootAt = p.getLong("bootAt", 0L)
         val boot = System.currentTimeMillis() - now
         if (!eligible || (startAt != 0L && (now < startAt || kotlin.math.abs(boot - bootAt) > 60_000L))) {
+            if (startAt != 0L) DiagnosticLog.event("BATTERY_CYCLE_INTERRUPTED", "charging=$charging increased=$increased valid=${level != null} reboot=${now < startAt || kotlin.math.abs(boot - bootAt) > 60_000L}")
             if (startAt != 0L) {
                 p.edit().remove("startElapsed").remove("startLevel").remove("sampleCount")
                     .remove("bootAt").apply()
@@ -54,6 +55,7 @@ object BatteryStats {
         if (startAt == 0L) {
             p.edit().putLong("startElapsed", now).putLong("bootAt", boot)
                 .putInt("startLevel", level!!).putInt("sampleCount", 0).apply()
+            DiagnosticLog.event("BATTERY_CYCLE_START", "level=$level")
             AppStateStore.changed(context)
             return
         }
@@ -63,33 +65,24 @@ object BatteryStats {
             AppStateStore.changed(context)
             return
         }
-        val count = p.getInt("sampleCount", 0)
-        val nextSample = startAt + (count + 1L) * HOUR_MS
-        if (count < 2 && now >= nextSample) {
-            // If a scheduled check was delayed excessively, restart rather than invent intervals.
-            if (now - nextSample > 10 * 60_000L) {
-                p.edit().remove("startElapsed").remove("startLevel").remove("sampleCount")
-                    .remove("bootAt").apply()
-                AppStateStore.changed(context)
-                return
-            }
-            val nextCount = count + 1
-            p.edit().putInt("sampleCount", nextCount).apply()
-            if (nextCount == 2) {
-                val elapsed = now - startAt
-                val startLevel = p.getInt("startLevel", level!!)
-                p.edit().putLong("lastMinutes", elapsed / 60_000L)
-                    .putInt("lastStart", startLevel).putInt("lastEnd", level!!)
-                    .putLong("lastElapsed", elapsed)
-                    .remove("startElapsed").remove("startLevel").remove("sampleCount")
-                    .remove("bootAt").apply()
-            }
+        // Use real elapsed time; a delayed Android wakeup is not an invalid sample.
+        val elapsed = now - startAt
+        if (elapsed >= 2L * HOUR_MS) {
+            val startLevel = p.getInt("startLevel", level)
+            p.edit().putLong("lastMinutes", elapsed / 60_000L)
+                .putInt("lastStart", startLevel).putInt("lastEnd", level)
+                .putLong("lastElapsed", elapsed)
+                .remove("startElapsed").remove("startLevel").remove("sampleCount")
+                .remove("bootAt").apply()
+            DiagnosticLog.event("BATTERY_CYCLE_COMPLETE",
+                "start=$startLevel end=$level elapsedMinutes=${elapsed / 60_000L}")
             AppStateStore.changed(context)
         }
     }
 
     @Synchronized fun interrupted(context: Context) {
-        sample(context, monitoring = false, ecuDisconnected = true)
+        // Service shutdown does not terminate an otherwise valid battery cycle.
+        // Periodic work will resume sampling when Android next permits it.
     }
 
     @Synchronized fun display(context: Context): Display {
