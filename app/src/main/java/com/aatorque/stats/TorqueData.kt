@@ -115,6 +115,8 @@ class TorqueData(var display: Display) {
     // Only one statistical modifier may be active on a gauge at a time.
     enum class StatisticalModifier { NONE, TREND, ROLLING_AVERAGE }
     private var modifier = StatisticalModifier.NONE
+    // A single startup zero is unconfirmed, not a Trend/average baseline.
+    private var pendingInitialZero = false
     private var averageWindowMs = 0L
     private val averageSamples = ArrayDeque<TrendSample>()
     private var averageSum = 0.0
@@ -152,6 +154,7 @@ class TorqueData(var display: Display) {
     @Synchronized
     fun resetStatisticalHistory() {
         resetTrendHistory()
+        pendingInitialZero = false
         averageSamples.clear()
         averageSum = 0.0
         averageStartedMs = null
@@ -227,6 +230,18 @@ class TorqueData(var display: Display) {
         }
 
         val output = synchronized(this) {
+            // Torque can briefly return zero from its cache as a dashboard starts.
+            // Confirm an initial zero twice; a real sustained zero remains valid.
+            val historyEmpty = when (modifier) {
+                StatisticalModifier.TREND -> trendSamples.isEmpty()
+                StatisticalModifier.ROLLING_AVERAGE -> averageSamples.isEmpty()
+                else -> false
+            }
+            if (historyEmpty && reading == 0.0 && !pendingInitialZero) {
+                pendingInitialZero = true
+                return false
+            }
+            pendingInitialZero = false
             val nowMs = SystemClock.elapsedRealtime()
             when (modifier) {
                 StatisticalModifier.NONE -> converted.first
