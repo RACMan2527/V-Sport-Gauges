@@ -206,7 +206,7 @@ class TorqueRefresher {
         val queried = service.runIfConnected { ts ->
             // ECU connectivity is independent of the configured PID's value,
             // conversion, modifier warm-up, and validation outcome.
-            if (conWatcher.value != ConnectStatus.CONNECTED) {
+            if (ts.isConnectedToECU && conWatcher.value != ConnectStatus.CONNECTED) {
                 runBlocking { conWatcher.emit(ConnectStatus.CONNECTED) }
             }
             val requestStarted = android.os.SystemClock.elapsedRealtime()
