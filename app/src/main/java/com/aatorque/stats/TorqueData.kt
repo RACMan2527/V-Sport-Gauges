@@ -160,13 +160,9 @@ class TorqueData(var display: Display) {
     }
 
     fun sendNotifyUpdate() {
-        if (notifyUpdate == null) {
-            Timber.e("Cannot update, notifyUpdate is null")
-        } else {
-            notifyUpdate?.let {
-                it(this)
-            }
-        }
+        // Background polling intentionally has no attached gauge view.
+        // Keep polling and peak recording active without emitting an error per sample.
+        notifyUpdate?.invoke(this)
     }
 
     fun stopRefreshing(isDestroying: Boolean = false) {
