@@ -293,12 +293,39 @@ class EngineLoadBarView @JvmOverloads constructor(
             }
         }
 
+        val zeroFraction = if (minimum < 0f && maximum >= 0f) {
+            ((0f - minimum) / (maximum - minimum)).coerceIn(0f, 1f)
+        } else null
+        // A zero tick already at a major position needs no extra tick.
+        val zeroAtMajor = zeroFraction != null &&
+            (0..5).any { kotlin.math.abs(zeroFraction - it / 5f) < 0.0001f }
         for (index in 0..5) {
             val fractionAtTick = index / 5f
             val x = horizontalInset + usableWidth * fractionAtTick
             val tickValue = minimum + (maximum - minimum) * fractionAtTick
             canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
-            if (showTicks) canvas.drawText(formatTick(tickValue), x, labelY, labelPaint)
+            if (showTicks) {
+                // When zero is between majors, avoid a rounded-to-zero
+                // neighboring label that would duplicate the explicit zero.
+                val label = if (zeroFraction != null && !zeroAtMajor &&
+                    tickValue != 0f && formatTick(tickValue) == "0") {
+                    String.format(java.util.Locale.US, "%.1f", tickValue)
+                } else formatTick(tickValue)
+                canvas.drawText(label, x, labelY, labelPaint)
+            }
+        }
+        if (zeroFraction != null && !zeroAtMajor) {
+            val zeroX = horizontalInset + usableWidth * zeroFraction
+            canvas.drawLine(zeroX, tickTop, zeroX, tickBottom, tickPaint)
+            if (showTicks) {
+                // Keep the zero label clear of adjacent major tick labels.
+                val nearestMajorDistance = (0..5).minOf {
+                    kotlin.math.abs(zeroX - (horizontalInset + usableWidth * (it / 5f)))
+                }
+                if (nearestMajorDistance >= labelPaint.measureText("0") * 1.5f) {
+                    canvas.drawText("0", zeroX, labelY, labelPaint)
+                }
+            }
         }
     }
 
