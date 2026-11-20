@@ -146,6 +146,8 @@ class TorqueRefresher {
         cache.getOrPut(screen) {
             HashMap()
         }[pos] = torqueData
+        // Cached gauges must not reuse old modifier samples on foreground entry.
+        torqueData.resetStatisticalHistory()
         data[pos] = torqueData
         Timber.i("Setting query: $query for pos $pos on screen $screen")
         return torqueData
