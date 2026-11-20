@@ -204,6 +204,11 @@ class TorqueRefresher {
             return
         }
         val queried = service.runIfConnected { ts ->
+            // ECU connectivity is independent of the configured PID's value,
+            // conversion, modifier warm-up, and validation outcome.
+            if (conWatcher.value != ConnectStatus.CONNECTED) {
+                runBlocking { conWatcher.emit(ConnectStatus.CONNECTED) }
+            }
             val requestStarted = android.os.SystemClock.elapsedRealtime()
             val value = try {
                 ts.getPIDValuesAsDouble(arrayOf(torqueData.pid!!))[0]
@@ -252,13 +257,6 @@ class TorqueRefresher {
             if (value != 0.0 || torqueData.hasReceivedNonZero || torqueData.allowInitialZeroUpdates) {
                 handler.post {
                     torqueData.sendNotifyUpdate()
-                }
-            }
-            // Preserve master's connection rule: CONNECTED only after a non-zero
-            // reading has arrived, or after a previously non-zero reading.
-            if (value != 0.0 || torqueData.hasReceivedNonZero) {
-                runBlocking {
-                    conWatcher.emit(ConnectStatus.CONNECTED)
                 }
             }
         }
