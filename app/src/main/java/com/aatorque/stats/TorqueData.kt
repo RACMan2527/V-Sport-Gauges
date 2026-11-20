@@ -222,7 +222,7 @@ class TorqueData(var display: Display) {
         // Negative readings remain valid; the gauge itself clamps them to its
         // display minimum, as it did before this shutdown-spike guard.
         if (reading == Int.MAX_VALUE.toDouble() || reading == Int.MIN_VALUE.toDouble() ||
-            (upperLimit.isFinite() && reading > upperLimit)) {
+            (modifier == StatisticalModifier.NONE && upperLimit.isFinite() && reading > upperLimit)) {
             return false
         }
 
