@@ -68,9 +68,9 @@ object BatteryStats {
         // Use real elapsed time; a delayed Android wakeup is not an invalid sample.
         val elapsed = now - startAt
         if (elapsed >= 2L * HOUR_MS) {
-            val startLevel = p.getInt("startLevel", level)
+            val startLevel = p.getInt("startLevel", level!!)
             p.edit().putLong("lastMinutes", elapsed / 60_000L)
-                .putInt("lastStart", startLevel).putInt("lastEnd", level)
+                .putInt("lastStart", startLevel).putInt("lastEnd", level!!)
                 .putLong("lastElapsed", elapsed)
                 .remove("startElapsed").remove("startLevel").remove("sampleCount")
                 .remove("bootAt").apply()
