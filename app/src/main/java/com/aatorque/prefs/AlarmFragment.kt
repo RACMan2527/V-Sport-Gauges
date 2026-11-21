@@ -31,24 +31,25 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
+import androidx.compose.material3.Slider
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -59,10 +60,7 @@ import com.aatorque.datastore.Screen
 import com.aatorque.datastore.UserPreferenceOrBuilder
 import com.aatorque.stats.R
 import com.aatorque.ui.AppTheme
-import com.rarepebble.colorpicker.ColorPickerView
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.parcelize.Parcelize
 
@@ -151,11 +149,11 @@ fun NewItemDialog(
     onDismissRequest: () -> Unit,
     update: FormData? = null
 ) {
-    val state = rememberSaveable {
-        mutableStateOf(update ?: FormData())
+    val state = remember(update) {
+        mutableStateOf(update?.copy() ?: FormData())
     }
     AlertDialog(
-        onDismissRequest = {},
+        onDismissRequest = onDismissRequest,
         title = {
             Text(
                 text = stringResource(R.string.add_item),
@@ -237,17 +235,38 @@ fun OperationForm(state: MutableState<FormData>) {
                 Text(text = stringResource(id = R.string.color))
             }
             Column {
-                AndroidView(factory = { context ->
-                    ColorPickerView(context).apply {
-                        showHex(false)
-                        setCurrentColor(state.value.color)
-                        addColorObserver {
-                            state.value = state.value.copy(
-                                color = it.color
-                            )
-                        }
+                // Compose-native RGB controls avoid constructing the legacy
+                // Android color picker inside an AlertDialog.
+                val selected = state.value.color
+                val red = android.graphics.Color.red(selected)
+                val green = android.graphics.Color.green(selected)
+                val blue = android.graphics.Color.blue(selected)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(32.dp).background(Color(selected)))
+                    Spacer(Modifier.width(8.dp))
+                    Text("#%06X".format(selected and 0xFFFFFF))
+                }
+                listOf(
+                    Triple("R", red, 0), Triple("G", green, 1), Triple("B", blue, 2)
+                ).forEach { (label, channel, component) ->
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(label, modifier = Modifier.width(20.dp))
+                        Slider(
+                            value = channel.toFloat(),
+                            onValueChange = { value ->
+                                val v = value.toInt().coerceIn(0, 255)
+                                val color = when (component) {
+                                    0 -> android.graphics.Color.rgb(v, green, blue)
+                                    1 -> android.graphics.Color.rgb(red, v, blue)
+                                    else -> android.graphics.Color.rgb(red, green, v)
+                                }
+                                state.value = state.value.copy(color = color)
+                            },
+                            valueRange = 0f..255f,
+                            modifier = Modifier.width(200.dp)
+                        )
                     }
-                })
+                }
             }
         }
     }
@@ -312,28 +331,24 @@ fun MainView(
     }
 
 
-    LaunchedEffect(Unit) {
-        context.dataStore.data.map {
-            getCurrentDisplay(it).first.alarmsList
-        }.collect {
-            model.uiState.clear()
-            model.uiState.addAll(it.map(FormData::fromColoring))
-        }
+    val scope = androidx.compose.runtime.rememberCoroutineScope()
+    var loaded by remember { mutableStateOf(false) }
+    LaunchedEffect(screen, index, isClock) {
+        val settings = context.dataStore.data.first()
+        model.uiState.clear()
+        model.uiState.addAll(getCurrentDisplay(settings).first.alarmsList.map(FormData::fromColoring))
+        loaded = true
     }
-    DisposableEffect(Unit) {
-        onDispose {
-             CoroutineScope(Dispatchers.IO).launch {
-                context.dataStore.updateData { currentSettings ->
-                    return@updateData currentSettings.toBuilder().also { set1 ->
-                        val toUpdate = getCurrentDisplay(set1)
-                        val display = toUpdate.first.toBuilder()
-                        display.clearAlarms()
-                        display.addAllAlarms(
-                            model.uiState.map(FormData::toColoring)
-                        )
-                        set1.setScreens(screen, toUpdate.second(index, display))
-                    }.build()
-                }
+
+    fun saveAlarms() {
+        if (!loaded) return
+        val snapshot = model.uiState.map(FormData::toColoring)
+        scope.launch {
+            context.dataStore.updateData { current ->
+                val builder = current.toBuilder()
+                val target = getCurrentDisplay(builder)
+                val display = target.first.toBuilder().clearAlarms().addAllAlarms(snapshot)
+                builder.setScreens(screen, target.second(index, display)).build()
             }
         }
     }
@@ -348,7 +363,7 @@ fun MainView(
                     onConfirmation = {
                         model.prependItem(it)
                         openAlertDialog.value = false
-                        println("Confirmation registered") // Add logic here to handle confirmation.
+                        saveAlarms()
                     },
                     onDismissRequest = { openAlertDialog.value = false },
                 )
@@ -386,13 +401,13 @@ fun MainView(
                 )
             }
             Spacer(modifier = Modifier.height(3.dp))
-            VerticalReorderList()
+            VerticalReorderList(model = model, onChanged = { saveAlarms() })
         }
     }
 }
 
 @Composable
-fun VerticalReorderList(model: StateModel = viewModel()) {
+fun VerticalReorderList(model: StateModel = viewModel(), onChanged: () -> Unit = {}) {
     val openAlertDialog = remember { mutableStateOf<FormData?>(null) }
 
     when {
@@ -404,6 +419,7 @@ fun VerticalReorderList(model: StateModel = viewModel()) {
                 onConfirmation = {
                     model.delete(willRemove)
                     model.prependItem(it)
+                    onChanged()
                     openAlertDialog.value = null
                 },
             )
@@ -437,6 +453,7 @@ fun VerticalReorderList(model: StateModel = viewModel()) {
                 trailingContent = {
                     Button(onClick = {
                         model.delete(current)
+                        onChanged()
                     }) {
                         Icon(
                             Icons.Filled.Delete,
