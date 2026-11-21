@@ -136,6 +136,7 @@ class TorqueRefresher {
                 }
             }
         }
+        data[pos]?.pauseModifierHistory()
         data[pos]?.stopRefreshing(true)
         val cacheItem = cache[screen]?.get(pos)
         val torqueData = if (cacheItem?.display?.equals(query) == true) {
@@ -146,8 +147,7 @@ class TorqueRefresher {
         cache.getOrPut(screen) {
             HashMap()
         }[pos] = torqueData
-        // Cached gauges must not reuse old modifier samples on foreground entry.
-        torqueData.resetStatisticalHistory()
+        // Cached gauges retain their statistical samples until a fresh source update.
         data[pos] = torqueData
         Timber.i("Setting query: $query for pos $pos on screen $screen")
         return torqueData
@@ -240,6 +240,7 @@ class TorqueRefresher {
                 torqueData.modifierAwaitingFreshSample = false
                 return@runIfConnected
             }
+            if (modifierEnabled) torqueData.resumeModifierHistory()
             if (!torqueData.updateReading(value)) {
                 DiagnosticLog.event("PID_REJECTED", "${diagnosticPid(torqueData)} raw=$value")
                 markPollResult(torqueData, false)
@@ -425,6 +426,7 @@ class TorqueRefresher {
         activeService = null
         Timber.i("Telling Torque refreshers to stop")
         for (td in data.values) {
+            td.pauseModifierHistory()
             td.stopRefreshing()
         }
     }
