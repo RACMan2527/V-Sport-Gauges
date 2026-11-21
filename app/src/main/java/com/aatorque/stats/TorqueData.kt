@@ -137,6 +137,44 @@ class TorqueData(var display: Display) {
         private set
     private var averageStartedMs: Long? = null
 
+    // Freeze the statistical clock while this gauge is not being polled.
+    // A retained raw sample, never the displayed delta/mean, remains the baseline.
+    private var modifierPausedAtMs: Long? = null
+
+    @Synchronized
+    fun pauseModifierHistory() {
+        if (modifier == StatisticalModifier.NONE || modifierPausedAtMs != null) return
+        modifierPausedAtMs = SystemClock.elapsedRealtime()
+    }
+
+    @Synchronized
+    fun resumeModifierHistory() {
+        val pausedAt = modifierPausedAtMs ?: return
+        modifierPausedAtMs = null
+        val now = SystemClock.elapsedRealtime()
+        val awayMs = (now - pausedAt).coerceAtLeast(0L)
+        val windowMs = when (modifier) {
+            StatisticalModifier.TREND -> trendWindowMs
+            StatisticalModifier.ROLLING_AVERAGE -> averageWindowMs
+            else -> 0L
+        }
+        if (windowMs <= 0L || awayMs > windowMs) {
+            resetStatisticalHistory()
+            // The caller already verified a new Torque timestamp.
+            modifierAwaitingFreshSample = false
+            return
+        }
+        if (awayMs == 0L) return
+        val shiftedTrend = trendSamples.map { it.copy(elapsedMs = it.elapsedMs + awayMs) }
+        trendSamples.clear()
+        trendSamples.addAll(shiftedTrend)
+        val shiftedAverage = averageSamples.map { it.copy(elapsedMs = it.elapsedMs + awayMs) }
+        averageSamples.clear()
+        averageSamples.addAll(shiftedAverage)
+        averageStartedMs = averageStartedMs?.plus(awayMs)
+    }
+
+
     @Synchronized
     fun configureRollingAverageWindow(windowSeconds: Int) {
         require(windowSeconds > 0) { "Rolling average window must be positive" }
@@ -166,6 +204,7 @@ class TorqueData(var display: Display) {
 
     @Synchronized
     fun resetStatisticalHistory() {
+        modifierPausedAtMs = null
         resetTrendHistory()
         modifierAwaitingFreshSample = modifier != StatisticalModifier.NONE
         hasReceivedReading = false
