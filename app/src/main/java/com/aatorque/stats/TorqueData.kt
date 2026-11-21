@@ -31,6 +31,17 @@ class TorqueData(var display: Display) {
         twoPlaces.roundingMode = BigDecimal.ROUND_HALF_UP
     }
 
+    // Modifier notation is presentation-only; persisted PID units remain unchanged.
+    val formattedUnit: String
+        get() {
+            val unit = display.unit.trim()
+            return if (!display.modifierEnabled || unit.isEmpty()) unit else when (display.modifierType) {
+                1 -> "Δ$unit"
+                2 -> "[$unit]"
+                else -> unit
+            }
+        }
+
     var pid: String? = null
         get() {
             return if (display.disabled) null else field

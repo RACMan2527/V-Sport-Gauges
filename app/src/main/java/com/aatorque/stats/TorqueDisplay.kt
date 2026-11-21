@@ -55,7 +55,7 @@ class TorqueDisplay : Fragment() {
     }
     // this sets all the labels/values in an initial state, depending on the chosen options
     fun setupElement(data: TorqueData) {
-        unit = data.display.unit
+        unit = data.formattedUnit
 
         data.notifyUpdate = this::onUpdate
 

@@ -46,7 +46,7 @@ class TorqueLoadBar : Fragment() {
         maximum = if (maxValue > minValue) maxValue else minValue + 1.0
         titleText.text = if (showLabel) title else ""
         useWholeNumbers = wholeNumbers
-        displayUnit = unit.trim()
+        displayUnit = data.formattedUnit
         gauge.showTicks = showTicks
         allTimeDisplay = data.display
         allTimeEnabled = showPeak

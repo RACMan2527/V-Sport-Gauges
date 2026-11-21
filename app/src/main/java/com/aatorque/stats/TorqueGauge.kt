@@ -254,7 +254,7 @@ class TorqueGauge : Fragment() {
 
         binding.title = iconText
         stopUnitBlink()
-        mClock.unit = data.display.unit
+        mClock.unit = data.formattedUnit
         dailyMaxSeen = DailyPeakStore.get(context, data.display)
         dailyMinSeen = DailyPeakStore.get(context, data.display, true)
         binding.unitOverlay.invalidate()
