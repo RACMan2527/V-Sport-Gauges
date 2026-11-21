@@ -350,13 +350,27 @@ class TorqueRefresher {
                                     var finalRpm: Double? = null
                                     val finalStarted = android.os.SystemClock.elapsedRealtime()
                                     val finalQueried = service.runIfConnected { ts ->
-                                        val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
-                                        finalRpm = rpm
-                                        val finalUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
-                                        val finalAgeMs = rpmAgeMs(finalUpdate, System.currentTimeMillis())
-                                        finalRpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 &&
-                                            rpm != initialRpm && finalAgeMs != null && finalAgeMs <= maxRpmAgeMs && finalUpdate != initialRpmUpdate
-                                        DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm rpmUpdateMs=$finalUpdate ageMs=$finalAgeMs initialRpmUpdateMs=$initialRpmUpdate valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum samples=${pending.samples} elapsedMs=${android.os.SystemClock.elapsedRealtime() - pending.startMs} durationMs=${android.os.SystemClock.elapsedRealtime() - finalStarted}")
+                                        // Torque can return a cached RPM that is already over two seconds old.
+                                        // Close the candidate window at five seconds (above), then allow a
+                                        // bounded asynchronous retry for a genuinely fresh RPM timestamp.
+                                        // This does not block gauge polling or relax the freshness requirement.
+                                        val deadline = android.os.SystemClock.elapsedRealtime() + 2500L
+                                        var finalUpdate = 0L
+                                        var finalAgeMs: Long? = null
+                                        do {
+                                            val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
+                                            finalRpm = rpm
+                                            finalUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
+                                            finalAgeMs = rpmAgeMs(finalUpdate, System.currentTimeMillis())
+                                            finalRpmValid = ts.isConnectedToECU && rpm != null && rpm.isFinite() &&
+                                                rpm > 300.0 && rpm <= 7000.0 && rpm != initialRpm &&
+                                                finalAgeMs != null && finalAgeMs <= maxRpmAgeMs &&
+                                                finalUpdate != initialRpmUpdate
+                                            if (finalRpmValid || !pollingEnabled || activeService !== service ||
+                                                android.os.SystemClock.elapsedRealtime() >= deadline) break
+                                            Thread.sleep(200L)
+                                        } while (true)
+                                        DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$finalRpm rpmUpdateMs=$finalUpdate ageMs=$finalAgeMs initialRpmUpdateMs=$initialRpmUpdate valid=$finalRpmValid ecu=${ts.isConnectedToECU} candidate=$minimum samples=${pending.samples} elapsedMs=${android.os.SystemClock.elapsedRealtime() - pending.startMs} durationMs=${android.os.SystemClock.elapsedRealtime() - finalStarted}")
                                     }
                                     if (!finalQueried) DiagnosticLog.event("MIN_RPM_FINAL", "id=${pending.id} ${diagnosticPid(gauge)} error=torque_unbound")
                                     synchronized(pendingMinimums) {
