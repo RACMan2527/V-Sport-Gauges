@@ -13,7 +13,7 @@ object BatteryStats {
     private const val PREF = "battery_stats"
     private const val HOUR_MS = 3_600_000L
     data class Display(val level: Int?, val charging: Boolean, val minutes: Long?,
-        val start: Int?, val consumed: Int?, val rate: Double?, val remainingHours: Double?)
+        val start: Int?, val consumed: Int?, val rate: Double?, val remainingHours: Double?, val startTime: Long?)
 
     private fun prefs(context: Context) = context.getSharedPreferences(PREF, Context.MODE_PRIVATE)
     private fun battery(context: Context): Pair<Int?, Boolean> {
@@ -36,6 +36,17 @@ object BatteryStats {
             val next = if (level <= 20) true else if (level >= 25) false else warning
             if (next != warning) p.edit().putBoolean("warning", next).apply()
         }
+        val installedVersion = BuildConfig.VERSION_NAME
+        val previousVersion = p.getString("monitorVersion", null)
+        if (previousVersion != installedVersion) {
+            p.edit().putString("monitorVersion", installedVersion)
+                .remove("startElapsed").remove("startLevel").remove("startWall")
+                .remove("sampleCount").remove("bootAt").remove("startWall").apply()
+            DiagnosticLog.event("BATTERY_VERSION_RESET", "previous=$previousVersion current=$installedVersion")
+            AppStateStore.changed(context)
+            // The installation period must never contribute to a discharge sample.
+            return
+        }
         val previousLevel = p.getInt("previousLevel", -1)
         val increased = level != null && previousLevel >= 0 && level > previousLevel
         if (level != null) p.edit().putInt("previousLevel", level).apply()
@@ -44,6 +55,11 @@ object BatteryStats {
         val bootAt = p.getLong("bootAt", 0L)
         val boot = System.currentTimeMillis() - now
         if (!eligible || (startAt != 0L && (now < startAt || kotlin.math.abs(boot - bootAt) > 60_000L))) {
+            if (startAt != 0L && charging && level != null && !increased &&
+                now >= startAt && kotlin.math.abs(boot - bootAt) <= 60_000L) {
+                qualify(context, p, now - startAt, p.getInt("startLevel", level),
+                    level, p.getLong("startWall", 0L))
+            }
             if (startAt != 0L) DiagnosticLog.event("BATTERY_CYCLE_INTERRUPTED", "charging=$charging increased=$increased valid=${level != null} reboot=${now < startAt || kotlin.math.abs(boot - bootAt) > 60_000L}")
             if (startAt != 0L) {
                 p.edit().remove("startElapsed").remove("startLevel").remove("sampleCount")
@@ -54,7 +70,7 @@ object BatteryStats {
         }
         if (startAt == 0L) {
             p.edit().putLong("startElapsed", now).putLong("bootAt", boot)
-                .putInt("startLevel", level!!).putInt("sampleCount", 0).apply()
+                .putInt("startLevel", level!!).putLong("startWall", System.currentTimeMillis()).putInt("sampleCount", 0).apply()
             DiagnosticLog.event("BATTERY_CYCLE_START", "level=$level")
             AppStateStore.changed(context)
             return
@@ -65,19 +81,24 @@ object BatteryStats {
             AppStateStore.changed(context)
             return
         }
-        // Use real elapsed time; a delayed Android wakeup is not an invalid sample.
-        val elapsed = now - startAt
-        if (elapsed >= 2L * HOUR_MS) {
-            val startLevel = p.getInt("startLevel", level!!)
-            p.edit().putLong("lastMinutes", elapsed / 60_000L)
-                .putInt("lastStart", startLevel).putInt("lastEnd", level!!)
-                .putLong("lastElapsed", elapsed)
-                .remove("startElapsed").remove("startLevel").remove("sampleCount")
-                .remove("bootAt").apply()
-            DiagnosticLog.event("BATTERY_CYCLE_COMPLETE",
-                "start=$startLevel end=$level elapsedMinutes=${elapsed / 60_000L}")
-            AppStateStore.changed(context)
-        }
+        // Keep the original baseline across samples and app restarts.
+        // A qualified longer observation may improve the retained result.
+        qualify(context, p, now - startAt, p.getInt("startLevel", level),
+            level, p.getLong("startWall", 0L))
+    }
+
+    private fun qualify(context: Context, p: android.content.SharedPreferences,
+                        elapsed: Long, start: Int, end: Int, startWall: Long) {
+        if (elapsed < 2L * HOUR_MS || startWall <= 0L || end > start) return
+        // Prefer longer stable intervals, including overnight observations.
+        if (elapsed <= p.getLong("lastElapsed", -1L)) return
+        p.edit().putLong("lastMinutes", elapsed / 60_000L)
+            .putInt("lastStart", start).putInt("lastEnd", end)
+            .putLong("lastElapsed", elapsed).putLong("lastStartWall", startWall)
+            .apply()
+        DiagnosticLog.event("BATTERY_CYCLE_QUALIFIED",
+            "start=$start end=$end elapsedMinutes=${elapsed / 60_000L}")
+        AppStateStore.changed(context)
     }
 
     @Synchronized fun interrupted(context: Context) {
@@ -88,19 +109,16 @@ object BatteryStats {
     @Synchronized fun display(context: Context): Display {
         val (level, charging) = battery(context)
         val p = prefs(context)
-        val activeAt = p.getLong("startElapsed", 0L)
-        val active = !charging && activeAt > 0L && SystemClock.elapsedRealtime() >= activeAt &&
-            (level == null || level <= p.getInt("startLevel", level))
-        val start = if (active) p.getInt("startLevel", -1) else p.getInt("lastStart", -1)
-        val end = if (active) level else p.getInt("lastEnd", -1).takeIf { it >= 0 }
-        val minutes = if (active) (SystemClock.elapsedRealtime() - activeAt) / 60_000L
-            else p.getLong("lastMinutes", -1L).takeIf { it >= 0L }
+        val start = p.getInt("lastStart", -1)
+        val end = p.getInt("lastEnd", -1).takeIf { it >= 0 }
+        val elapsed = p.getLong("lastElapsed", -1L)
+        val minutes = elapsed.takeIf { it > 0L }?.div(60_000L)
         val consumed = if (start >= 0 && end != null) (start - end).coerceAtLeast(0) else null
-        val rate = if (minutes != null && minutes > 0 && consumed != null)
-            consumed * 60.0 / minutes else null
+        val rate = if (elapsed > 0L && consumed != null) consumed * HOUR_MS.toDouble() / elapsed else null
         val remaining = if (rate != null && rate > 0.0 && level != null && level > 20)
             (level - 20) / rate else null
-        return Display(level, charging, minutes, start.takeIf { it >= 0 }, consumed, rate, remaining)
+        return Display(level, charging, minutes, start.takeIf { it >= 0 },
+            consumed, rate, remaining, p.getLong("lastStartWall", 0L).takeIf { it > 0L })
     }
 
     fun warning(context: Context): Boolean = prefs(context).getBoolean("warning", false)
@@ -111,6 +129,7 @@ object BatteryStats {
             .put("lastStart", p.getInt("lastStart", -1))
             .put("lastEnd", p.getInt("lastEnd", -1))
             .put("lastElapsed", p.getLong("lastElapsed", -1L))
+            .put("lastStartWall", p.getLong("lastStartWall", 0L))
             .put("warning", p.getBoolean("warning", false))
     }
 
@@ -123,6 +142,7 @@ object BatteryStats {
                 .putInt("lastStart", json.optInt("lastStart", -1))
                 .putInt("lastEnd", json.optInt("lastEnd", -1))
                 .putLong("lastElapsed", json.optLong("lastElapsed", -1L))
+                .putLong("lastStartWall", json.optLong("lastStartWall", 0L))
                 .putBoolean("warning", json.optBoolean("warning", false)).apply()
         }
     }
