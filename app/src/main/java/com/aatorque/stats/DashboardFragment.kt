@@ -204,13 +204,14 @@ open class DashboardFragment : AlbumArt() {
             diagnosticsLastSampleMs = now
             val age = if (snapshot.lastSuccessAtMs > 0L) "${now - snapshot.lastSuccessAtMs} ms" else "—"
             val quality = snapshot.quality
+            val expired = PidValidator.expiredSnapshot()
             val total = quality.total
             val values = listOf(
                 "${TorqueRefresher.SAMPLE_INTERVAL} ms",
                 String.format(java.util.Locale.US, "%.1f /sec", rate),
                 if (snapshot.lastResponseMs >= 0) "${snapshot.lastResponseMs} ms" else "—",
                 age,
-                "${quality.stale} (${Math.round(100.0 * quality.stale / total.coerceAtLeast(1))}%)",
+                "${expired.expired} (${Math.round(100.0 * expired.expired / expired.total.coerceAtLeast(1))}%)",
                 "${quality.suspect} (${Math.round(100.0 * quality.suspect / total.coerceAtLeast(1))}%)"
             )
             diagnosticsValueViews.forEachIndexed { index, view -> view.text = values[index] }
@@ -1397,7 +1398,7 @@ open class DashboardFragment : AlbumArt() {
                 }
                 panel.addView(state)
                 val labels = listOf("PID Polling Target", "Actual PID Rate",
-                    "Torque Response", "Last PID Age", "Stale Data", "Suspect Data")
+                    "Torque Response", "Last PID Age", "Expired Data", "Suspect Data")
                 val valueViews = mutableListOf<TextView>()
                 labels.chunked(2).forEach { pair ->
                     val line = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
