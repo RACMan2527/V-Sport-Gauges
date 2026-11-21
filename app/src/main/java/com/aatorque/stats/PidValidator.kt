@@ -28,8 +28,12 @@ object PidValidator {
         val id = pid.lowercase(java.util.Locale.US).replace(" ", "")
         // Standard OBD temperature modes; GM extended temperatures require field calibration.
         return when {
-            id.startsWith("0105") || id.startsWith("010f") ||
-                id.startsWith("0146") || id.startsWith("015c") -> 15_000L
+            // Torque supplies standard PIDs as "05,0" and extended GM PIDs
+            // as "221940,1981320"; the header suffix is not part of the PID.
+            // Confirmed temperature PIDs: coolant (05), intake (0f),
+            // transmission (221940), and engine oil (221154).
+            id.substringBefore(',') in setOf("05", "0f", "46", "5c",
+                "0105", "010f", "0146", "015c", "221940", "221154") -> 15_000L
             id.contains("trip") -> 10_000L
             else -> 2_000L
         }
