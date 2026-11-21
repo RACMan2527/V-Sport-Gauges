@@ -1351,7 +1351,12 @@ open class DashboardFragment : AlbumArt() {
                 val rows = listOf(
                     "Battery Level" to (battery.level?.let { "${it}%" } ?: "—"),
                     "Charging" to (if (battery.charging) "Yes" else "No"),
-                    "Monitoring Time" to (battery.minutes?.let { "${it / 60}h ${it % 60}m" } ?: "—"),
+                    "Start / Duration" to (battery.minutes?.let { minutes ->
+                        val startTime = battery.startTime?.let { time ->
+                            java.text.SimpleDateFormat("h:mm a", java.util.Locale.US).format(java.util.Date(time))
+                        } ?: "—"
+                        "$startTime · ${minutes / 60}h ${minutes % 60}m"
+                    } ?: "—"),
                     "Starting Battery" to (battery.start?.let { "${it}%" } ?: "—"),
                     "Battery Consumed" to (battery.consumed?.let { "${it}%" } ?: "—"),
                     "Est. Time to 20%" to (battery.remainingHours?.let {
