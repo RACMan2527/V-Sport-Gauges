@@ -316,12 +316,25 @@ class TorqueRefresher {
                     var initialRpmUpdate = 0L
                     val initialStarted = android.os.SystemClock.elapsedRealtime()
                     val initialQueried = service.runIfConnected { ts ->
-                        val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
-                        initialRpm = rpm
-                        initialRpmUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
-                        val initialAgeMs = rpmAgeMs(initialRpmUpdate, System.currentTimeMillis())
-                        rpmValid = rpm != null && rpm.isFinite() && rpm > 300.0 && rpm <= 7000.0 && initialAgeMs != null && initialAgeMs <= maxRpmAgeMs
-                        if (rpmValid) DiagnosticLog.event("MIN_RPM_INITIAL", "id=${pending.id} ${diagnosticPid(gauge)} rpm=$rpm rpmUpdateMs=$initialRpmUpdate ageMs=$initialAgeMs valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
+                        // A freshly connected Torque service may have no RPM timestamp yet.
+                        // Retry briefly off the gauge thread; never accept a stale or
+                        // engine-off RPM, and never start collecting before validation.
+                        val deadline = android.os.SystemClock.elapsedRealtime() + 1000L
+                        var initialAgeMs: Long? = null
+                        do {
+                            val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
+                            initialRpm = rpm
+                            initialRpmUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
+                            initialAgeMs = rpmAgeMs(initialRpmUpdate, System.currentTimeMillis())
+                            rpmValid = ts.isConnectedToECU && rpm != null && rpm.isFinite() &&
+                                rpm > 300.0 && rpm <= 7000.0 &&
+                                initialAgeMs != null && initialAgeMs <= maxRpmAgeMs
+                            if (rpmValid || !pollingEnabled || activeService !== service ||
+                                android.os.SystemClock.elapsedRealtime() >= deadline) break
+                            Thread.sleep(200L)
+                        } while (true)
+                        DiagnosticLog.event("MIN_RPM_INITIAL",
+                            "id=${pending.id} ${diagnosticPid(gauge)} rpm=$initialRpm rpmUpdateMs=$initialRpmUpdate ageMs=$initialAgeMs valid=$rpmValid ecu=${ts.isConnectedToECU} durationMs=${android.os.SystemClock.elapsedRealtime() - initialStarted}")
                     }
 
                     synchronized(pendingMinimums) {
