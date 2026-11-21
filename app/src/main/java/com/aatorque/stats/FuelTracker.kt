@@ -78,6 +78,10 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val previousMiles = today.optDouble("tripBaselineMiles", Double.NaN)
         val previousSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
         val previousGallons = today.optDouble("tripBaselineGallons", Double.NaN)
+        // Keep the highest confirmed cumulative fuel within a Torque trip.
+        // Recomputed trip MPG can make miles/MPG fall temporarily; counting
+        // its later recovery again would inflate daily fuel consumption.
+        val previousFuelMiles = today.optDouble("tripFuelBaselineMiles", Double.NaN)
         val baselineKnown = previousMiles.isFinite() && previousSeconds.isFinite()
         val reset = baselineKnown && (miles + 0.01 < previousMiles ||
             seconds + 0.5 < previousSeconds)
@@ -112,26 +116,38 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         today.put("miles", today.optDouble("miles") + milesDelta)
         today.put("seconds", today.optDouble("seconds") + secondsDelta)
         if (currentGallons != null && currentGallons.isFinite()) {
-            val gallonsDelta = when {
-                includeFirst -> currentGallons
-                first || !previousGallons.isFinite() -> 0.0
-                else -> currentGallons - previousGallons
-            }
-            if (gallonsDelta >= 0.0) {
-                today.put("gallons", today.optDouble("gallons") + gallonsDelta)
-                // MPG numerator and denominator must cover the same interval.
-                // A negative/rebased fuel counter must not add unmatched miles.
-                val pairedMiles = if (includeFirst) miles else if (first || !previousGallons.isFinite()) 0.0 else milesDelta
-                if (gallonsDelta > 0.0) {
-                    today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + pairedMiles)
-                }
+            // Reset or first observation establishes a baseline, never an
+            // unverified catch-up. On confirmed short trip resets include the
+            // short first segment just as the distance/time counters do.
+            if (includeFirst) {
+                today.put("gallons", today.optDouble("gallons") + currentGallons)
+                today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + miles)
+                today.put("tripBaselineGallons", currentGallons)
+                today.put("tripFuelBaselineMiles", miles)
+            } else if (first || !previousGallons.isFinite()) {
+                today.put("tripBaselineGallons", currentGallons)
+                today.put("tripFuelBaselineMiles", miles)
             } else {
-                DiagnosticLog.event("DAILY_TRIP_FUEL_REBASE",
-                    "delta=$gallonsDelta mpg=$mpg")
+                val gallonsDelta = currentGallons - previousGallons
+                if (gallonsDelta > 0.0) {
+                    val pairedMiles = if (previousFuelMiles.isFinite())
+                        (miles - previousFuelMiles).coerceAtLeast(0.0) else milesDelta.coerceAtLeast(0.0)
+                    today.put("gallons", today.optDouble("gallons") + gallonsDelta)
+                    today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + pairedMiles)
+                    today.put("tripBaselineGallons", currentGallons)
+                    today.put("tripFuelBaselineMiles", miles)
+                } else if (gallonsDelta < 0.0) {
+                    // Preserve the high-water mark so a rebound is not
+                    // mistaken for newly consumed fuel.
+                    DiagnosticLog.event("DAILY_TRIP_FUEL_REBASE",
+                        "delta=$gallonsDelta mpg=$mpg")
+                }
             }
-            today.put("tripBaselineGallons", currentGallons)
         } else {
+            // Fuel-derived MPG is unavailable; restart its paired interval
+            // once a valid MPG sample returns.
             today.remove("tripBaselineGallons")
+            today.remove("tripFuelBaselineMiles")
         }
         today.put("tripBaselineMiles", miles)
         today.put("tripBaselineSeconds", seconds)
