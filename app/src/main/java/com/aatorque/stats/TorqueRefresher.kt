@@ -259,8 +259,14 @@ class TorqueRefresher {
                 }
             }
             if (quality.quality == PidValidator.Quality.VALID && !torqueData.modifierWindowIncomplete && data[7] === torqueData) {
-                if (!torqueData.display.hasHorizontalDailyMaxEnabled() || torqueData.display.horizontalDailyMaxEnabled) {
+                val mode = torqueData.display.maxMarksActive
+                val legacyMax = mode == MaxControl.OFF &&
+                    (!torqueData.display.hasHorizontalDailyMaxEnabled() || torqueData.display.horizontalDailyMaxEnabled)
+                if (mode == MaxControl.MAX || mode == MaxControl.BOTH || legacyMax) {
                     DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData, horizontalBar = true)
+                }
+                if (mode == MaxControl.MIN || mode == MaxControl.BOTH) {
+                    validateMinimumIfNeeded(service, torqueData, torqueData.lastData)
                 }
             } else if (quality.quality == PidValidator.Quality.VALID && !torqueData.modifierWindowIncomplete) when (torqueData.display.maxMarksActive) {
                 MaxControl.MAX -> DailyPeakStore.recordMaximum(appContext, torqueData.display, torqueData.lastData)
