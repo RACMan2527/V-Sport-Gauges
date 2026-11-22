@@ -102,43 +102,6 @@ class TorqueDisplay : Fragment() {
         )
     }
 
-    private var trip3ResetCallback: (() -> Unit)? = null
-
-    fun configureTrip3Reset(onResetRequested: () -> Unit) {
-        trip3ResetCallback = onResetRequested
-        if (::rootView.isInitialized) attachTrip3ResetListener(onResetRequested)
-    }
-
-    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
-        super.onViewCreated(view, savedInstanceState)
-        trip3ResetCallback?.let(::attachTrip3ResetListener)
-    }
-
-    private fun attachTrip3ResetListener(onResetRequested: () -> Unit) {
-        val handler = android.os.Handler(android.os.Looper.getMainLooper())
-        var pending: Runnable? = null
-        rootView.setOnTouchListener { _, event ->
-            when (event.actionMasked) {
-                android.view.MotionEvent.ACTION_DOWN -> {
-                    pending?.let { handler.removeCallbacks(it) }
-                    pending = Runnable {
-                        val selected = currentDisplayData?.display?.pid
-                        if (selected != null &&
-                            VirtualPid.find(selected)?.id?.startsWith("VS_TRIP3_") == true) {
-                            onResetRequested()
-                        }
-                    }.also { handler.postDelayed(it, 3_000L) }
-                }
-                android.view.MotionEvent.ACTION_UP,
-                android.view.MotionEvent.ACTION_CANCEL -> {
-                    pending?.let { handler.removeCallbacks(it) }
-                    pending = null
-                }
-            }
-            true
-        }
-    }
-
     private var currentDisplayData: TorqueData? = null
 
     val alarmObserver = object : AwareObserver<Coloring>() {
