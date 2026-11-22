@@ -14,6 +14,7 @@ import android.view.ViewGroup
 import android.view.animation.AccelerateDecelerateInterpolator
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import com.aatorque.datastore.MaxControl
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -52,10 +53,15 @@ class TorqueLoadBar : Fragment() {
         allTimeEnabled = showPeak
         gauge.showAllTimePeak = showPeak
         gauge.setAllTimePeak(if (showPeak) AllTimePeakStore.get(requireContext(), data.display)?.toFloat() else null)
-        gauge.showPeak = !data.display.hasHorizontalDailyMaxEnabled() || data.display.horizontalDailyMaxEnabled
+        val mode = data.display.maxMarksActive
+        val legacyMax = mode == MaxControl.OFF &&
+            (!data.display.hasHorizontalDailyMaxEnabled() || data.display.horizontalDailyMaxEnabled)
+        gauge.showPeak = mode == MaxControl.MAX || mode == MaxControl.BOTH || legacyMax
+        gauge.showDailyMin = mode == MaxControl.MIN || mode == MaxControl.BOTH
         gauge.setRange(minimum.toFloat(), maximum.toFloat())
         gauge.setProgress(if (data.hasReceivedReading) data.lastData.toFloat() else minimum.toFloat())
         gauge.setDailyPeak(DailyPeakStore.get(requireContext(), data.display)?.toFloat())
+        gauge.setDailyMinimum(DailyPeakStore.get(requireContext(), data.display, true)?.toFloat())
         recordAllTimePeak(data)
         valueText.text = if (data.hasReceivedReading) formatReading(data.lastData) else "--"
         updateModifierValueColor(data)
@@ -63,6 +69,7 @@ class TorqueLoadBar : Fragment() {
             val value = it.lastData
             gauge.animateProgress(value.toFloat(), TorqueRefresher.REFRESH_INTERVAL)
             gauge.setDailyPeak(DailyPeakStore.get(requireContext(), it.display)?.toFloat())
+            gauge.setDailyMinimum(DailyPeakStore.get(requireContext(), it.display, true)?.toFloat())
             recordAllTimePeak(it)
             valueText.text = formatReading(value)
             updateModifierValueColor(it)
@@ -149,6 +156,8 @@ class EngineLoadBarView @JvmOverloads constructor(
     private val maxMarkerWidth = 13f * density
     private val maxMarkerHeight = 10f * density
     var showTicks = true
+    var showDailyMin = false
+    private var dailyMinimum = Float.NaN
     var showPeak = true
     var showAllTimePeak = false
     private var allTimePeak = Float.NaN
@@ -198,6 +207,11 @@ class EngineLoadBarView @JvmOverloads constructor(
             }
             start()
         }
+    }
+
+    fun setDailyMinimum(value: Float?) {
+        dailyMinimum = value?.takeIf { it.isFinite() }?.coerceIn(minimum, maximum) ?: Float.NaN
+        invalidate()
     }
 
     fun setDailyPeak(value: Float?) {
@@ -263,6 +277,21 @@ class EngineLoadBarView @JvmOverloads constructor(
         if (showPeak && peak.isFinite()) {
             canvas.drawPath(markerPath, maxMarkerGlowPaint)
             canvas.drawPath(markerPath, maxMarkerPaint)
+        }
+        if (showDailyMin && dailyMinimum.isFinite()) {
+            val minFraction = ((dailyMinimum - minimum) / (maximum - minimum)).coerceIn(0f, 1f)
+            val minX = horizontalInset + usableWidth * minFraction
+            val minPath = Path().apply {
+                moveTo(minX - maxMarkerWidth / 2f, markerTop)
+                lineTo(minX + maxMarkerWidth / 2f, markerTop)
+                lineTo(minX, markerBottom)
+                close()
+            }
+            val cyanPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+                color = android.graphics.Color.CYAN
+                style = Paint.Style.FILL
+            }
+            canvas.drawPath(minPath, cyanPaint)
         }
         if (showAllTimePeak && allTimePeak.isFinite()) {
             val allTimeFraction = ((allTimePeak - minimum) / (maximum - minimum)).coerceIn(0f, 1f)
