@@ -92,8 +92,9 @@ class TorqueData(var display: Display) {
         trendWindowComplete = trendWindowMs == 0L
     }
 
-    // A sliding difference, not a rate: current converted reading minus the
-    // oldest converted reading at the requested time boundary.
+    // Trend is the current converted value's deviation from its time-weighted
+    // rolling mean. Use trapezoidal integration between actual observations,
+    // including an interpolated value at the window boundary.
     // Never treat a polling interruption as elapsed observed history.
     private fun trendValue(converted: Double, nowMs: Long): Double {
         if (trendWindowMs == 0L) return converted
@@ -105,23 +106,36 @@ class TorqueData(var display: Display) {
         }
         trendSamples.addLast(TrendSample(nowMs, converted))
         val cutoff = nowMs - trendWindowMs
-        while (trendSamples.size > 1) {
-            val first = trendSamples.peekFirst()
-            val second = trendSamples.elementAt(1)
-            if (second.elapsedMs > cutoff) break
+        while (trendSamples.size > 1 && trendSamples.elementAt(1).elapsedMs <= cutoff) {
             trendSamples.removeFirst()
         }
         val first = trendSamples.peekFirst()
         trendWindowComplete = first.elapsedMs <= cutoff
-        val baseline = if (trendWindowComplete && trendSamples.size > 1) {
-            val next = trendSamples.elementAt(1)
-            val span = (next.elapsedMs - first.elapsedMs).toDouble()
-            if (span > 0.0) {
-                first.convertedValue + (next.convertedValue - first.convertedValue) *
-                    ((cutoff - first.elapsedMs).toDouble() / span)
-            } else first.convertedValue
-        } else first.convertedValue
-        return converted - baseline
+        if (trendSamples.size == 1) return 0.0
+
+        var area = 0.0
+        var startMs = maxOf(cutoff, first.elapsedMs)
+        var previousValue = first.convertedValue
+        var previousMs = first.elapsedMs
+        for (sample in trendSamples.drop(1)) {
+            if (sample.elapsedMs <= startMs) {
+                previousMs = sample.elapsedMs
+                previousValue = sample.convertedValue
+                continue
+            }
+            val span = (sample.elapsedMs - previousMs).toDouble()
+            val startValue = if (startMs > previousMs && span > 0.0) {
+                previousValue + (sample.convertedValue - previousValue) *
+                    (startMs - previousMs).toDouble() / span
+            } else previousValue
+            val duration = (sample.elapsedMs - startMs).toDouble()
+            area += (startValue + sample.convertedValue) * 0.5 * duration
+            startMs = sample.elapsedMs
+            previousMs = sample.elapsedMs
+            previousValue = sample.convertedValue
+        }
+        val duration = nowMs - maxOf(cutoff, first.elapsedMs)
+        return if (duration > 0L) converted - area / duration.toDouble() else 0.0
     }
 
     // Stage 2: a rolling arithmetic mean of valid, post-conversion samples.
