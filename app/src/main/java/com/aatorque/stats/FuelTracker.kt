@@ -13,6 +13,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import java.time.LocalDate
+import java.time.OffsetDateTime
 import java.time.ZoneId
 
 /**
@@ -67,7 +68,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
 
     @Synchronized fun resetTrip3() {
         state.put("trip3", JSONObject().put("miles", 0.0).put("seconds", 0.0)
-            .put("gallons", 0.0).put("mpgMiles", 0.0))
+            .put("gallons", 0.0).put("mpgMiles", 0.0)
+            .put("startedAt", OffsetDateTime.now().toString()))
         save()
         DiagnosticLog.event("TRIP3_RESET", "confirmed")
     }
@@ -258,7 +260,14 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             today.remove("tripFuelBaselineMiles")
         }
         addTripIncrement(today, milesDelta, secondsDelta, fuelIncrement, pairedIncrement)
-        addTripIncrement(trip3(), milesDelta + preMidnightMiles,
+        val trip3State = trip3()
+        // Timestamp the first accepted accumulation; preserve an existing seeded start.
+        if (!trip3State.has("startedAt") && trip3State.optDouble("miles") == 0.0 &&
+            trip3State.optDouble("seconds") == 0.0 &&
+            (milesDelta + preMidnightMiles > 0.0 || secondsDelta + preMidnightSeconds > 0.0)) {
+            trip3State.put("startedAt", OffsetDateTime.now().toString())
+        }
+        addTripIncrement(trip3State, milesDelta + preMidnightMiles,
             secondsDelta + preMidnightSeconds, fuelIncrement + preMidnightGallons,
             pairedIncrement + preMidnightPairedMiles)
         today.put("tripBaselineMiles", miles)
