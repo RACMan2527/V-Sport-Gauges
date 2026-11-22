@@ -159,7 +159,7 @@ Press the rotary controller to open Quick Controls, rotate to choose an item, an
 
 **Gauge Sizes** selects all round gauges or the center gauge. The three modes are all normal (100%), center enlarged (110%), and all enlarged (110%). The horizontal gauge is not scaled.
 
-**Daily MIN/MAX Reset** clears today's MAX, MIN, or both, across all dashboards sharing PID identities. Reset requires confirmation and does not affect saved all-time peaks.
+**Reset Records** opens **Reset TRIP 3**, **Reset MIN/MAX**, and **Back**. **Reset TRIP 3** opens a CONFIRM/CANCEL screen to clear Trip 3 totals. **Reset MIN/MAX** opens **Reset Daily MAX**, **Reset Daily MIN**, **Reset Both**, and **Back**; each daily selection has its own CONFIRM/CANCEL screen. Daily resets apply across dashboards sharing PID identities and do not affect saved all-time peaks.
 
 **Live Diagnostics** displays polling, timing, connection, and data-quality information. It also shows the existing connection-state summaries. It does not show the application version.
 
@@ -197,7 +197,7 @@ Daily Distance and Daily Drive Time accumulate accepted trip-distance and trip-t
 
 Trip 3 is separate from Torque Pro's session trip readings and V-Sport's midnight-reset daily totals. Select **Trip 3 Distance (km)**, **Trip 3 Drive Time (s)**, **Trip 3 MPG**, or **Trip 3 Fuel Used (gal)** in a gauge's PID selector. Trip 3 retains its accumulated totals across driving sessions and midnight boundaries. The fuel-used reading comes from the existing Trip 3 gallons total in `Fuel-Tracker.json`; Trip 3 MPG is calculated from accumulated paired distance and fuel used. To show miles or minutes, use the gauge conversions `a * 0.621371192` and `a / 60`, respectively.
 
-To reset Trip 3 in the current 3.17.x controls, **press and hold for three seconds on a numeric display showing a Trip 3 PID** and then choose **Reset** in the confirmation dialog, or **Cancel** to preserve the totals. Reset clears Trip 3 distance, driving time, fuel used, and MPG and records a new start time. This reset is independent of the daily MIN/MAX reset in Quick Controls.
+To reset Trip 3, open **Quick Controls → Reset Records → Reset TRIP 3** and choose **CONFIRM** to clear the totals or **CANCEL** to keep them. The previous three-second hold on a Trip 3 numeric display is no longer assigned. Reset clears Trip 3 distance, driving time, fuel used, and MPG and records a new start time. This reset is independent of the daily MIN/MAX reset in Quick Controls.
 
 ### Trip and fuel tank tracking
 
