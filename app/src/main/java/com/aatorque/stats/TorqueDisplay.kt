@@ -102,7 +102,19 @@ class TorqueDisplay : Fragment() {
         )
     }
 
+    private var trip3ResetCallback: (() -> Unit)? = null
+
     fun configureTrip3Reset(onResetRequested: () -> Unit) {
+        trip3ResetCallback = onResetRequested
+        if (::rootView.isInitialized) attachTrip3ResetListener(onResetRequested)
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+        trip3ResetCallback?.let(::attachTrip3ResetListener)
+    }
+
+    private fun attachTrip3ResetListener(onResetRequested: () -> Unit) {
         val handler = android.os.Handler(android.os.Looper.getMainLooper())
         var pending: Runnable? = null
         rootView.setOnTouchListener { _, event ->
