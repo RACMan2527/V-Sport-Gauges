@@ -61,6 +61,36 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         }
     }
 
+    private fun trip3(): JSONObject = state.optJSONObject("trip3") ?: JSONObject()
+        .put("miles", 0.0).put("seconds", 0.0).put("gallons", 0.0)
+        .put("mpgMiles", 0.0).also { state.put("trip3", it) }
+
+    @Synchronized fun resetTrip3() {
+        state.put("trip3", JSONObject().put("miles", 0.0).put("seconds", 0.0)
+            .put("gallons", 0.0).put("mpgMiles", 0.0))
+        save()
+        DiagnosticLog.event("TRIP3_RESET", "confirmed")
+    }
+
+    @Synchronized fun trip3Value(id: String): Double {
+        val trip = trip3()
+        return when (id) {
+            "VS_TRIP3_DISTANCE" -> trip.optDouble("miles") / 0.621371192
+            "VS_TRIP3_TIME" -> trip.optDouble("seconds")
+            "VS_TRIP3_MPG" -> trip.optDouble("gallons").takeIf { it > 0.0 }
+                ?.let { trip.optDouble("mpgMiles") / it } ?: 0.0
+            else -> 0.0
+        }
+    }
+
+    private fun addTripIncrement(target: JSONObject, miles: Double, seconds: Double,
+                                 gallons: Double, pairedMiles: Double) {
+        target.put("miles", target.optDouble("miles") + miles)
+        target.put("seconds", target.optDouble("seconds") + seconds)
+        target.put("gallons", target.optDouble("gallons") + gallons)
+        target.put("mpgMiles", target.optDouble("mpgMiles") + pairedMiles)
+    }
+
     @Synchronized fun dailyValue(id: String): Double {
         val today = daily()
         return when (id) {
@@ -85,12 +115,17 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     // A restart never authorizes an unbounded catch-up increment.
     private var dailyLastAcceptedMs = 0L
     private var dailyResetCandidate = 0
+    private var lastTripCheckpointMs = 0L
 
     private fun recordDailyTrip(miles: Double, seconds: Double, mpg: Double?) {
         if (!miles.isFinite() || !seconds.isFinite() || miles < 0.0 || seconds < 0.0) return
         val now = SystemClock.elapsedRealtime()
         val today = daily()
         val currentGallons = mpg?.takeIf { it.isFinite() && it > 0.0 }?.let { miles / it }
+        var preMidnightMiles = 0.0
+        var preMidnightSeconds = 0.0
+        var preMidnightGallons = 0.0
+        var preMidnightPairedMiles = 0.0
         // Attribute only the post-midnight portion of a continuous Torque trip.
         // Do not extrapolate across missing samples, process restarts or resets.
         if (today.has("rolloverFromDate")) {
@@ -114,12 +149,16 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             if (canSplit) {
                 val fraction = (midnightEpoch - previousEpoch).toDouble() /
                     (currentEpoch - previousEpoch).toDouble()
-                today.put("tripBaselineMiles", oldMiles + (miles - oldMiles) * fraction)
+                preMidnightMiles = (miles - oldMiles) * fraction
+                preMidnightSeconds = (seconds - oldSeconds) * fraction
+                today.put("tripBaselineMiles", oldMiles + preMidnightMiles)
                 today.put("tripBaselineSeconds", oldSeconds + (seconds - oldSeconds) * fraction)
                 if (currentGallons != null && oldGallons.isFinite() &&
                     currentGallons >= oldGallons) {
                     today.put("tripBaselineGallons",
                         oldGallons + (currentGallons - oldGallons) * fraction)
+                    preMidnightGallons = (currentGallons - oldGallons) * fraction
+                    preMidnightPairedMiles = (miles - oldMiles) * fraction
                     if (oldFuelMiles.isFinite()) {
                         today.put("tripFuelBaselineMiles",
                             oldFuelMiles + (miles - oldFuelMiles) * fraction)
@@ -182,15 +221,15 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 "reason=implausible_delta miles=$milesDelta seconds=$secondsDelta elapsed=$elapsedSeconds")
             return
         }
-        today.put("miles", today.optDouble("miles") + milesDelta)
-        today.put("seconds", today.optDouble("seconds") + secondsDelta)
+        var fuelIncrement = 0.0
+        var pairedIncrement = 0.0
         if (currentGallons != null && currentGallons.isFinite()) {
             // Reset or first observation establishes a baseline, never an
             // unverified catch-up. On confirmed short trip resets include the
             // short first segment just as the distance/time counters do.
             if (includeFirst) {
-                today.put("gallons", today.optDouble("gallons") + currentGallons)
-                today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + miles)
+                fuelIncrement = currentGallons
+                pairedIncrement = miles
                 today.put("tripBaselineGallons", currentGallons)
                 today.put("tripFuelBaselineMiles", miles)
             } else if (first || !previousGallons.isFinite()) {
@@ -201,8 +240,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 if (gallonsDelta > 0.0) {
                     val pairedMiles = if (previousFuelMiles.isFinite())
                         (miles - previousFuelMiles).coerceAtLeast(0.0) else milesDelta.coerceAtLeast(0.0)
-                    today.put("gallons", today.optDouble("gallons") + gallonsDelta)
-                    today.put("mpgMiles", today.optDouble("mpgMiles", 0.0) + pairedMiles)
+                    fuelIncrement = gallonsDelta
+                    pairedIncrement = pairedMiles
                     today.put("tripBaselineGallons", currentGallons)
                     today.put("tripFuelBaselineMiles", miles)
                 } else if (gallonsDelta < 0.0) {
@@ -218,10 +257,18 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             today.remove("tripBaselineGallons")
             today.remove("tripFuelBaselineMiles")
         }
+        addTripIncrement(today, milesDelta, secondsDelta, fuelIncrement, pairedIncrement)
+        addTripIncrement(trip3(), milesDelta + preMidnightMiles,
+            secondsDelta + preMidnightSeconds, fuelIncrement + preMidnightGallons,
+            pairedIncrement + preMidnightPairedMiles)
         today.put("tripBaselineMiles", miles)
         today.put("tripBaselineSeconds", seconds)
         today.put("tripSampleEpochMs", System.currentTimeMillis())
         dailyLastAcceptedMs = now
+        if (lastTripCheckpointMs == 0L || now - lastTripCheckpointMs >= 60_000L) {
+            save()
+            lastTripCheckpointMs = now
+        }
         if (reset) {
             dailyResetCandidate = 0
             DiagnosticLog.event("DAILY_TRIP_RESET_DETECTED", "confirmed trip counters restarted")
