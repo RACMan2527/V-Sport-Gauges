@@ -282,45 +282,55 @@ class EngineLoadBarView @JvmOverloads constructor(
         // Major ticks stop at the bar midpoint, clear of the labels below.
         val tickBottom = h * 0.50f
         val labelY = minOf(h - 2f * density, h * 0.94f)
-        // Four short minor ticks divide each interval between the six primary ticks.
-        val minorTickTop = h * 0.28f
-        val minorTickBottom = h * 0.58f
-        for (interval in 0 until 5) {
-            for (minor in 1..4) {
-                val fractionAtTick = (interval + minor / 5f) / 5f
+        val bidirectional = minimum < 0f && maximum >= 0f
+        if (bidirectional) {
+            // Anchor the tick grid at zero. Use one value step in both directions,
+            // rather than inserting zero into the old six-position grid.
+            val extent = maxOf(-minimum.toDouble(), maximum.toDouble())
+            val desiredStep = extent / 3.0
+            val magnitude = Math.pow(10.0, kotlin.math.floor(kotlin.math.log10(desiredStep)))
+            val normalized = desiredStep / magnitude
+            val step = (when {
+                normalized <= 1.0 -> 1.0
+                normalized <= 2.0 -> 2.0
+                normalized <= 5.0 -> 5.0
+                else -> 10.0
+            }) * magnitude
+            val negativeCount = kotlin.math.floor(-minimum.toDouble() / step + 1e-9).toInt()
+            val positiveCount = kotlin.math.floor(maximum.toDouble() / step + 1e-9).toInt()
+            fun xFor(value: Double): Float =
+                horizontalInset + usableWidth * ((value - minimum) / (maximum - minimum)).toFloat()
+            for (index in -negativeCount..positiveCount) {
+                val value = index * step
+                val x = xFor(value)
+                canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
+                if (showTicks) {
+                    val label = formatTick(value.toFloat())
+                    canvas.drawText(label, x, labelY, labelPaint)
+                }
+                if (index < positiveCount) {
+                    for (minor in 1..4) {
+                        val minorX = xFor(value + step * minor / 5.0)
+                        canvas.drawLine(minorX, minorTickTop, minorX, minorTickBottom, minorTickPaint)
+                    }
+                }
+            }
+        } else {
+            // Preserve the original six majors and four minors per interval.
+            for (interval in 0 until 5) {
+                for (minor in 1..4) {
+                    val fractionAtTick = (interval + minor / 5f) / 5f
+                    val x = horizontalInset + usableWidth * fractionAtTick
+                    canvas.drawLine(x, minorTickTop, x, minorTickBottom, minorTickPaint)
+                }
+            }
+            for (index in 0..5) {
+                val fractionAtTick = index / 5f
                 val x = horizontalInset + usableWidth * fractionAtTick
-                canvas.drawLine(x, minorTickTop, x, minorTickBottom, minorTickPaint)
+                val tickValue = minimum + (maximum - minimum) * fractionAtTick
+                canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
+                if (showTicks) canvas.drawText(formatTick(tickValue), x, labelY, labelPaint)
             }
-        }
-
-        val zeroFraction = if (minimum < 0f && maximum >= 0f) {
-            ((0f - minimum) / (maximum - minimum)).coerceIn(0f, 1f)
-        } else null
-        // A zero tick already at a major position needs no extra tick.
-        val zeroAtMajor = zeroFraction != null &&
-            (0..5).any { kotlin.math.abs(zeroFraction - it / 5f) < 0.0001f }
-        for (index in 0..5) {
-            val fractionAtTick = index / 5f
-            val x = horizontalInset + usableWidth * fractionAtTick
-            val tickValue = minimum + (maximum - minimum) * fractionAtTick
-            canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
-            if (showTicks) {
-                // When zero is between majors, avoid a rounded-to-zero
-                // neighboring label that would duplicate the explicit zero.
-                val label = if (zeroFraction != null && !zeroAtMajor &&
-                    tickValue != 0f && formatTick(tickValue) == "0") {
-                    String.format(java.util.Locale.US, "%.1f", tickValue)
-                } else formatTick(tickValue)
-                val overlapsZero = zeroFraction != null && !zeroAtMajor &&
-                    kotlin.math.abs(x - (horizontalInset + usableWidth * zeroFraction)) <
-                    (labelPaint.measureText(label) + labelPaint.measureText("0")) / 2f + 2f * density
-                if (!overlapsZero) canvas.drawText(label, x, labelY, labelPaint)
-            }
-        }
-        if (zeroFraction != null && !zeroAtMajor) {
-            val zeroX = horizontalInset + usableWidth * zeroFraction
-            canvas.drawLine(zeroX, tickTop, zeroX, tickBottom, tickPaint)
-            if (showTicks) canvas.drawText("0", zeroX, labelY, labelPaint)
         }
     }
 
