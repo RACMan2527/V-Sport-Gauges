@@ -14,7 +14,8 @@ object VirtualPid {
         Definition("VS_DAILY_GALLONS", "Daily Fuel Used", "gal", 100),
         Definition("VS_TRIP3_DISTANCE", "Trip 3 Distance", "km", 1000000),
         Definition("VS_TRIP3_TIME", "Trip 3 Drive Time", "s", 100000000),
-        Definition("VS_TRIP3_MPG", "Trip 3 MPG", "MPG", 100)
+        Definition("VS_TRIP3_MPG", "Trip 3 MPG", "MPG", 100),
+        Definition("VS_TRIP3_GALLONS", "Trip 3 Fuel Used", "gal", 100000)
     )
     fun find(selection: String): Definition? =
         definitions.firstOrNull { selection == PREFIX + it.id }
