@@ -7,6 +7,8 @@ object FuelMonitor {
     private var tracker: FuelTracker? = null
 
     @Synchronized fun dailyValue(id: String): Double? = tracker?.dailyValue(id)
+    @Synchronized fun trip3Value(id: String): Double? = tracker?.trip3Value(id)
+    @Synchronized fun resetTrip3() { tracker?.resetTrip3() }
     private var dashboardSource: TorqueService? = null
     private var backgroundSource: TorqueService? = null
 
