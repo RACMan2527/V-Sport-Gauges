@@ -77,7 +77,7 @@ A round gauge displays its configured Torque Pro PID, label, units, scale, live 
 5. Set **High/low values** (`maxValuesActive`) independently if you want the separate numeric high/low readout. This is **not** the `PEAK:` all-time label.
 6. Enable **Show all-time peak marker** to display the **white triangle** when a saved peak exists.
 
-These **high/low selectors are available for round gauges**. They are intentionally hidden in the **horizontal-gauge** settings, where daily MAX is handled separately.
+The **High/low markers** selector is also available for the horizontal gauge. Its daily MIN and MAX markers use the same saved PID records as round gauges.
 
 #### Saved all-time peak and the `PEAK:` label
 
@@ -118,14 +118,14 @@ The horizontal gauge has its **own configuration on each dashboard**, rather tha
 1. On the phone, open **Settings → Dashboards → [dashboard] → Horizontal Gauge**.
 2. Select its PID, label, unit, minimum and maximum, and choose whether to show the label, whole numbers and tick marks.
 3. Use **Show all-time peak marker** for the **white all-time triangle** on the bar.
-4. The bar tracks a **daily MAX** marker independently of the round-gauge MIN/MAX choice. The filled portion follows the **current reading**, not the peak.
+4. Set **High/low markers** to **Off**, **Max**, **Min**, or **Both**. The daily MAX triangle uses the theme color and daily MIN uses cyan; the white all-time marker remains independent. The filled portion follows the **current reading**, not the records.
 5. The current numeric reading displays the configured unit **without an added space** (for example, `68%`).
 
 #### Bidirectional horizontal gauge ranges (3.16)
 
 If the horizontal gauge's **Minimum** is negative and its **Maximum** is zero or positive, the fill starts at **zero** and extends right for positive readings or left for negative readings. The scale includes a **zero major tick** even when regular tick spacing would not place one there. For example, a range of **−100 to +100** fills from the midpoint toward the current reading; a range of **0 to 100** retains the normal left-to-right fill. This behavior is automatic from the configured minimum and maximum; there is no separate bidirectional toggle.
 
-The bar's appearance, tick marks and colored peak marker are theme/rendering dependent. The diagram is a functional explanation, not a screenshot. The horizontal settings intentionally do **not** expose round-gauge MIN/MAX selectors.
+The bar's appearance, tick marks and colored markers are theme/rendering dependent. The diagram is a functional explanation, not a screenshot.
 
 ## 4. Features and on-road operation
 
