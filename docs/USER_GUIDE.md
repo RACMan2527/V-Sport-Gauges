@@ -72,7 +72,7 @@ A round gauge displays its configured Torque Pro PID, label, units, scale, live 
 
 1. On the Android phone, open **V-Sport Gauges → Settings → Dashboards**.
 2. Open the desired dashboard and select the **left, center or right round gauge**.
-3. Select the **PID**. The selector includes Torque Pro session PIDs and four **V-Sport daily** virtual PIDs: Daily Distance (km), Daily Drive Time (s), Daily MPG, and Daily Fuel Used (gal). Configure **Enabled**, **Show label**, **Label**, **Unit**, **Minimum**, **Maximum**, **Whole numbers**, and **Ticks** as needed.
+3. Select the **PID**. The selector includes Torque Pro session PIDs and four **V-Sport daily** virtual PIDs: Daily Distance (km), Daily Drive Time (s), Daily MPG, and Daily Fuel Used (gal), plus four **Trip 3** virtual PIDs: Trip 3 Distance (km), Trip 3 Drive Time (s), Trip 3 MPG, and Trip 3 Fuel Used (gal). Configure **Enabled**, **Show label**, **Label**, **Unit**, **Minimum**, **Maximum**, **Whole numbers**, and **Ticks** as needed.
 4. Set **High/low markers** (`maxMarksActive`) to **Off**, **Max**, **Min**, or **Both**. This controls the colored triangle. The marker color is theme-dependent for MAX; MIN is cyan.
 5. Set **High/low values** (`maxValuesActive`) independently if you want the separate numeric high/low readout. This is **not** the `PEAK:` all-time label.
 6. Enable **Show all-time peak marker** to display the **white triangle** when a saved peak exists.
@@ -178,6 +178,12 @@ The diagnostics screen deliberately **does not display the application version**
 The existing **Torque Pro Trip Distance, Trip Time, and Trip MPG** PIDs continue to represent Torque's own trip session. To show totals accumulated throughout the local calendar day, configure another dashboard with the four **V-Sport daily** PIDs from the same gauge PID selector. These are app-generated readings, not additional ECU requests.
 
 Daily Distance and Daily Drive Time accumulate accepted trip-distance and trip-time changes across sessions in Torque's original units: kilometers (km) and seconds (s). To display miles or minutes, use the same gauge conversion formulas as for Torque's original trip PIDs (distance: `a * 0.621371192`; time: `a / 60`). Daily Fuel Used accumulates the accepted gallons calculated from Torque trip distance and trip MPG; **Daily MPG** is total daily miles divided by total daily gallons, not an average of individual trip MPG readings. The daily counters reset at midnight according to the phone's local date. They are separate from the tank totals and do not reset when a refill is detected. Both daily and tank totals are saved in `Fuel-Tracker.json`.
+
+### Trip 3 — manually resettable trip totals
+
+Trip 3 is separate from Torque Pro's session trip readings and V-Sport's midnight-reset daily totals. Select **Trip 3 Distance (km)**, **Trip 3 Drive Time (s)**, **Trip 3 MPG**, or **Trip 3 Fuel Used (gal)** in a gauge's PID selector. Trip 3 retains its accumulated totals across driving sessions and midnight boundaries. The fuel-used reading comes from the existing Trip 3 gallons total in `Fuel-Tracker.json`; Trip 3 MPG is calculated from accumulated paired distance and fuel used. To show miles or minutes, use the gauge conversions `a * 0.621371192` and `a / 60`, respectively.
+
+To reset Trip 3 in the current 3.17.x controls, **press and hold for three seconds on a numeric display showing a Trip 3 PID** and then choose **Reset** in the confirmation dialog, or **Cancel** to preserve the totals. Reset clears Trip 3 distance, driving time, fuel used, and MPG and records a new start time. This reset is independent of the daily MIN/MAX reset in Quick Controls.
 
 ### Trip and fuel tank tracking
 
