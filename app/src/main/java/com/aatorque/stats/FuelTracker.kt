@@ -37,12 +37,23 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val today = LocalDate.now().toString()
         val current = state.optJSONObject("daily")
         if (current != null && current.optString("date") == today) return current
-        return JSONObject().put("date", today).put("miles", 0.0)
-            .put("seconds", 0.0).put("gallons", 0.0).also {
-                state.put("daily", it)
-                DiagnosticLog.event("DAILY_TRIP_RESET", "date=$today")
-                save()
+        // Keep the Torque trip baselines when the local date changes. Torque
+        // does not reset its session counters at midnight, and discarding these
+        // baselines would silently lose the first post-midnight increment.
+        val next = JSONObject().put("date", today).put("miles", 0.0)
+            .put("seconds", 0.0).put("gallons", 0.0)
+            .put("mpgMiles", 0.0)
+        if (current != null) {
+            listOf("tripBaselineMiles", "tripBaselineSeconds",
+                "tripBaselineGallons", "tripFuelBaselineMiles").forEach { key ->
+                if (current.has(key)) next.put(key, current.get(key))
             }
+        }
+        return next.also {
+            state.put("daily", it)
+            DiagnosticLog.event("DAILY_TRIP_RESET", "date=$today")
+            save()
+        }
     }
 
     @Synchronized fun dailyValue(id: String): Double {
