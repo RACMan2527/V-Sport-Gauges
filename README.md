@@ -420,8 +420,26 @@ The daily readings accumulate trip information across sessions and reset at the 
 
 ---
 
-## Phase 19 — Trip 3 Persistent Trip Statistics
-### November 2026 | Version 3.17.0
+## Phase 19 — Per-Gauge Trend and Average Modifiers
+### November 2026 | Version 3.15
+
+V-Sport Gauges adds configurable **Trend** and **Average** modifiers to individual gauges. A Trend displays the change in a PID over a selected time window; Average displays the rolling mean over its configured window. The modifier type and duration are set per gauge, after the gauge's unit-conversion settings, and are retained with the dashboard configuration.
+
+The modified numeric reading can be distinguished from the unmodified value while its statistical window fills. These options allow gauges to show how a measurement is changing over time or to smooth short-term fluctuations, without requiring additional ECU PIDs.
+
+---
+
+## Phase 20 — Bidirectional Horizontal Gauges
+### November 2026 | Version 3.16
+
+The horizontal gauge supports **zero-origin bidirectional ranges**. When a PID's configured range extends below zero, the bar fills outward from zero toward the current positive or negative reading rather than filling from the negative minimum. A visible zero tick provides a reference between the two directions.
+
+This makes the horizontal gauge useful for measurements that can cross zero, while preserving the existing horizontal layout and per-gauge settings.
+
+---
+
+## Phase 21 — Trip 3 Persistent Trip Statistics
+### November 2026 | Version 3.17
 
 **Trip 3** provides a manually resettable set of four selectable virtual PIDs: **Trip 3 Distance**, **Trip 3 Drive Time**, **Trip 3 MPG**, and **Trip 3 Fuel Used**. Unlike the daily statistics, Trip 3 accumulates across sessions and midnight until explicitly reset. Distance and time use kilometers and seconds, while fuel used is expressed in gallons and fuel economy in MPG.
 
