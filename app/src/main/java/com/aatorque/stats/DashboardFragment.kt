@@ -492,6 +492,18 @@ open class DashboardFragment : AlbumArt() {
         displays[1] = childFragmentManager.findFragmentById(R.id.display2)!! as TorqueDisplay
         displays[2] = childFragmentManager.findFragmentById(R.id.display3)!! as TorqueDisplay
         displays[3] = childFragmentManager.findFragmentById(R.id.display4)!! as TorqueDisplay
+        displays.filterNotNull().forEach { display ->
+            display.configureTrip3Reset {
+                if (isAdded && isResumed) {
+                    androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                        .setTitle("Reset Trip 3?")
+                        .setMessage("Reset Trip 3 distance, driving time, and MPG?")
+                        .setNegativeButton("Cancel", null)
+                        .setPositiveButton("Reset") { _, _ -> FuelMonitor.resetTrip3() }
+                        .show()
+                }
+            }
+        }
         displays[2]!!.isBottomDisplay = true
         displays[3]!!.isBottomDisplay = true
         torqueChart = childFragmentManager.findFragmentById(R.id.chartFrag)!! as TorqueChart
