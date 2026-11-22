@@ -183,10 +183,11 @@ open class DashboardFragment : AlbumArt() {
     private val quickTimeout = Runnable {
         if (quickPage != "diagnostics" && quickPage != "battery") closeQuickControls()
     }
-    private val quickMain = listOf("Daily MIN/MAX Reset", "Gauge Sizes", "Polling & Refresh",
+    private val quickMain = listOf("Reset Records", "Gauge Sizes", "Polling & Refresh",
         "Live Diagnostics", "Battery Stats", "Fuel Summary Preview", "Close Menu")
     private val quickTiming = listOf("PID Polling", "Screen Refresh", "Back")
-    private val quickReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
+    private val quickReset = listOf("Reset TRIP 3", "Reset MIN/MAX", "Back")
+    private val quickDailyReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
     private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
     private var quickResetSelection = 0
     private val diagnosticsHandler = Handler(Looper.getMainLooper())
@@ -492,18 +493,6 @@ open class DashboardFragment : AlbumArt() {
         displays[1] = childFragmentManager.findFragmentById(R.id.display2)!! as TorqueDisplay
         displays[2] = childFragmentManager.findFragmentById(R.id.display3)!! as TorqueDisplay
         displays[3] = childFragmentManager.findFragmentById(R.id.display4)!! as TorqueDisplay
-        displays.filterNotNull().forEach { display ->
-            display.configureTrip3Reset {
-                if (isAdded && isResumed) {
-                    androidx.appcompat.app.AlertDialog.Builder(requireContext())
-                        .setTitle("Reset Trip 3?")
-                        .setMessage("Reset Trip 3 distance, driving time, and MPG?")
-                        .setNegativeButton("Cancel", null)
-                        .setPositiveButton("Reset") { _, _ -> FuelMonitor.resetTrip3() }
-                        .show()
-                }
-            }
-        }
         displays[2]!!.isBottomDisplay = true
         displays[3]!!.isBottomDisplay = true
         torqueChart = childFragmentManager.findFragmentById(R.id.chartFrag)!! as TorqueChart
@@ -1186,7 +1175,11 @@ open class DashboardFragment : AlbumArt() {
             else dismissRefreshIntervalOverlay(true)
             openQuickControls()
         } else if (quickPage == "main") closeQuickControls()
-        else openQuickControls(if (quickPage == "confirm") "reset" else "main")
+        else openQuickControls(when (quickPage) {
+            "confirm" -> if (quickResetSelection == 3) "reset" else "dailyReset"
+            "dailyReset" -> "reset"
+            else -> "main"
+        })
     }
 
     private fun quickRotate(direction: Int) {
@@ -1198,6 +1191,7 @@ open class DashboardFragment : AlbumArt() {
         val count = when (quickPage) {
             "main" -> quickMain.size
             "reset" -> quickReset.size
+            "dailyReset" -> quickDailyReset.size
             "sizes" -> quickSizes.size
             "timing" -> quickTiming.size
             "confirm" -> 2
@@ -1228,12 +1222,20 @@ open class DashboardFragment : AlbumArt() {
                 1 -> openQuickSlider(false)
                 else -> openQuickControls()
             }
-            "reset" -> if (quickIndex == 3) openQuickControls()
+            "reset" -> when (quickIndex) {
+                0 -> { quickResetSelection = 3; openQuickControls("confirm") }
+                1 -> openQuickControls("dailyReset")
+                else -> openQuickControls()
+            }
+            "dailyReset" -> if (quickIndex == 3) openQuickControls("reset")
                 else { quickResetSelection = quickIndex; openQuickControls("confirm") }
             "confirm" -> {
-                if (quickIndex == 0) DailyPeakStore.resetToday(requireContext(),
-                    resetMin = quickResetSelection != 0, resetMax = quickResetSelection != 1)
-                openQuickControls("reset")
+                if (quickIndex == 0) {
+                    if (quickResetSelection == 3) FuelMonitor.resetTrip3()
+                    else DailyPeakStore.resetToday(requireContext(),
+                        resetMin = quickResetSelection != 0, resetMax = quickResetSelection != 1)
+                }
+                openQuickControls(if (quickResetSelection == 3) "reset" else "dailyReset")
             }
             "sizes" -> when (quickIndex) {
                 0 -> changeQuickSize(true)
@@ -1310,7 +1312,8 @@ open class DashboardFragment : AlbumArt() {
         }
         val heading = when (quickPage) {
             "main" -> "QUICK CONTROLS"
-            "reset" -> "DAILY MIN/MAX RESET"
+            "reset" -> "RESET RECORDS"
+            "dailyReset" -> "RESET MIN/MAX"
             "sizes" -> "GAUGE SIZES"
             "timing" -> "POLLING & REFRESH"
             "confirm" -> "CONFIRM RESET"
@@ -1325,6 +1328,9 @@ open class DashboardFragment : AlbumArt() {
             "reset" -> quickReset.forEachIndexed { i, label ->
                 row(label, i == quickIndex) { quickIndex = i; quickSelect() }
             }
+            "dailyReset" -> quickDailyReset.forEachIndexed { i, label ->
+                row(label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
             "timing" -> quickTiming.forEachIndexed { i, label ->
                 row(label, i == quickIndex) { quickIndex = i; quickSelect() }
             }
@@ -1337,7 +1343,8 @@ open class DashboardFragment : AlbumArt() {
                 row(label + suffix, i == quickIndex) { quickIndex = i; quickSelect() }
             }
             "confirm" -> {
-                row("Clear today's " + listOf("MAX", "MIN", "MIN and MAX")[quickResetSelection] + "?") {}
+                row(if (quickResetSelection == 3) "Clear Trip 3 distance, time, MPG and fuel used?"
+                    else "Clear today's " + listOf("MAX", "MIN", "MIN and MAX")[quickResetSelection] + "?") {}
                 row("CONFIRM", quickIndex == 0) { quickIndex = 0; quickSelect() }
                 row("CANCEL", quickIndex == 1) { quickIndex = 1; quickSelect() }
             }
