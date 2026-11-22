@@ -420,6 +420,15 @@ The daily readings accumulate trip information across sessions and reset at the 
 
 ---
 
+## Phase 19 — Trip 3 Persistent Trip Statistics
+### November 2026 | Version 3.17.0
+
+**Trip 3** provides a manually resettable set of four selectable virtual PIDs: **Trip 3 Distance**, **Trip 3 Drive Time**, **Trip 3 MPG**, and **Trip 3 Fuel Used**. Unlike the daily statistics, Trip 3 accumulates across sessions and midnight until explicitly reset. Distance and time use kilometers and seconds, while fuel used is expressed in gallons and fuel economy in MPG.
+
+Trip 3 uses the existing fuel tracker's accepted trip samples and persistent `Fuel-Tracker.json` totals, without adding ECU PID requests. The [User Guide](docs/USER_GUIDE.md#trip-3--manually-resettable-trip-totals) describes the available PIDs, conversions, and reset confirmation.
+
+---
+
 # My Development and Testing Environment
 
 | Component | Configuration |
