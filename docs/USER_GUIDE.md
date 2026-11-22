@@ -97,6 +97,18 @@ Daily records are scoped to the **local calendar date** and the PID/conversion. 
 
 Daily MIN/MAX records continue updating with every accepted improvement. The round gauge's unit label blinks for **3 seconds** (half a second visible, half a second hidden) only when the record improves by at least **5% of that gauge's configured range** relative to the last notification baseline, and at least **60 seconds** have passed since that PID/direction last blinked. The first observed record establishes a baseline without blinking. Improvements during cooldown are recorded but do not queue a later notification; a subsequent qualifying record change is needed. MIN and MAX are gated independently, and dashboards sharing a PID/conversion share notification state during the app session. This notification does not alter the live numeric value, needle, daily triangles, or all-time `PEAK:` label.
 
+### Statistical modifiers — Trend and Rolling Average (3.15)
+
+Each gauge can optionally apply a time-based modifier to its selected PID. **Trend** shows the change over the selected time window; **Rolling Average** smooths the readings over that window. The modifier operates on the reading after the gauge's configured unit conversion, so the result uses those configured units.
+
+1. On the Android phone, open **Settings → Dashboards**, select the dashboard, then open the desired gauge or numeric display.
+2. Configure the PID and **Units** first. In **Statistical Modifier**, enable **Enable Modifier**.
+3. Open **Modifier Type** and choose **Trend** or **Rolling Average**.
+4. Set **Time Window (seconds)** to a whole number from **1 to 3600**. The default window is **30 seconds**.
+5. Return to the dashboard. Modifier settings are stored with each display and retained by dashboard export/import. Disable **Enable Modifier** to show the normal reading again.
+
+While a modifier's observation window is still filling, the displayed numeric value is **cyan**; it becomes white after the window is established (unless an alarm changes its color). A new observation window can be needed when monitoring starts or resumes. Trend measures change over time, not the original PID's absolute value; Rolling Average reports the mean of readings within its window. The modified display should not be interpreted as an instantaneous ECU measurement.
+
 ### Horizontal gauge — one per dashboard
 
 ![Schematic horizontal engine-load gauge](images/horizontal-gauge.svg)
@@ -108,6 +120,8 @@ The horizontal gauge has its **own configuration on each dashboard**, rather tha
 3. Use **Show all-time peak marker** for the **white all-time triangle** on the bar.
 4. The bar tracks a **daily MAX** marker independently of the round-gauge MIN/MAX choice. The filled portion follows the **current reading**, not the peak.
 5. The current numeric reading displays the configured unit **without an added space** (for example, `68%`).
+
+**Bidirectional ranges (3.16):** If the horizontal gauge's **Minimum** is negative and its **Maximum** is zero or positive, the fill starts at **zero** and extends right for positive readings or left for negative readings. The scale includes a **zero major tick** even when regular tick spacing would not place one there. For example, a range of **−100 to +100** fills from the midpoint toward the current reading; a range of **0 to 100** retains the normal left-to-right fill. This behavior is automatic from the configured minimum and maximum; there is no separate bidirectional toggle.
 
 The bar's appearance, tick marks and colored peak marker are theme/rendering dependent. The diagram is a functional explanation, not a screenshot. The horizontal settings intentionally do **not** expose round-gauge MIN/MAX selectors.
 
