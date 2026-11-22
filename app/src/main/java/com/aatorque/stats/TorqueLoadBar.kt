@@ -282,6 +282,8 @@ class EngineLoadBarView @JvmOverloads constructor(
         // Major ticks stop at the bar midpoint, clear of the labels below.
         val tickBottom = h * 0.50f
         val labelY = minOf(h - 2f * density, h * 0.94f)
+        val minorTickTop = h * 0.28f
+        val minorTickBottom = h * 0.58f
         val bidirectional = minimum < 0f && maximum >= 0f
         if (bidirectional) {
             // Anchor the tick grid at zero. Use one value step in both directions,
