@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.14.2** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.17.7** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
@@ -121,7 +121,9 @@ The horizontal gauge has its **own configuration on each dashboard**, rather tha
 4. The bar tracks a **daily MAX** marker independently of the round-gauge MIN/MAX choice. The filled portion follows the **current reading**, not the peak.
 5. The current numeric reading displays the configured unit **without an added space** (for example, `68%`).
 
-**Bidirectional ranges (3.16):** If the horizontal gauge's **Minimum** is negative and its **Maximum** is zero or positive, the fill starts at **zero** and extends right for positive readings or left for negative readings. The scale includes a **zero major tick** even when regular tick spacing would not place one there. For example, a range of **−100 to +100** fills from the midpoint toward the current reading; a range of **0 to 100** retains the normal left-to-right fill. This behavior is automatic from the configured minimum and maximum; there is no separate bidirectional toggle.
+#### Bidirectional horizontal gauge ranges (3.16)
+
+If the horizontal gauge's **Minimum** is negative and its **Maximum** is zero or positive, the fill starts at **zero** and extends right for positive readings or left for negative readings. The scale includes a **zero major tick** even when regular tick spacing would not place one there. For example, a range of **−100 to +100** fills from the midpoint toward the current reading; a range of **0 to 100** retains the normal left-to-right fill. This behavior is automatic from the configured minimum and maximum; there is no separate bidirectional toggle.
 
 The bar's appearance, tick marks and colored peak marker are theme/rendering dependent. The diagram is a functional explanation, not a screenshot. The horizontal settings intentionally do **not** expose round-gauge MIN/MAX selectors.
 
@@ -150,7 +152,6 @@ The precise vehicle rotary mappings can vary by Android Auto receiver; the list 
 
 ![Quick Controls menu labels in their code-defined order](images/quick-controls.svg)
 
-
 Press the rotary controller to open Quick Controls, rotate to choose an item, and press to select. In the test screen, hold the clock for three seconds to open the same menu, then tap items. The previous logo and round-gauge long holds are no longer assigned.
 
 **Polling & Refresh → PID Polling** opens the existing 50–500 ms polling slider (default 200 ms). It controls the request interval, not necessarily the measured per-PID update rate.
@@ -164,7 +165,6 @@ Press the rotary controller to open Quick Controls, rotate to choose an item, an
 **Live Diagnostics** displays polling, timing, connection, and data-quality information. It also shows the existing connection-state summaries. It does not show the application version.
 
 Ordinary Quick Controls pages close after five seconds without interaction. Live Diagnostics and Battery Stats remain open until explicitly dismissed. A timeout cancels unconfirmed resets and unsaved slider adjustments.
-
 
 #### Exporting and importing PID polling settings
 
