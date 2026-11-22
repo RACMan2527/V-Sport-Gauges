@@ -291,6 +291,14 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     private var candidate: Double? = null
     private var candidateCount = 0
     private var candidateBaseline: Double? = null
+    private var candidateStableSinceMs = 0L
+    private var candidateLastFreshMs = 0L
+    private var observedEngineOff = false
+    private var engineStartedMs = 0L
+    private var lastRpmToken = 0L
+    private val refillStabilityMs = 60_000L
+    private val justStartedWindowMs = 30_000L
+    private val refillRiseTolerance = 0.5
     private var warnedNoFuelTimestamp = false
     @Volatile private var latest: Summary? = null
 
@@ -447,6 +455,11 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         candidate = null
         candidateCount = 0
         candidateBaseline = null
+        candidateStableSinceMs = 0L
+        candidateLastFreshMs = 0L
+        observedEngineOff = false
+        engineStartedMs = 0L
+        lastRpmToken = 0L
         warnedNoFuelTimestamp = false
     }
 
@@ -551,8 +564,25 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         }
         lastSampleMs = now
 
-        // Refill detection is independent of RPM and survives application restarts.
-        // A source timestamp must advance; five cached API returns are not five samples.
+        // Only an observed engine-off -> running transition grants the immediate
+        // post-start refill path. App/AA reconnects never count as engine starts.
+        val rpm = read(ts, "0c,0")?.takeIf { it <= 7000.0 }
+        if (rpm != null) {
+            val rpmQuality = PidValidator.inspect(ts, "0c,0", rpm, 0.0, 7000.0, "fuel_rpm")
+            if (rpmQuality.quality == PidValidator.Quality.VALID &&
+                rpmQuality.updateTime != lastRpmToken) {
+                lastRpmToken = rpmQuality.updateTime
+                if (rpm < 300.0) {
+                    observedEngineOff = true
+                    engineStartedMs = 0L
+                } else if (observedEngineOff) {
+                    engineStartedMs = now
+                    observedEngineOff = false
+                    DiagnosticLog.event("FUEL_ENGINE_START_OBSERVED")
+                }
+            }
+        }
+        // Fuel readings must represent distinct ECU updates, not cached API returns.
         val fuelQuality = PidValidator.inspect(ts, "2f,0", level, 0.0, 100.0, "fuel")
         if (fuelQuality.updateTime <= 0L && !warnedNoFuelTimestamp) {
             warnedNoFuelTimestamp = true
@@ -570,24 +600,48 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                     save()
                 }
             } else if (level >= baseline + 25.0) {
-                if (candidate == null || abs(level - candidate!!) > 3.0 ||
-                    candidateBaseline != baseline) {
+                if (candidate == null || candidateBaseline != baseline) {
                     candidate = level
                     candidateBaseline = baseline
                     candidateCount = 1
-                } else candidateCount++
-                if (candidateCount >= 5) {
+                    candidateStableSinceMs = now
+                    candidateLastFreshMs = now
+                    DiagnosticLog.event("FUEL_REFILL_CANDIDATE",
+                        "before=$baseline level=$level")
+                } else {
+                    candidateCount++
+                    // A continued rise means the pump may still be filling.
+                    // Only a genuinely higher ECU reading restarts stability.
+                    if (level > candidate!! + refillRiseTolerance) {
+                        candidate = level
+                        candidateStableSinceMs = now
+                    } else if (level > candidate!!) {
+                        candidate = level
+                    }
+                    candidateLastFreshMs = now
+                }
+                val justStarted = engineStartedMs > 0L &&
+                    now - engineStartedMs in 0L..justStartedWindowMs
+                val stable = candidateStableSinceMs > 0L &&
+                    now - candidateStableSinceMs >= refillStabilityMs
+                if (candidateCount >= 5 && (justStarted || stable)) {
+                    val finalLevel = candidate!!
                     DiagnosticLog.event("FUEL_REFILL_ACCEPTED",
-                        "before=$baseline after=$level samples=$candidateCount")
-                    onRefill(level, baseline)
+                        "before=$baseline after=$finalLevel samples=$candidateCount " +
+                            "mode=${if (justStarted) "engine_start" else "stable_60s"}")
+                    onRefill(finalLevel, baseline)
                     candidate = null
                     candidateBaseline = null
                     candidateCount = 0
+                    candidateStableSinceMs = 0L
+                    candidateLastFreshMs = 0L
                 }
             } else {
                 candidate = null
                 candidateBaseline = null
                 candidateCount = 0
+                candidateStableSinceMs = 0L
+                candidateLastFreshMs = 0L
                 // Baseline tracks consumption, never ratchets upward during filling.
                 if (level < baseline && level > 0.0) state.put("fuelBaseline", level)
             }
