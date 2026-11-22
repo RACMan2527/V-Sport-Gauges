@@ -144,7 +144,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
         maxValuesActivePref = findPreference("maxValuesActive")!!
         maxMarksActivePref = findPreference("maxMarksActive")!!
         horizontalDailyMaxPref = findPreference("horizontalDailyMaxEnabled")!!
-        horizontalDailyMaxPref.isVisible = isHorizontal
+        horizontalDailyMaxPref.isVisible = false
         allTimePeakActivePref = findPreference("allTimePeakActive")!!
         allTimePeakValuePref = findPreference("allTimePeakValue")!!
         highVisActivePref = findPreference("highVisActive")!!
@@ -155,8 +155,6 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
             imagePref.isVisible = false
             colorPref.isVisible = false
             highVisActivePref.isVisible = false
-            maxValuesActivePref.isVisible = false
-            maxMarksActivePref.isVisible = false
         }
 
         pidPref.summaryProvider = ListPreference.SimpleSummaryProvider.getInstance()
@@ -264,7 +262,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 wholeNumberPref.isChecked = display.wholeNumbers
                 ticksActivePref.isChecked = display.ticksActive
                 maxValuesActivePref.value = display.maxValuesActive.number.toString()
-                maxMarksActivePref.value = display.maxMarksActive.number.toString()
+                maxMarksActivePref.value = (if (isHorizontal && display.maxMarksActive == MaxControl.OFF && (!display.hasHorizontalDailyMaxEnabled() || display.horizontalDailyMaxEnabled)) MaxControl.MAX else display.maxMarksActive).number.toString()
                 horizontalDailyMaxPref.isChecked = if (display.hasHorizontalDailyMaxEnabled()) display.horizontalDailyMaxEnabled else true
                 allTimePeakActivePref.isChecked = display.allTimePeakActive
                 refreshAllTimePeakPreference(display.pid, display)
@@ -381,7 +379,7 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
             colorPref.colorValue
         )
         if (isHorizontal) {
-            display = display.setHorizontalDailyMaxEnabled(horizontalDailyMaxPref.isChecked)
+            display = display.setHorizontalDailyMaxEnabled(display.maxMarksActive == MaxControl.MAX || display.maxMarksActive == MaxControl.BOTH)
             if (oldPid != display.pid) {
                 // A new PID starts with its own Torque min/max; do not inherit
                 // horizontal range overrides from the previously assigned PID.
