@@ -13,6 +13,7 @@ import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import java.time.LocalDate
+import java.time.ZoneId
 
 /**
  * Tank accounting from verified Torque trip PIDs ONLY:
@@ -48,6 +49,10 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 "tripBaselineGallons", "tripFuelBaselineMiles").forEach { key ->
                 if (current.has(key)) next.put(key, current.get(key))
             }
+        }
+        if (current != null) {
+            next.put("rolloverFromDate", current.optString("date"))
+            next.put("rolloverPreviousEpoch", current.optLong("tripSampleEpochMs", 0L))
         }
         return next.also {
             state.put("daily", it)
@@ -86,6 +91,59 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val now = SystemClock.elapsedRealtime()
         val today = daily()
         val currentGallons = mpg?.takeIf { it.isFinite() && it > 0.0 }?.let { miles / it }
+        // Attribute only the post-midnight portion of a continuous Torque trip.
+        // Do not extrapolate across missing samples, process restarts or resets.
+        if (today.has("rolloverFromDate")) {
+            val previousEpoch = today.optLong("rolloverPreviousEpoch", 0L)
+            val currentEpoch = System.currentTimeMillis()
+            val midnightEpoch = LocalDate.now().atStartOfDay(ZoneId.systemDefault())
+                .toInstant().toEpochMilli()
+            val oldMiles = today.optDouble("tripBaselineMiles", Double.NaN)
+            val oldSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
+            val oldGallons = today.optDouble("tripBaselineGallons", Double.NaN)
+            val oldFuelMiles = today.optDouble("tripFuelBaselineMiles", Double.NaN)
+            val canSplit = today.optString("rolloverFromDate") ==
+                LocalDate.now().minusDays(1).toString() &&
+                previousEpoch >= midnightEpoch - 120_000L &&
+                previousEpoch < midnightEpoch &&
+                currentEpoch > midnightEpoch &&
+                currentEpoch - previousEpoch <= 120_000L &&
+                dailyLastAcceptedMs != 0L &&
+                oldMiles.isFinite() && oldSeconds.isFinite() &&
+                miles >= oldMiles && seconds >= oldSeconds
+            if (canSplit) {
+                val fraction = (midnightEpoch - previousEpoch).toDouble() /
+                    (currentEpoch - previousEpoch).toDouble()
+                today.put("tripBaselineMiles", oldMiles + (miles - oldMiles) * fraction)
+                today.put("tripBaselineSeconds", oldSeconds + (seconds - oldSeconds) * fraction)
+                if (currentGallons != null && oldGallons.isFinite() &&
+                    currentGallons >= oldGallons) {
+                    today.put("tripBaselineGallons",
+                        oldGallons + (currentGallons - oldGallons) * fraction)
+                    if (oldFuelMiles.isFinite()) {
+                        today.put("tripFuelBaselineMiles",
+                            oldFuelMiles + (miles - oldFuelMiles) * fraction)
+                    }
+                } else {
+                    today.remove("tripBaselineGallons")
+                    today.remove("tripFuelBaselineMiles")
+                }
+                DiagnosticLog.event("DAILY_MIDNIGHT_SPLIT", "fraction=$fraction")
+            } else {
+                today.put("tripBaselineMiles", miles)
+                today.put("tripBaselineSeconds", seconds)
+                if (currentGallons != null) {
+                    today.put("tripBaselineGallons", currentGallons)
+                    today.put("tripFuelBaselineMiles", miles)
+                } else {
+                    today.remove("tripBaselineGallons")
+                    today.remove("tripFuelBaselineMiles")
+                }
+                DiagnosticLog.event("DAILY_MIDNIGHT_REBASE", "unverified interval")
+            }
+            today.remove("rolloverFromDate")
+            today.remove("rolloverPreviousEpoch")
+        }
         val previousMiles = today.optDouble("tripBaselineMiles", Double.NaN)
         val previousSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
         val previousGallons = today.optDouble("tripBaselineGallons", Double.NaN)
@@ -162,6 +220,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         }
         today.put("tripBaselineMiles", miles)
         today.put("tripBaselineSeconds", seconds)
+        today.put("tripSampleEpochMs", System.currentTimeMillis())
         dailyLastAcceptedMs = now
         if (reset) {
             dailyResetCandidate = 0
