@@ -197,7 +197,8 @@ class TorqueRefresher {
         // Native virtual readings come from the existing fuel sampler, never Torque.
         val virtual = VirtualPid.find(torqueData.display.pid)
         if (virtual != null) {
-            val value = FuelMonitor.dailyValue(virtual.id) ?: return
+            val value = (if (virtual.id.startsWith("VS_TRIP3_"))
+                FuelMonitor.trip3Value(virtual.id) else FuelMonitor.dailyValue(virtual.id)) ?: return
             if (torqueData.updateReading(value)) {
                 torqueData.hasReceivedReading = true
                 torqueData.hasReceivedNonZero = torqueData.hasReceivedNonZero || value != 0.0
