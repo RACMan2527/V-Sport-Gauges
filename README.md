@@ -425,7 +425,7 @@ The daily readings accumulate trip information across sessions and reset at the 
 
 V-Sport Gauges adds configurable **Trend** and **Average** modifiers to individual gauges. A Trend displays the change in a PID over a selected time window; Average displays the rolling mean over its configured window. The modifier type and duration are set per gauge, after the gauge's unit-conversion settings, and are retained with the dashboard configuration.
 
-The modified numeric reading can be distinguished from the unmodified value while its statistical window fills. These options allow gauges to show how a measurement is changing over time or to smooth short-term fluctuations, without requiring additional ECU PIDs.
+The modified numeric reading can be distinguished from the unmodified value while its statistical window fills. These options allow gauges to show how a measurement is changing over time or to smooth short-term fluctuations, without requiring additional ECU PIDs. The [User Guide](docs/USER_GUIDE.md#statistical-modifiers--trend-and-rolling-average-315) explains modifier setup, window selection, and warm-up behavior.
 
 ---
 
@@ -434,7 +434,7 @@ The modified numeric reading can be distinguished from the unmodified value whil
 
 The horizontal gauge supports **zero-origin bidirectional ranges**. When a PID's configured range extends below zero, the bar fills outward from zero toward the current positive or negative reading rather than filling from the negative minimum. A visible zero tick provides a reference between the two directions.
 
-This makes the horizontal gauge useful for measurements that can cross zero, while preserving the existing horizontal layout and per-gauge settings.
+This makes the horizontal gauge useful for measurements that can cross zero, while preserving the existing horizontal layout and per-gauge settings. The [User Guide](docs/USER_GUIDE.md#bidirectional-horizontal-gauge-ranges-316) explains range configuration, zero-origin filling, and the zero tick.
 
 ---
 
