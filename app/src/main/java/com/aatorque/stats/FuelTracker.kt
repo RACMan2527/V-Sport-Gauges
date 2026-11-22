@@ -79,6 +79,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         return when (id) {
             "VS_TRIP3_DISTANCE" -> trip.optDouble("miles") / 0.621371192
             "VS_TRIP3_TIME" -> trip.optDouble("seconds")
+            "VS_TRIP3_GALLONS" -> trip.optDouble("gallons")
             "VS_TRIP3_MPG" -> trip.optDouble("gallons").takeIf { it > 0.0 }
                 ?.let { trip.optDouble("mpgMiles") / it } ?: 0.0
             else -> 0.0
