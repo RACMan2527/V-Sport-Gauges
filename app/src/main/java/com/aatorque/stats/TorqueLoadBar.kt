@@ -127,6 +127,21 @@ class EngineLoadBarView @JvmOverloads constructor(
             attributes.recycle()
         }
     }
+    // Optional theme-specific horizontal border/tick accent; other themes keep legacy styling.
+    private val horizontalAccentColor: Int? = context.theme.obtainStyledAttributes(
+        intArrayOf(R.attr.themedHorizontalAccentColor)
+    ).let { attributes ->
+        try {
+            if (attributes.hasValue(0)) attributes.getColor(0, android.graphics.Color.WHITE) else null
+        } finally {
+            attributes.recycle()
+        }
+    }
+    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = horizontalAccentColor ?: android.graphics.Color.TRANSPARENT
+        strokeWidth = max(1f, density)
+        style = Paint.Style.STROKE
+    }
     private val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = maxMarkerColor
         style = Paint.Style.FILL
@@ -162,6 +177,12 @@ class EngineLoadBarView @JvmOverloads constructor(
     fun setLabelSizeSp(sizeSp: Int) {
         labelPaint.textSize = sizeSp * resources.displayMetrics.scaledDensity
         invalidate()
+    }
+    init {
+        horizontalAccentColor?.let { accent ->
+            tickPaint.color = accent
+            minorTickPaint.color = accent
+        }
     }
     private val cornerRadius = 2f * density
     private val maxMarkerWidth = 13f * density
@@ -243,6 +264,13 @@ class EngineLoadBarView @JvmOverloads constructor(
         val usableWidth = w - horizontalInset * 2f
         val track = RectF(horizontalInset, 0f, w - horizontalInset, h)
         canvas.drawRoundRect(track, cornerRadius, cornerRadius, trackPaint)
+        if (horizontalAccentColor != null) {
+            val inset = borderPaint.strokeWidth / 2f
+            canvas.drawRoundRect(
+                RectF(track.left + inset, track.top + inset, track.right - inset, track.bottom - inset),
+                cornerRadius, cornerRadius, borderPaint
+            )
+        }
 
         // For ranges crossing zero (including a maximum of zero), fill outward
         // from zero in either direction. Other ranges retain minimum-origin fill.

@@ -8,6 +8,7 @@
     <attr name="themedBlankDialBackground" format="reference" />
     <attr name="themedStopWatchBackground" format="reference" />
     <attr name="themedNeedleColor" format="reference" />
+    <attr name="themedHorizontalAccentColor" format="color" />
 
     <declare-styleable name="ImageListPreference">
         <attr name="entryImages" format="reference" />
