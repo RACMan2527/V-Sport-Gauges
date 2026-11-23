@@ -69,17 +69,69 @@ object PidValidator {
         }
     }
 
+    /** Bounds are supplied by Torque Pro, not by a gauge's display range. */
+    data class Bounds(val minimum: Double, val maximum: Double, val unit: String)
+    private val metadata = ConcurrentHashMap<String, Bounds>()
+    private val metadataLoadLock = Any()
+    @Volatile private var metadataLoading = false
+    @Volatile private var metadataLoaded = false
+    private const val BOUND_TOLERANCE = 1.0
+
+    fun bounds(pid: String): Bounds? = metadata[pid]
+
+    /** Metadata is fetched once per Torque connection, off the polling thread. */
+    fun loadMetadataAsync(ts: ITorqueService) {
+        synchronized(metadataLoadLock) {
+            if (metadataLoading || metadataLoaded) return
+            metadataLoading = true
+        }
+        Thread({
+            try {
+                val ids = ts.listAllPIDs()
+                val info = ts.getPIDInformation(ids)
+                val loaded = HashMap<String, Bounds>()
+                ids.zip(info).forEach { (id, csv) ->
+                    val fields = csv.split(",")
+                    if (fields.size >= 5) {
+                        val max = fields[3].trim().toDoubleOrNull()
+                        val min = fields[4].trim().toDoubleOrNull()
+                        if (min != null && max != null && min.isFinite() &&
+                            max.isFinite() && min < max) {
+                            loaded[id] = Bounds(min, max, fields[2].trim())
+                        }
+                    }
+                }
+                metadata.clear()
+                metadata.putAll(loaded)
+                metadataLoaded = true
+                DiagnosticLog.event("PID_BOUNDS_LOADED",
+                    "available=${loaded.size} total=${ids.size} tolerance=$BOUND_TOLERANCE")
+            } catch (e: Exception) {
+                DiagnosticLog.event("PID_BOUNDS_LOAD_FAILED", "reason=${e.javaClass.simpleName}")
+            } finally {
+                synchronized(metadataLoadLock) { metadataLoading = false }
+            }
+        }, "V-Sport-PID-Metadata").apply { isDaemon = true }.start()
+    }
+
+    fun resetMetadata() {
+        metadata.clear()
+        metadataLoaded = false
+    }
+
     private val previousUpdates = ConcurrentHashMap<String, Long>()
     private val validCount = AtomicLong()
     private val staleCount = AtomicLong()
     private val suspectCount = AtomicLong()
     private val suspectReasons = ConcurrentHashMap<String, AtomicLong>()
-    private fun recordSuspect(pid: String, reason: String) {
+    private fun recordSuspect(pid: String, reason: String, value: Double?, bounds: Bounds?, timestamp: Long, consumer: String) {
         val count = suspectReasons.computeIfAbsent("$pid|$reason") { AtomicLong() }.incrementAndGet()
         // Bounded diagnostics: first event and each 100th occurrence per PID/reason.
-        if (count == 1L || count % 100L == 0L) {
-            DiagnosticLog.event("PID_SUSPECT_SUMMARY", "pid=$pid reason=$reason count=$count")
-        }
+        DiagnosticLog.repeatedSuspect(pid, reason,
+            "pid=$pid consumer=$consumer raw=$value unit=${bounds?.unit ?: "unknown"} " +
+            "min=${bounds?.minimum ?: "unknown"} max=${bounds?.maximum ?: "unknown"} " +
+            "tolerance=$BOUND_TOLERANCE sourceTimestamp=$timestamp count=$count")
+
     }
 
     fun inspect(ts: ITorqueService, pid: String, value: Double?,
@@ -90,10 +142,13 @@ object PidValidator {
         // Preserve SUSPECT for callers that reject unusable values, but do not count it.
         var disconnected = false
         var suspectReason = "unknown"
+        val pidBounds = metadata[pid]
+        val lower = pidBounds?.minimum?.minus(BOUND_TOLERANCE) ?: minimum
+        val upper = pidBounds?.maximum?.plus(BOUND_TOLERANCE) ?: maximum
         val result = try {
             disconnected = !ts.isConnectedToECU
             if (disconnected || value == null || !value.isFinite() ||
-                value < minimum || value > maximum) {
+                value < lower || value > upper) {
                 suspectReason = when {
                     disconnected -> "ecu_disconnected"
                     value == null -> "null_value"
@@ -124,7 +179,7 @@ object PidValidator {
             Quality.STALE -> staleCount.incrementAndGet()
             Quality.SUSPECT -> if (!disconnected) {
                 suspectCount.incrementAndGet()
-                recordSuspect(pid, suspectReason)
+                recordSuspect(pid, suspectReason, value, pidBounds, result.updateTime, consumer)
             }
         }
         return result
