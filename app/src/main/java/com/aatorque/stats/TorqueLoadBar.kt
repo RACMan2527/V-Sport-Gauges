@@ -37,6 +37,17 @@ class TorqueLoadBar : Fragment() {
     ): View {
         val view = inflater.inflate(R.layout.fragment_load_bar, container, false)
         gauge = view.findViewById(R.id.engineLoadGauge)
+        // The frame belongs to the fragment's outer background, not the inner bar.
+        val accentAttributes = requireContext().theme.obtainStyledAttributes(
+            intArrayOf(R.attr.themedHorizontalAccentColor)
+        )
+        try {
+            if (accentAttributes.hasValue(0)) {
+                view.setBackgroundResource(R.drawable.bg_engine_load_frame_cadillac)
+            }
+        } finally {
+            accentAttributes.recycle()
+        }
         titleText = view.findViewById(R.id.loadBarTitle)
         valueText = view.findViewById(R.id.engineLoadValue)
         applyGaugeTypography()
@@ -136,11 +147,6 @@ class EngineLoadBarView @JvmOverloads constructor(
         } finally {
             attributes.recycle()
         }
-    }
-    private val borderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = horizontalAccentColor ?: android.graphics.Color.TRANSPARENT
-        strokeWidth = max(1f, density)
-        style = Paint.Style.STROKE
     }
     private val progressPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = maxMarkerColor
@@ -264,13 +270,6 @@ class EngineLoadBarView @JvmOverloads constructor(
         val usableWidth = w - horizontalInset * 2f
         val track = RectF(horizontalInset, 0f, w - horizontalInset, h)
         canvas.drawRoundRect(track, cornerRadius, cornerRadius, trackPaint)
-        if (horizontalAccentColor != null) {
-            val inset = borderPaint.strokeWidth / 2f
-            canvas.drawRoundRect(
-                RectF(track.left + inset, track.top + inset, track.right - inset, track.bottom - inset),
-                cornerRadius, cornerRadius, borderPaint
-            )
-        }
 
         // For ranges crossing zero (including a maximum of zero), fill outward
         // from zero in either direction. Other ranges retain minimum-origin fill.
