@@ -97,6 +97,23 @@ class MainCarActivity : CarActivity() {
         }
         setLocalTheme(data.selectedTheme)
         setContentView(R.layout.activity_car_main)
+        // Measure the actual Android Auto app viewport, excluding the host's
+        // side/bottom navigation. Only the car activity writes these dimensions.
+        findViewById<android.view.View>(R.id.fragment_container).addOnLayoutChangeListener {
+                view, _, _, _, _, _, _, _, _ ->
+            val width = view.width
+            val height = view.height
+            if (width > 0 && height > 0) {
+                val prefs = getSharedPreferences("aa_content_area", MODE_PRIVATE)
+                if (prefs.getInt("width_px", 0) != width ||
+                    prefs.getInt("height_px", 0) != height) {
+                    prefs.edit().putInt("width_px", width)
+                        .putInt("height_px", height).apply()
+                    AppStateStore.changed(applicationContext)
+                    DiagnosticLog.event("AA_CONTENT_SIZE", "widthPx=$width heightPx=$height")
+                }
+            }
+        }
         /*
         CarUiController carUiController = getCarUiController();
         //force night mode
