@@ -64,6 +64,7 @@ class TorqueService(private val quietReconnectLogs: Boolean = false) {
                 torqueService = svc
                 if (!quietReconnectLogs) DiagnosticLog.event("TORQUE_CONNECTED", "elapsedMs=${elapsedMs()} component=$arg0")
                 applySimulationSetting()
+                PidValidator.loadMetadataAsync(svc)
                 torqueService = svc
                 conLock.withLock {
                     for (funt in onConnect) {
