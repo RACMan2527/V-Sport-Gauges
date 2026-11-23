@@ -80,7 +80,7 @@
         <item name="sv_speedTextPosition">CENTER</item>
         <item name="sv_speedTextSize">32sp</item>
         <item name="sv_textColor">@android:color/transparent</item>
-        <item name="sv_textSize">24sp</item>
+        <item name="sv_textSize">15sp</item>
         <item name="sv_unit" />
         <item name="sv_unitSpeedInterval">4dp</item>
         <item name="sv_unitTextColor">@color/car_primary</item>
