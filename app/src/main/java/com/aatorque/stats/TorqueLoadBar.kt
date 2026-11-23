@@ -149,7 +149,7 @@ class EngineLoadBarView @JvmOverloads constructor(
     }
     private val labelPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         color = 0xFFFFFFFF.toInt()
-        textSize = 16f * density
+        textSize = 24f * resources.displayMetrics.scaledDensity
         textAlign = Paint.Align.CENTER
     }
     private val cornerRadius = 2f * density
@@ -340,17 +340,17 @@ class EngineLoadBarView @JvmOverloads constructor(
                     canvas.drawText(label, x, labelY, labelPaint)
                 }
                 if (index < positiveCount) {
-                    for (minor in 1..4) {
-                        val minorX = xFor(value + step * minor / 5.0)
+                    for (minor in 1..1) {
+                        val minorX = xFor(value + step / 2.0)
                         canvas.drawLine(minorX, minorTickTop, minorX, minorTickBottom, minorTickPaint)
                     }
                 }
             }
         } else {
-            // Preserve the original six majors and four minors per interval.
+            // Preserve six major labels with one midpoint minor tick per interval.
             for (interval in 0 until 5) {
-                for (minor in 1..4) {
-                    val fractionAtTick = (interval + minor / 5f) / 5f
+                for (minor in 1..1) {
+                    val fractionAtTick = (interval + 0.5f) / 5f
                     val x = horizontalInset + usableWidth * fractionAtTick
                     canvas.drawLine(x, minorTickTop, x, minorTickBottom, minorTickPaint)
                 }
