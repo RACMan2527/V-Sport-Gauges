@@ -255,7 +255,15 @@ class TorqueRefresher {
                 val display = torqueData.display
                 val previous = AllTimePeakStore.get(appContext, display)
                 if (display.pid.isNotBlank() && (previous == null || torqueData.lastData > previous)) {
-                    AllTimePeakStore.set(appContext, display, torqueData.lastData, display.label)
+                    val bounds = PidValidator.bounds(display.pid)
+                    val context = "recordedAt=${java.time.ZonedDateTime.now()} " +
+                        "raw=$value nativeUnit=${bounds?.unit ?: "unknown"} " +
+                        "pidMin=${bounds?.minimum ?: "unknown"} pidMax=${bounds?.maximum ?: "unknown"} " +
+                        "tolerance=1 sourceTimestamp=${quality.updateTime} quality=VALID " +
+                        "dashboard=${activeScreen ?: "unknown"} " +
+                        "mode=${if (appContext.getSharedPreferences("aa_content_area", Context.MODE_PRIVATE)
+                            .getInt("width_px", 0) > 0) "aa_capable" else "unknown"}"
+                    AllTimePeakStore.set(appContext, display, torqueData.lastData, display.label, context)
                 }
             }
             if (quality.quality == PidValidator.Quality.VALID && !torqueData.modifierWindowIncomplete && data[7] === torqueData) {
