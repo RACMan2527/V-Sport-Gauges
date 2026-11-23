@@ -158,6 +158,8 @@ Press the rotary controller to open Quick Controls, rotate to choose an item, an
 
 **Polling & Refresh → Screen Refresh** opens the existing 50–500 ms gauge animation slider (default 300 ms). It changes needle transition timing, not ECU polling. SAVE retains a value and CANCEL restores the previous one.
 
+**Gauge Sizes → Gauge Fonts** provides Round Font (10sp/15sp/20sp), Round Tick Offset (-25dp to +25dp relative to the theme), and Horizontal Font (16sp/20sp/24sp). Medium is the default for both fonts. Changes are global, persist across restarts, and are included in AppState.json recovery.
+
 **Gauge Sizes** selects all round gauges or the center gauge. The three modes are all normal (100%), center enlarged (110%), and all enlarged (110%). The horizontal gauge is not scaled.
 
 **Reset Records** opens **Reset TRIP 3**, **Reset MIN/MAX**, and **Back**. **Reset TRIP 3** opens a CONFIRM/CANCEL screen to clear Trip 3 totals. **Reset MIN/MAX** opens **Reset Daily MAX**, **Reset Daily MIN**, **Reset Both**, and **Back**; each daily selection has its own CONFIRM/CANCEL screen. Daily resets apply across dashboards sharing PID identities and do not affect saved all-time peaks.
