@@ -65,12 +65,12 @@ object DiagnosticLog {
     }
 
     // Aggregate rapidly changing record values without blocking gauge polling.
-    private data class RecordAggregate(val kind: String, val pid: String, val first: Double?, var last: Double, var count: Int, var lastMs: Long, var label: String?)
+    private data class RecordAggregate(val kind: String, val pid: String, val first: Double?, var last: Double, var count: Int, var lastMs: Long, var label: String?, var context: String?)
     private val aggregates = mutableMapOf<String, RecordAggregate>()
     private const val AGGREGATE_MS = 10_000L
 
     @Synchronized
-    fun recordChange(kind: String, pid: String, old: Double?, new: Double, label: String? = null) {
+    fun recordChange(kind: String, pid: String, old: Double?, new: Double, label: String? = null, context: String? = null) {
         val now = android.os.SystemClock.elapsedRealtime()
         val key = "$kind|$pid"
         val existing = aggregates[key]
@@ -78,14 +78,15 @@ object DiagnosticLog {
             existing.last = new
             existing.count++
             if (label != null) existing.label = label
+            if (context != null) existing.context = context
             return
         }
         if (existing != null) emitRecord(existing)
-        aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now, label)
+        aggregates[key] = RecordAggregate(kind, pid, old, new, 1, now, label, context)
     }
 
     private fun emitRecord(record: RecordAggregate) {
-        event(record.kind, "gauge=${record.label ?: "unknown"} pid=${record.pid} old=${record.first} new=${record.last} changes=${record.count} aggregated=${record.count > 1}")
+        event(record.kind, "gauge=${record.label ?: "unknown"} pid=${record.pid} old=${record.first} new=${record.last} changes=${record.count} aggregated=${record.count > 1} ${record.context ?: ""}")
     }
 
     @Synchronized
