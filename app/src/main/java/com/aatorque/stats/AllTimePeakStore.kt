@@ -62,10 +62,10 @@ object AllTimePeakStore {
         return legacyValue
     }
 
-    fun set(context: Context, display: Display, value: Double, label: String? = null) {
+    fun set(context: Context, display: Display, value: Double, label: String? = null, diagnosticContext: String? = null) {
         val modified = modifiedKey(display)
         if (modified == null) {
-            set(context, display.pid, value, label)
+            set(context, display.pid, value, label, diagnosticContext)
             return
         }
         if (!value.isFinite()) return
@@ -73,12 +73,12 @@ object AllTimePeakStore {
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE).edit()
             .putString(modified, value.toString()).apply()
         if (previous != value) {
-            DiagnosticLog.recordChange("PEAK_UPDATE", display.pid, previous, value, label)
+            DiagnosticLog.recordChange("PEAK_UPDATE", display.pid, previous, value, label, diagnosticContext)
             AppStateStore.changed(context)
         }
     }
 
-    fun set(context: Context, pid: String, value: Double, label: String? = null) {
+    fun set(context: Context, pid: String, value: Double, label: String? = null, diagnosticContext: String? = null) {
         if (!value.isFinite()) return
         val previous = get(context, pid)
         context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
@@ -86,7 +86,7 @@ object AllTimePeakStore {
             .putString(key(pid), value.toString())
             .apply()
         if (previous != value) {
-            DiagnosticLog.recordChange("PEAK_UPDATE", pid, previous, value, label)
+            DiagnosticLog.recordChange("PEAK_UPDATE", pid, previous, value, label, diagnosticContext)
             AppStateStore.changed(context)
         }
     }
