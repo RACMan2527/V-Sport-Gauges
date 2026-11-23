@@ -317,6 +317,7 @@ open class DashboardFragment : AlbumArt() {
             data -> data.collect {
                 TorqueRefresher.REFRESH_INTERVAL = (if (it.refreshIntervalMs == 0) 300 else it.refreshIntervalMs).toLong()
                 val screenIndex = abs(it.currentScreen) % it.screensCount
+                PerformancePollingOwnership.foregroundDashboardChanged(screenIndex)
                 if (loggedDashboardIndex != screenIndex) {
                     DiagnosticLog.flushRecords()
                     DiagnosticLog.event("DASHBOARD_CHANGE", "old=$loggedDashboardIndex new=$screenIndex")
