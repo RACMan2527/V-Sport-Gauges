@@ -7,7 +7,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
-/** Polls only the saved first dashboard when Android Auto gauges are not visible. */
+/** Polls only the saved first dashboard when Dashboard 1 is not visible. */
 class BackgroundPerformancePoller(
     private val context: Context,
     private val torque: TorqueService,
@@ -18,11 +18,11 @@ class BackgroundPerformancePoller(
     private var active = false
 
     fun start() {
-        if (active || startup != null || PerformancePollingOwnership.isForeground()) return
+        if (active || startup != null || !PerformancePollingOwnership.shouldPollDashboardOne()) return
         startup = scope.launch {
             try {
                 val settings = context.dataStore.data.first()
-                if (PerformancePollingOwnership.isForeground()) return@launch
+                if (!PerformancePollingOwnership.shouldPollDashboardOne()) return@launch
                 val first = settings.screensList.firstOrNull() ?: return@launch
                 val polling = TorqueRefresher()
                 polling.initialize(context)
@@ -36,7 +36,7 @@ class BackgroundPerformancePoller(
                 if (!horizontal.disabled && horizontal.pid.isNotBlank()) {
                     polling.populateQuery(7, 0, horizontal)
                 }
-                if (PerformancePollingOwnership.isForeground()) return@launch
+                if (!PerformancePollingOwnership.shouldPollDashboardOne()) return@launch
                 refresher = polling
                 active = true
                 polling.makeExecutors(torque)
