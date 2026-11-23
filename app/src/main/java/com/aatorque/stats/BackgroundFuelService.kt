@@ -33,7 +33,7 @@ class BackgroundFuelService : Service() {
                 try { api.isConnectedToECU } catch (_: Exception) { false } -> "ECU_CONNECTED"
                 else -> "ECU_DISCONNECTED"
             }
-            if (state == "ECU_CONNECTED" && !PerformancePollingOwnership.isForeground()) performance.start()
+            if (state == "ECU_CONNECTED" && PerformancePollingOwnership.shouldPollDashboardOne()) performance.start()
             else performance.stop()
             BatteryStats.sample(this@BackgroundFuelService, monitoring = true,
                 ecuDisconnected = state != "ECU_CONNECTED")
