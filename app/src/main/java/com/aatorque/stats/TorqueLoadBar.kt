@@ -334,7 +334,7 @@ class EngineLoadBarView @JvmOverloads constructor(
             for (index in -negativeCount..positiveCount) {
                 val value = index * step
                 val x = xFor(value)
-                canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
+                // Major positions are identified by their labels; no line under the text.
                 if (showTicks) {
                     val label = formatTick(value.toFloat())
                     canvas.drawText(label, x, labelY, labelPaint)
@@ -359,7 +359,7 @@ class EngineLoadBarView @JvmOverloads constructor(
                 val fractionAtTick = index / 5f
                 val x = horizontalInset + usableWidth * fractionAtTick
                 val tickValue = minimum + (maximum - minimum) * fractionAtTick
-                canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
+                // Major positions are identified by their labels; no line under the text.
                 if (showTicks) canvas.drawText(formatTick(tickValue), x, labelY, labelPaint)
             }
         }
