@@ -99,7 +99,7 @@ class MainCarActivity : CarActivity() {
         setContentView(R.layout.activity_car_main)
         // Measure the actual Android Auto app viewport, excluding the host's
         // side/bottom navigation. Only the car activity writes these dimensions.
-        findViewById<android.view.View>(R.id.fragment_container).addOnLayoutChangeListener {
+        (findViewById(R.id.fragment_container) as android.view.View).addOnLayoutChangeListener {
                 view, _, _, _, _, _, _, _, _ ->
             val width = view.width
             val height = view.height
