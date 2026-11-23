@@ -151,6 +151,7 @@
                 app:speedTextTypeface="@{font}"
                 app:sv_speedTextSize="36dp"
                 app:sv_textSize="24sp"
+                app:sv_tickPadding="5dp"
                 app:sv_textColor="@android:color/white"
                 app:sv_unit=""
                 app:sv_unitSpeedInterval="5dp"
