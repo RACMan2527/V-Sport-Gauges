@@ -123,6 +123,8 @@ object AppStateStore {
                     .getBoolean("all_round_gauges_large", false))
                 .put("center", center))
             .put("batteryStats", BatteryStats.snapshot(context))
+            .put("aaContentWidthPx", prefs(context, "aa_content_area").getInt("width_px", 0))
+            .put("aaContentHeightPx", prefs(context, "aa_content_area").getInt("height_px", 0))
             .put("gaugeTypography", JSONObject().also { out ->
                 val settings = prefs(context, "gauge_typography")
                 out.put("roundFont", settings.getInt("round_font", 1))
@@ -188,6 +190,16 @@ object AppStateStore {
             if (typography.has("horizontalFont")) editor.putInt("horizontal_font", typography.optInt("horizontalFont", 1).coerceIn(0, 2))
             if (typography.has("viewFont")) editor.putInt("view_font", typography.optInt("viewFont", 1).coerceIn(0, 2))
             check(editor.commit()) { "Cannot restore gauge typography" }
+        }
+        // Optional, additive fields: older AppState files remain compatible.
+        val aaWidth = json.optInt("aaContentWidthPx", 0)
+        val aaHeight = json.optInt("aaContentHeightPx", 0)
+        if (aaWidth > 0 && aaHeight > 0) {
+            val aa = prefs(context, "aa_content_area")
+            if (aa.getInt("width_px", 0) <= 0 || aa.getInt("height_px", 0) <= 0) {
+                check(aa.edit().putInt("width_px", aaWidth)
+                    .putInt("height_px", aaHeight).commit())
+            }
         }
         BatteryStats.restore(context, json.optJSONObject("batteryStats"))
         val sizes = json.getJSONObject("gaugeSizes")
