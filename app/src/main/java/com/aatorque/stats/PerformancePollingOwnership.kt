@@ -11,7 +11,7 @@ object PerformancePollingOwnership {
 
     @Synchronized fun foregroundOpened() {
         foreground = true
-        backgroundStop?.invoke()
+        if (foregroundDashboard == 0) backgroundStop?.invoke()
     }
 
     /** Other visible dashboards do not own Dashboard 1 performance polling. */
