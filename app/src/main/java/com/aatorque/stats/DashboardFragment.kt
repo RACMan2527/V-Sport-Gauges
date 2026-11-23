@@ -189,7 +189,7 @@ open class DashboardFragment : AlbumArt() {
     private val quickReset = listOf("Reset TRIP 3", "Reset MIN/MAX", "Back")
     private val quickDailyReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
     private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Gauge Fonts", "Back")
-    private val quickFonts = listOf("Round Font", "Round Tick Offset", "Horizontal Font", "Back")
+    private val quickFonts = listOf("Round Font", "Round Tick Offset", "Horizontal Font", "View 1–4 Font", "Back")
     private val quickFontLevels = listOf("Low", "Medium", "High", "Back")
     private var quickFontTarget = "round_font"
     private val typographyPrefs by lazy { requireContext().getSharedPreferences("gauge_typography", Context.MODE_PRIVATE) }
@@ -1257,6 +1257,7 @@ open class DashboardFragment : AlbumArt() {
                 0 -> { quickFontTarget = "round_font"; openQuickControls("fontLevels") }
                 1 -> openQuickControls("fontOffset")
                 2 -> { quickFontTarget = "horizontal_font"; openQuickControls("fontLevels") }
+                3 -> { quickFontTarget = "view_font"; openQuickControls("fontLevels") }
                 else -> openQuickControls("sizes")
             }
             "fontLevels" -> if (quickIndex == 3) openQuickControls("fonts") else {
@@ -1282,6 +1283,7 @@ open class DashboardFragment : AlbumArt() {
     private fun refreshGaugeTypography() {
         guages.forEach { it?.applyGaugeTypography() }
         if (::loadBar.isInitialized) loadBar.applyGaugeTypography()
+        displays.forEach { it?.applyViewTypography() }
         AppStateStore.changed(requireContext())
     }
 
@@ -1388,6 +1390,7 @@ open class DashboardFragment : AlbumArt() {
                     0 -> " - " + quickFontLevels[typographyPrefs.getInt("round_font", 1).coerceIn(0, 2)]
                     1 -> " - " + typographyPrefs.getInt("round_tick_offset", 0) + "dp"
                     2 -> " - " + quickFontLevels[typographyPrefs.getInt("horizontal_font", 1).coerceIn(0, 2)]
+                    3 -> " - " + quickFontLevels[typographyPrefs.getInt("view_font", 1).coerceIn(0, 2)]
                     else -> ""
                 }
                 row(label + suffix, i == quickIndex) { quickIndex = i; quickSelect() }
