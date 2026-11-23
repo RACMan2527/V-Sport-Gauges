@@ -40,12 +40,22 @@ class MainCarActivity : CarActivity() {
     private var awaitingTheme: String? = null
     private var lastTheme: String? = null
 
+    // A held dial selection must not repeat into a newly opened Quick Controls page.
+    private var quickSelectHeld = false
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (event?.action == KeyEvent.ACTION_DOWN &&
             (keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
              keyCode == KeyEvent.KEYCODE_ENTER ||
-             keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER ||
-             keyCode == KeyEvent.KEYCODE_BACK)) {
+             keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER)) {
+            if (quickSelectHeld || event.repeatCount > 0) return true
+            val dashboard = supportFragmentManager.findFragmentByTag(FRAGMENT_CAR) as? DashboardFragment
+            if (dashboard?.handleQuickKey(keyCode) == true) {
+                quickSelectHeld = true
+                return true
+            }
+        }
+        if (event?.action == KeyEvent.ACTION_DOWN && keyCode == KeyEvent.KEYCODE_BACK) {
             val dashboard = supportFragmentManager.findFragmentByTag(FRAGMENT_CAR) as? DashboardFragment
             if (dashboard?.handleQuickKey(keyCode) == true) return true
         }
@@ -60,6 +70,16 @@ class MainCarActivity : CarActivity() {
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_DPAD_CENTER ||
+            keyCode == KeyEvent.KEYCODE_ENTER ||
+            keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+            quickSelectHeld = false
+            return true
+        }
+        return super.onKeyUp(keyCode, event)
     }
 
     @OptIn(DelicateCoroutinesApi::class)
