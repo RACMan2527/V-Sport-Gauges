@@ -106,6 +106,7 @@ object DiagnosticLog {
                 val now = android.os.SystemClock.elapsedRealtime()
                 if (now >= nextMinFlushMs) {
                     flushMinRejects()
+                    flushSuspects()
                     nextMinFlushMs = now + MIN_SUMMARY_MS
                 }
                 val expired = aggregates.filterValues { now - it.lastMs >= AGGREGATE_MS }
