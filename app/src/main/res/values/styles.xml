@@ -213,8 +213,18 @@
         <item name="sv_tickRotation">false</item>
     </style>
 
-    <style name="AppTheme.CadillacVSport" parent="AppTheme.AudiTT">
+    <!-- Cadillac V-Sport: independent visuals; do not inherit Audi TT styling. -->
+    <style name="AppTheme.CadillacVSport" parent="AppTheme">
+        <item name="themedDialBackground">@drawable/dial_background_marks_cadillac</item>
+        <item name="themedEmptyDialBackground">@drawable/dial_background_marks_cadillac</item>
+        <item name="themedBlankDialBackground">@drawable/dial_background_blank_cadillac</item>
+        <item name="themedCarBackground">@drawable/background_incar_cadillac</item>
+        <item name="themedNeedle">@drawable/needle_cadillac</item>
+        <item name="sv_indicatorColor">@color/cadillac_indicator_aqua</item>
+        <item name="themedStopWatchBackground">@drawable/dial_background_cadillac</item>
+        <item name="themedNeedleColor">@color/cadillac_needle_red</item>
         <item name="sv_tickPadding">-12dp</item>
+        <item name="sv_tickRotation">false</item>
     </style>
 
     <style name="AppTheme.AudiTT" parent="AppTheme">

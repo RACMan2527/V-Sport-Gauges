@@ -45,4 +45,8 @@
     <color name="graphColor2">#aee93d</color>
     <color name="graphColor3">#e9783d</color>
     <color name="transparentBlack">#88000000</color>
+    <!-- Cadillac-owned colors. Label blue is reserved for the reviewed design. -->
+    <color name="cadillac_needle_red">#eec50101</color>
+    <color name="cadillac_indicator_aqua">#7700aeef</color>
+    <color name="cadillac_label_blue">#8DBCE8</color>
 </resources>
