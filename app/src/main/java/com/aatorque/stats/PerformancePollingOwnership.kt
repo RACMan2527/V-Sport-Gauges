@@ -11,7 +11,6 @@ object PerformancePollingOwnership {
 
     @Synchronized fun foregroundOpened() {
         foreground = true
-        foregroundDashboard = 0 // Default to Dashboard 1 until its saved selection is loaded.
         backgroundStop?.invoke()
     }
 
