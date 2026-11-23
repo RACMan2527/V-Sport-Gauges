@@ -42,6 +42,7 @@ class TorqueDisplay : Fragment() {
     ): View {
         Timber.i("onCreateView")
         binding = FragmentDisplayBinding.inflate(inflater, container, false)
+        applyViewTypography()
         settingsViewModel.typefaceLiveData.observe(viewLifecycleOwner, this::setupTypeface)
         rootView = binding.root
         bottomBacking.observeForever {
@@ -86,6 +87,14 @@ class TorqueDisplay : Fragment() {
         }
 
         alarmObserver.bind(viewLifecycleOwner, data.currentAlarm)
+    }
+
+    fun applyViewTypography() {
+        if (!::binding.isInitialized) return
+        val level = requireContext().getSharedPreferences("gauge_typography", Context.MODE_PRIVATE)
+            .getInt("view_font", 1).coerceIn(0, 2)
+        binding.iconElement.textSize = floatArrayOf(14f, 17f, 19f)[level]
+        binding.valueElement.textSize = floatArrayOf(23f, 25f, 27f)[level]
     }
 
     fun setupTypeface(typeface: Typeface) {
