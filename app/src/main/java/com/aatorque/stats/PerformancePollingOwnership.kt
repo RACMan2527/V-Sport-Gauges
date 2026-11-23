@@ -6,12 +6,22 @@ package com.aatorque.stats
  */
 object PerformancePollingOwnership {
     @Volatile private var foreground = false
+    @Volatile private var foregroundDashboard = 0
     @Volatile private var backgroundStop: (() -> Unit)? = null
 
     @Synchronized fun foregroundOpened() {
         foreground = true
+        foregroundDashboard = 0 // Default to Dashboard 1 until its saved selection is loaded.
         backgroundStop?.invoke()
     }
+
+    /** Other visible dashboards do not own Dashboard 1 performance polling. */
+    @Synchronized fun foregroundDashboardChanged(index: Int) {
+        foregroundDashboard = index
+        if (foreground && index == 0) backgroundStop?.invoke()
+    }
+
+    fun shouldPollDashboardOne(): Boolean = !foreground || foregroundDashboard != 0
 
     @Synchronized fun foregroundClosed() {
         foreground = false
@@ -21,7 +31,7 @@ object PerformancePollingOwnership {
 
     @Synchronized fun registerBackgroundStop(stop: () -> Unit) {
         backgroundStop = stop
-        if (foreground) stop()
+        if (foreground && foregroundDashboard == 0) stop()
     }
 
     @Synchronized fun unregisterBackgroundStop() {
