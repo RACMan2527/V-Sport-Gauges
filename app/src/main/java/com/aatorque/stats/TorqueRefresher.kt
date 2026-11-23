@@ -261,8 +261,7 @@ class TorqueRefresher {
                         "pidMin=${bounds?.minimum ?: "unknown"} pidMax=${bounds?.maximum ?: "unknown"} " +
                         "tolerance=1 sourceTimestamp=${quality.updateTime} quality=VALID " +
                         "dashboard=${activeScreen ?: "unknown"} " +
-                        "mode=${if (appContext.getSharedPreferences("aa_content_area", Context.MODE_PRIVATE)
-                            .getInt("width_px", 0) > 0) "aa_capable" else "unknown"}"
+                        "mode=unspecified"
                     AllTimePeakStore.set(appContext, display, torqueData.lastData, display.label, context)
                 }
             }
