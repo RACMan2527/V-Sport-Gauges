@@ -154,8 +154,19 @@ class TorqueGauge : Fragment() {
         }
         binding.unitOverlay.dial = mClock
         mClock.unitOverlay = binding.unitOverlay
+        applyGaugeTypography()
         mClock.overlayUnitColor = mClock.unitTextColor
         mClock.unitTextColor = Color.TRANSPARENT
+        mClock.invalidate()
+    }
+
+    fun applyGaugeTypography() {
+        if (!isAdded || !::binding.isInitialized) return
+        val prefs = requireContext().getSharedPreferences("gauge_typography", Context.MODE_PRIVATE)
+        mClock.textSize = intArrayOf(10, 15, 20)[prefs.getInt("round_font", 1).coerceIn(0, 2)] * resources.displayMetrics.scaledDensity
+        val attributes = requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.sv_tickPadding))
+        val baseline = try { attributes.getDimension(0, 0f) } finally { attributes.recycle() }
+        mClock.tickPadding = baseline + prefs.getInt("round_tick_offset", 0).coerceIn(-25, 25) * resources.displayMetrics.density
         mClock.invalidate()
     }
 
