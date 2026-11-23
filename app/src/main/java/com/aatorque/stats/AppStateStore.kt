@@ -128,6 +128,7 @@ object AppStateStore {
                 out.put("roundFont", settings.getInt("round_font", 1))
                 out.put("roundTickOffset", settings.getInt("round_tick_offset", 0))
                 out.put("horizontalFont", settings.getInt("horizontal_font", 1))
+                out.put("viewFont", settings.getInt("view_font", 1))
             })
     }
 
@@ -185,6 +186,7 @@ object AppStateStore {
             if (typography.has("roundFont")) editor.putInt("round_font", typography.optInt("roundFont", 1).coerceIn(0, 2))
             if (typography.has("roundTickOffset")) editor.putInt("round_tick_offset", typography.optInt("roundTickOffset", 0).coerceIn(-25, 25))
             if (typography.has("horizontalFont")) editor.putInt("horizontal_font", typography.optInt("horizontalFont", 1).coerceIn(0, 2))
+            if (typography.has("viewFont")) editor.putInt("view_font", typography.optInt("viewFont", 1).coerceIn(0, 2))
             check(editor.commit()) { "Cannot restore gauge typography" }
         }
         BatteryStats.restore(context, json.optJSONObject("batteryStats"))
