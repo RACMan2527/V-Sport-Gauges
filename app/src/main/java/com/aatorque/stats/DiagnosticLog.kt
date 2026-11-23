@@ -149,9 +149,43 @@ object DiagnosticLog {
         }
     }
 
+    // First occurrence is recorded immediately; repeats are coalesced.
+    private data class SuspectAggregate(var count: Long, var firstMs: Long, var lastMs: Long, var detail: String)
+    private val suspectAggregates = mutableMapOf<String, SuspectAggregate>()
+    private const val SUSPECT_SUMMARY_MS = 10_000L
+
+    @Synchronized
+    fun repeatedSuspect(pid: String, reason: String, detail: String) {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val key = "$pid|$reason"
+        val existing = suspectAggregates[key]
+        if (existing == null) {
+            suspectAggregates[key] = SuspectAggregate(0, now, now, detail)
+            event("PID_SUSPECT", "$detail reason=$reason")
+        } else {
+            existing.count++
+            existing.lastMs = now
+            existing.detail = detail
+        }
+    }
+
+    @Synchronized
+    private fun flushSuspects() {
+        val now = android.os.SystemClock.elapsedRealtime()
+        suspectAggregates.forEach { (key, item) ->
+            if (item.count > 0L) {
+                event("PID_SUSPECT_SUMMARY",
+                    "key=$key repeated=${item.count} durationMs=${item.lastMs - item.firstMs} last=${item.detail}")
+                item.count = 0L
+                item.firstMs = now
+            }
+        }
+    }
+
     fun endSession() {
         flushRecords()
         flushMinRejects()
+        flushSuspects()
         event("APP_STOP")
     }
 
