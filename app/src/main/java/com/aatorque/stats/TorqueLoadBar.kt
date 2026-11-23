@@ -39,7 +39,14 @@ class TorqueLoadBar : Fragment() {
         gauge = view.findViewById(R.id.engineLoadGauge)
         titleText = view.findViewById(R.id.loadBarTitle)
         valueText = view.findViewById(R.id.engineLoadValue)
+        applyGaugeTypography()
         return view
+    }
+
+    fun applyGaugeTypography() {
+        if (!::gauge.isInitialized) return
+        val prefs = requireContext().getSharedPreferences("gauge_typography", Context.MODE_PRIVATE)
+        gauge.setLabelSizeSp(intArrayOf(16, 20, 24)[prefs.getInt("horizontal_font", 1).coerceIn(0, 2)])
     }
 
     fun setupBar(data: TorqueData, minValue: Double, maxValue: Double, title: String, showLabel: Boolean, wholeNumbers: Boolean, showTicks: Boolean, showPeak: Boolean, unit: String) {
@@ -151,6 +158,10 @@ class EngineLoadBarView @JvmOverloads constructor(
         color = 0xFFFFFFFF.toInt()
         textSize = 24f * resources.displayMetrics.scaledDensity
         textAlign = Paint.Align.CENTER
+    }
+    fun setLabelSizeSp(sizeSp: Int) {
+        labelPaint.textSize = sizeSp * resources.displayMetrics.scaledDensity
+        invalidate()
     }
     private val cornerRadius = 2f * density
     private val maxMarkerWidth = 13f * density
