@@ -80,7 +80,7 @@
         <item name="sv_speedTextPosition">CENTER</item>
         <item name="sv_speedTextSize">32sp</item>
         <item name="sv_textColor">@android:color/transparent</item>
-        <item name="sv_textSize">12sp</item>
+        <item name="sv_textSize">24sp</item>
         <item name="sv_unit" />
         <item name="sv_unitSpeedInterval">4dp</item>
         <item name="sv_unitTextColor">@color/car_primary</item>
@@ -213,7 +213,9 @@
         <item name="sv_tickRotation">false</item>
     </style>
 
-    <style name="AppTheme.CadillacVSport" parent="AppTheme.AudiTT" />
+    <style name="AppTheme.CadillacVSport" parent="AppTheme.AudiTT">
+        <item name="sv_tickPadding">-12dp</item>
+    </style>
 
     <style name="AppTheme.AudiTT" parent="AppTheme">
         <item name="themedDialBackground">@drawable/dial_background_marks_audi4</item>
