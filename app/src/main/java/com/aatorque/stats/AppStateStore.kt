@@ -123,6 +123,12 @@ object AppStateStore {
                     .getBoolean("all_round_gauges_large", false))
                 .put("center", center))
             .put("batteryStats", BatteryStats.snapshot(context))
+            .put("gaugeTypography", JSONObject().also { out ->
+                val settings = prefs(context, "gauge_typography")
+                out.put("roundFont", settings.getInt("round_font", 1))
+                out.put("roundTickOffset", settings.getInt("round_tick_offset", 0))
+                out.put("horizontalFont", settings.getInt("horizontal_font", 1))
+            })
     }
 
     private fun writeSnapshot(context: Context) {
@@ -174,6 +180,13 @@ object AppStateStore {
         }
         check(dailyEditor.commit()) { "Cannot restore daily preferences" }
 
+        json.optJSONObject("gaugeTypography")?.let { typography ->
+            val editor = prefs(context, "gauge_typography").edit()
+            if (typography.has("roundFont")) editor.putInt("round_font", typography.optInt("roundFont", 1).coerceIn(0, 2))
+            if (typography.has("roundTickOffset")) editor.putInt("round_tick_offset", typography.optInt("roundTickOffset", 0).coerceIn(-25, 25))
+            if (typography.has("horizontalFont")) editor.putInt("horizontal_font", typography.optInt("horizontalFont", 1).coerceIn(0, 2))
+            check(editor.commit()) { "Cannot restore gauge typography" }
+        }
         BatteryStats.restore(context, json.optJSONObject("batteryStats"))
         val sizes = json.getJSONObject("gaugeSizes")
         val all = sizes.getBoolean("all")
