@@ -188,7 +188,11 @@ open class DashboardFragment : AlbumArt() {
     private val quickTiming = listOf("PID Polling", "Screen Refresh", "Back")
     private val quickReset = listOf("Reset TRIP 3", "Reset MIN/MAX", "Back")
     private val quickDailyReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
-    private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Back")
+    private val quickSizes = listOf("All Round Gauges", "Center Gauge", "Gauge Fonts", "Back")
+    private val quickFonts = listOf("Round Font", "Round Tick Offset", "Horizontal Font", "Back")
+    private val quickFontLevels = listOf("Low", "Medium", "High", "Back")
+    private var quickFontTarget = "round_font"
+    private val typographyPrefs by lazy { requireContext().getSharedPreferences("gauge_typography", Context.MODE_PRIVATE) }
     private var quickResetSelection = 0
     private val diagnosticsHandler = Handler(Looper.getMainLooper())
     private var diagnosticsValueViews: List<TextView> = emptyList()
@@ -1178,6 +1182,8 @@ open class DashboardFragment : AlbumArt() {
         else openQuickControls(when (quickPage) {
             "confirm" -> if (quickResetSelection == 3) "reset" else "dailyReset"
             "dailyReset" -> "reset"
+            "fontLevels", "fontOffset" -> "fonts"
+            "fonts" -> "sizes"
             else -> "main"
         })
     }
@@ -1193,6 +1199,9 @@ open class DashboardFragment : AlbumArt() {
             "reset" -> quickReset.size
             "dailyReset" -> quickDailyReset.size
             "sizes" -> quickSizes.size
+            "fonts" -> quickFonts.size
+            "fontLevels" -> quickFontLevels.size
+            "fontOffset" -> 3
             "timing" -> quickTiming.size
             "confirm" -> 2
             else -> 1
@@ -1240,11 +1249,39 @@ open class DashboardFragment : AlbumArt() {
             "sizes" -> when (quickIndex) {
                 0 -> changeQuickSize(true)
                 1 -> changeQuickSize(false)
+                2 -> openQuickControls("fonts")
                 else -> openQuickControls()
+            }
+            "fonts" -> when (quickIndex) {
+                0 -> { quickFontTarget = "round_font"; openQuickControls("fontLevels") }
+                1 -> openQuickControls("fontOffset")
+                2 -> { quickFontTarget = "horizontal_font"; openQuickControls("fontLevels") }
+                else -> openQuickControls("sizes")
+            }
+            "fontLevels" -> if (quickIndex == 3) openQuickControls("fonts") else {
+                typographyPrefs.edit().putInt(quickFontTarget, quickIndex).apply()
+                refreshGaugeTypography()
+                openQuickControls("fonts")
+            }
+            "fontOffset" -> when (quickIndex) {
+                0, 1 -> {
+                    val delta = if (quickIndex == 0) -1 else 1
+                    typographyPrefs.edit().putInt("round_tick_offset",
+                        (typographyPrefs.getInt("round_tick_offset", 0) + delta).coerceIn(-25, 25)).apply()
+                    refreshGaugeTypography()
+                    renderQuickControls()
+                }
+                else -> openQuickControls("fonts")
             }
             "diagnostics", "battery" -> openQuickControls()
             else -> openQuickControls()
         }
+    }
+
+    private fun refreshGaugeTypography() {
+        guages.forEach { it?.applyGaugeTypography() }
+        if (::loadBar.isInitialized) loadBar.applyGaugeTypography()
+        AppStateStore.changed(requireContext())
     }
 
     private fun changeQuickSize(all: Boolean) {
@@ -1315,6 +1352,9 @@ open class DashboardFragment : AlbumArt() {
             "reset" -> "RESET RECORDS"
             "dailyReset" -> "RESET MIN/MAX"
             "sizes" -> "GAUGE SIZES"
+            "fonts" -> "GAUGE FONTS"
+            "fontLevels" -> if (quickFontTarget == "round_font") "ROUND FONT" else "HORIZONTAL FONT"
+            "fontOffset" -> "ROUND TICK OFFSET"
             "timing" -> "POLLING & REFRESH"
             "confirm" -> "CONFIRM RESET"
             "battery" -> "BATTERY STATS"
@@ -1341,6 +1381,21 @@ open class DashboardFragment : AlbumArt() {
                     else -> ""
                 }
                 row(label + suffix, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "fonts" -> quickFonts.forEachIndexed { i, label ->
+                val suffix = when (i) {
+                    0 -> " - " + quickFontLevels[typographyPrefs.getInt("round_font", 1).coerceIn(0, 2)]
+                    1 -> " - " + typographyPrefs.getInt("round_tick_offset", 0) + "dp"
+                    2 -> " - " + quickFontLevels[typographyPrefs.getInt("horizontal_font", 1).coerceIn(0, 2)]
+                    else -> ""
+                }
+                row(label + suffix, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "fontLevels" -> quickFontLevels.forEachIndexed { i, label ->
+                row(label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "fontOffset" -> listOf("Decrease (-1dp)", "Increase (+1dp)", "Back").forEachIndexed { i, label ->
+                row(label + if (i < 2) " [${typographyPrefs.getInt("round_tick_offset", 0)}dp]" else "", i == quickIndex) { quickIndex = i; quickSelect() }
             }
             "confirm" -> {
                 row(if (quickResetSelection == 3) "Clear Trip 3 distance, time, MPG and fuel used?"
