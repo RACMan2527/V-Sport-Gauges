@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.17.7** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.17.28** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
@@ -34,6 +34,8 @@ The fuel tracker also maintains private recovery data. **Do not delete existing 
 ## 2. Global settings and appearance
 
 ### Cadillac theme and font
+
+The Cadillac V-Sport theme uses blue tick marks, white tick labels and units, and a blue horizontal gauge frame with subtle gray interior shading.
 
 On the Android phone, open **V-Sport Gauges → Settings → Appearance**.
 
@@ -99,7 +101,7 @@ Daily MIN/MAX records continue updating with every accepted improvement. The rou
 
 ### Statistical modifiers — Trend and Rolling Average (3.15)
 
-Each gauge can optionally apply a time-based modifier to its selected PID. **Trend** shows the change over the selected time window; **Rolling Average** smooths the readings over that window. The modifier operates on the reading after the gauge's configured unit conversion, so the result uses those configured units.
+Each gauge can optionally apply a time-based modifier to its selected PID. **Trend** shows the current reading minus the rolling average over the selected time window; **Rolling Average** smooths the readings over that window. The modifier operates on the reading after the gauge's configured unit conversion, so the result uses those configured units.
 
 1. On the Android phone, open **Settings → Dashboards**, select the dashboard, then open the desired gauge or numeric display.
 2. Configure the PID and **Units** first. In **Statistical Modifier**, enable **Enable Modifier**.
@@ -107,7 +109,7 @@ Each gauge can optionally apply a time-based modifier to its selected PID. **Tre
 4. Set **Time Window (seconds)** to a whole number from **1 to 3600**. The default window is **30 seconds**.
 5. Return to the dashboard. Modifier settings are stored with each display and retained by dashboard export/import. Disable **Enable Modifier** to show the normal reading again.
 
-While a modifier's observation window is still filling, the displayed numeric value is **cyan**; it becomes white after the window is established (unless an alarm changes its color). A new observation window can be needed when monitoring starts or resumes. Trend measures change over time, not the original PID's absolute value; Rolling Average reports the mean of readings within its window. The modified display should not be interpreted as an instantaneous ECU measurement.
+While a modifier's observation window is still filling, the displayed numeric value is **cyan**; it becomes white after the window is established (unless an alarm changes its color). A new observation window can be needed when monitoring starts or resumes. Trend measures deviation from the rolling average, not the original PID's absolute value; Rolling Average reports the mean of readings within its window. The modified display should not be interpreted as an instantaneous ECU measurement.
 
 ### Horizontal gauge — one per dashboard
 
