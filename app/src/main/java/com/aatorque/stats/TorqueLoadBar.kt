@@ -49,7 +49,7 @@ class TorqueLoadBar : Fragment() {
             accentAttributes.recycle()
         }
         titleText = view.findViewById(R.id.loadBarTitle)
-        titleText.setTextColor(requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedHorizontalAccentColor)).let { attrs ->
+        titleText.setTextColor(requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedGaugeLabelColor)).let { attrs ->
             try { attrs.getColor(0, android.graphics.Color.WHITE) } finally { attrs.recycle() }
         })
         valueText = view.findViewById(R.id.engineLoadValue)
