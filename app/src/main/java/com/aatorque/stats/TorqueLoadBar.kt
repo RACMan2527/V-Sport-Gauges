@@ -36,6 +36,12 @@ class TorqueLoadBar : Fragment() {
         savedInstanceState: Bundle?
     ): View {
         val view = inflater.inflate(R.layout.fragment_load_bar, container, false)
+        val frameAccent = view.context.theme.obtainStyledAttributes(intArrayOf(R.attr.themedHorizontalAccentColor))
+        try {
+            if (frameAccent.hasValue(0)) view.setBackgroundResource(R.drawable.bg_engine_load_frame_cadillac)
+        } finally {
+            frameAccent.recycle()
+        }
         gauge = view.findViewById(R.id.engineLoadGauge)
         titleText = view.findViewById(R.id.loadBarTitle)
         titleText.setTextColor(requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedGaugeLabelColor)).let { attrs ->
@@ -340,10 +346,10 @@ class EngineLoadBarView @JvmOverloads constructor(
         // of the red portion, as well as on the unfilled track.
         val tickTop = h * 0.12f
         // Major ticks stop at the bar midpoint, clear of the labels below.
-        val tickBottom = h * 0.50f
+        val tickBottom = h * (if (horizontalAccentColor != null) 0.36f else 0.50f)
         val labelY = minOf(h - 2f * density, h * 0.94f)
         val minorTickTop = h * 0.28f
-        val minorTickBottom = h * 0.58f
+        val minorTickBottom = h * (if (horizontalAccentColor != null) 0.46f else 0.58f)
         val bidirectional = minimum < 0f && maximum >= 0f
         if (bidirectional) {
             // Anchor the tick grid at zero. Use one value step in both directions,
