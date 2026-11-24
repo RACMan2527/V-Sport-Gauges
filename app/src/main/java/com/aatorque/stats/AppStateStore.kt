@@ -125,6 +125,7 @@ object AppStateStore {
             .put("batteryStats", BatteryStats.snapshot(context))
             .put("aaContentWidthPx", prefs(context, "aa_content_area").getInt("width_px", 0))
             .put("aaContentHeightPx", prefs(context, "aa_content_area").getInt("height_px", 0))
+            .put("aaContentDensityDpi", prefs(context, AaViewport.PREFS).getInt("density_dpi", 0))
             .put("gaugeTypography", JSONObject().also { out ->
                 val settings = prefs(context, "gauge_typography")
                 out.put("roundFont", settings.getInt("round_font", 1))
@@ -194,11 +195,22 @@ object AppStateStore {
         // Optional, additive fields: older AppState files remain compatible.
         val aaWidth = json.optInt("aaContentWidthPx", 0)
         val aaHeight = json.optInt("aaContentHeightPx", 0)
-        if (aaWidth > 0 && aaHeight > 0) {
-            val aa = prefs(context, "aa_content_area")
-            if (aa.getInt("width_px", 0) <= 0 || aa.getInt("height_px", 0) <= 0) {
-                check(aa.edit().putInt("width_px", aaWidth)
-                    .putInt("height_px", aaHeight).commit())
+        if (AaViewport.validSize(aaWidth, aaHeight)) {
+            val aa = prefs(context, AaViewport.PREFS)
+            val localWidth = aa.getInt("width_px", 0)
+            val localHeight = aa.getInt("height_px", 0)
+            val dpi = json.optInt("aaContentDensityDpi", 0)
+            if (!aa.getBoolean("reset_pending_capture", false)) {
+                if (!AaViewport.validSize(localWidth, localHeight)) {
+                    check(aa.edit().putInt("width_px", aaWidth)
+                        .putInt("height_px", aaHeight)
+                        .putInt("density_dpi", if (AaViewport.validDensity(dpi)) dpi else 0)
+                        .commit())
+                } else if (localWidth == aaWidth && localHeight == aaHeight &&
+                    !AaViewport.validDensity(aa.getInt("density_dpi", 0)) &&
+                    AaViewport.validDensity(dpi)) {
+                    check(aa.edit().putInt("density_dpi", dpi).commit())
+                }
             }
         }
         BatteryStats.restore(context, json.optJSONObject("batteryStats"))

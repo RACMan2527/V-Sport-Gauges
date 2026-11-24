@@ -160,6 +160,9 @@
     <string name="download_complete">Download Complete</string>
     <string name="icon_credits">Icon Credits</string>
     <string name="action_preview">Preview</string>
+    <string name="reset_test_screen">Reset Test Screen</string>
+    <string name="reset_test_screen_message">Restore the default 1280 × 555 test screen. Android Auto will capture its viewport again on the next layout. Gauge settings and history are unchanged.</string>
+    <string name="reset_test_screen_done">Test screen dimensions reset</string>
     <string name="pref_view">View %1$d</string>
     <string name="pref_data_element_settings">Data element settings %1$d</string>
     <string name="pref_title_performance">Title %1$d</string>

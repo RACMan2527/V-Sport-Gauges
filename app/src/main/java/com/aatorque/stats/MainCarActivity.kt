@@ -103,14 +103,21 @@ class MainCarActivity : CarActivity() {
                 view, _, _, _, _, _, _, _, _ ->
             val width = view.width
             val height = view.height
-            if (width > 0 && height > 0) {
-                val prefs = getSharedPreferences("aa_content_area", MODE_PRIVATE)
+            if (AaViewport.validSize(width, height)) {
+                val prefs = getSharedPreferences(AaViewport.PREFS, MODE_PRIVATE)
+                val dpi = view.resources.displayMetrics.densityDpi
+                val density = if (AaViewport.validDensity(dpi)) dpi else 0
                 if (prefs.getInt("width_px", 0) != width ||
-                    prefs.getInt("height_px", 0) != height) {
+                    prefs.getInt("height_px", 0) != height ||
+                    prefs.getInt("density_dpi", 0) != density ||
+                    prefs.getBoolean("reset_pending_capture", false)) {
                     prefs.edit().putInt("width_px", width)
-                        .putInt("height_px", height).apply()
+                        .putInt("height_px", height)
+                        .putInt("density_dpi", density)
+                        .remove("reset_pending_capture").apply()
                     AppStateStore.changed(applicationContext)
-                    DiagnosticLog.event("AA_CONTENT_SIZE", "widthPx=$width heightPx=$height")
+                    DiagnosticLog.event("AA_CONTENT_SIZE",
+                        "widthPx=$width heightPx=$height densityDpi=$density")
                 }
             }
         }
