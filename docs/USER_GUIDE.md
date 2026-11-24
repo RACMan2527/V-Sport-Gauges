@@ -1,6 +1,6 @@
 # V-Sport Gauges — User Guide
 
-**For V-Sport Gauges 3.17.28** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
+**For V-Sport Gauges 3.18** · [Back to README](../README.md) · [Development history](../README.md#the-development-of-v-sport-gauges)
 
 This guide covers the **features and controls added to the original AA Torque app**, in the order a new user needs them: first-time setup, global settings, gauge configuration, and then the driving and monitoring features. Illustrations are explanatory diagrams based on current V-Sport Gauges source code, not photographs of the Android Auto screen.
 
@@ -25,7 +25,7 @@ Choosing **Later** postpones folder authorization and can prevent persistent fil
 | --- | --- |
 | `Documents/V-Sport Gauges/Fuel-Tracker.json` | Current tank, daily driving totals, and completed-tank records |
 | `Documents/V-Sport Gauges/Fuel-Up-History.csv` | Fuel-up history |
-| `Documents/V-Sport Gauges/AppState.json` | All-time peaks, current-day records, gauge sizes, and phone battery statistics |
+| `Documents/V-Sport Gauges/AppState.json` | All-time peaks, current-day records, gauge sizes, phone battery statistics, and captured Android Auto display characteristics |
 | `Documents/V-Sport Gauges/Exports/` | Exported dashboards |
 | `Documents/V-Sport Gauges/Logs/` | Diagnostic logs |
 
@@ -48,6 +48,19 @@ On the Android phone, open **V-Sport Gauges → Settings → Appearance**.
 **PID Polling** controls the configured Torque request interval (50–500 ms; default 200 ms). **Screen Refresh** controls gauge animation timing (50–500 ms; default 300 ms), not the PID request rate. Both can also be adjusted through Quick Controls.
 
 The dashboard export/import feature preserves configured polling and refresh settings. Exported dashboards are stored under **Documents/V-Sport Gauges/Exports**; import uses Android's document picker. These settings are not duplicated in **AppState.json**.
+
+### Android Auto Test Screen (3.18)
+
+The scaled Test Screen lets you inspect the dashboard on the Android phone using the vehicle's Android Auto display proportions rather than the phone's native display proportions.
+
+1. Connect the phone to Android Auto and open V-Sport Gauges in the vehicle. The app captures the allocated dashboard dimensions, display density, and font scale.
+2. On the phone, open V-Sport Gauges and select **Use Android Auto Test Screen** from the three-dot menu.
+3. Inspect the dashboard with the captured proportions. The entire dashboard is scaled uniformly to fit the available phone screen, with black margins as needed to preserve its aspect ratio.
+4. After enabling this mode, the regular **Preview** control also opens the scaled Test Screen.
+
+The preview uses a default 1280 × 555 layout when no dimensions have been captured. Connect to the vehicle first for proportions based on its actual display characteristics. The preview uses your configured gauges, theme, and typography without changing the vehicle's Android Auto layout.
+
+To return to the original phone preview, select **Reset Test Screen** from the three-dot menu and confirm. This clears the saved display measurements and restores the original preview without resetting gauge settings or records. Android Auto captures new measurements when the dashboard is opened in the vehicle again; select **Use Android Auto Test Screen** to re-enable scaled rendering.
 
 ## 3. Gauge configuration
 
@@ -254,6 +267,7 @@ Logs capture connection events, PID issues, daily MIN/MAX and all-time PEAK chan
 
 | Symptom | Check |
 | --- | --- |
+| Test Screen proportions differ from the vehicle | Connect to Android Auto and open V-Sport Gauges to capture the vehicle's display characteristics, then reopen the scaled Test Screen |
 | Gauge stays empty or waiting | Torque Pro connection, adapter, ECU status, PID availability and whether any nonzero value has arrived |
 | White peak triangle missing | The gauge's **Show all-time peak marker** option and whether a saved value exists |
 | `PEAK:` number disappears after startup | Expected: a loaded all-time peak is shown for approximately three seconds |

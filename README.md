@@ -451,6 +451,15 @@ Version 3.17 also introduces adjustable gauge typography through Quick Controls,
 
 ---
 
+## Phase 22 — Android Auto Test Screen
+### November 2026 | Version 3.18
+
+The phone's **Android Auto Test Screen** reproduces the proportions of the dashboard displayed in the vehicle, using the allocated Android Auto screen dimensions, display density, and font scale captured during a connection. The entire dashboard scales uniformly to fit the phone while retaining its aspect ratio, making it easier to evaluate gauge placement, typography, and spacing away from the vehicle.
+
+The original phone preview remains available through **Reset Test Screen**. The [User Guide](docs/USER_GUIDE.md#android-auto-test-screen-318) explains how to capture the vehicle's display characteristics, use the scaled preview, and return to the original phone preview.
+
+---
+
 # My Development and Testing Environment
 
 | Component | Configuration |
