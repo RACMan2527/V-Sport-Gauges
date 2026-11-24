@@ -189,7 +189,7 @@ class EngineLoadBarView @JvmOverloads constructor(
     }
     init {
         horizontalAccentColor?.let { accent ->
-            labelPaint.color = accent
+            // Cadillac: blue tick lines, white numeric labels.
             tickPaint.color = accent
             minorTickPaint.color = accent
         }
@@ -376,8 +376,8 @@ class EngineLoadBarView @JvmOverloads constructor(
             for (index in -negativeCount..positiveCount) {
                 val value = index * step
                 val x = xFor(value)
-                // Major positions are identified by their labels; no line under the text.
                 if (showTicks) {
+                    canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
                     val label = formatTick(value.toFloat())
                     canvas.drawText(label, x, labelY, labelPaint)
                 }
@@ -401,8 +401,10 @@ class EngineLoadBarView @JvmOverloads constructor(
                 val fractionAtTick = index / 5f
                 val x = horizontalInset + usableWidth * fractionAtTick
                 val tickValue = minimum + (maximum - minimum) * fractionAtTick
-                // Major positions are identified by their labels; no line under the text.
-                if (showTicks) canvas.drawText(formatTick(tickValue), x, labelY, labelPaint)
+                if (showTicks) {
+                    canvas.drawLine(x, tickTop, x, tickBottom, tickPaint)
+                    canvas.drawText(formatTick(tickValue), x, labelY, labelPaint)
+                }
             }
         }
     }
