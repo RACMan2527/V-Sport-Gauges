@@ -37,17 +37,6 @@ class TorqueLoadBar : Fragment() {
     ): View {
         val view = inflater.inflate(R.layout.fragment_load_bar, container, false)
         gauge = view.findViewById(R.id.engineLoadGauge)
-        // The frame belongs to the fragment's outer background, not the inner bar.
-        val accentAttributes = requireContext().theme.obtainStyledAttributes(
-            intArrayOf(R.attr.themedHorizontalAccentColor)
-        )
-        try {
-            if (accentAttributes.hasValue(0)) {
-                view.setBackgroundResource(R.drawable.bg_engine_load_frame_cadillac)
-            }
-        } finally {
-            accentAttributes.recycle()
-        }
         titleText = view.findViewById(R.id.loadBarTitle)
         titleText.setTextColor(requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedGaugeLabelColor)).let { attrs ->
             try { attrs.getColor(0, android.graphics.Color.WHITE) } finally { attrs.recycle() }

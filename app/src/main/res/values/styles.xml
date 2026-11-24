@@ -227,7 +227,7 @@
         <item name="sv_tickPadding">-12dp</item>
         <item name="sv_tickRotation">false</item>
         <item name="themedHorizontalAccentColor">@color/cadillac_label_blue</item>
-        <item name="themedGaugeLabelColor">@color/cadillac_label_blue</item>
+        <item name="themedGaugeLabelColor">@android:color/white</item>
     </style>
 
     <style name="AppTheme.AudiTT" parent="AppTheme">
