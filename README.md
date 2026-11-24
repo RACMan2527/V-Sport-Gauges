@@ -423,7 +423,7 @@ The daily readings accumulate trip information across sessions and reset at the 
 ## Phase 19 — Per-Gauge Trend and Average Modifiers
 ### November 2026 | Version 3.15
 
-V-Sport Gauges adds configurable **Trend** and **Average** modifiers to individual gauges. A Trend displays the change in a PID over a selected time window; Average displays the rolling mean over its configured window. The modifier type and duration are set per gauge, after the gauge's unit-conversion settings, and are retained with the dashboard configuration.
+V-Sport Gauges adds configurable **Trend** and **Average** modifiers to individual gauges. A Trend displays the difference between the current reading and its rolling average over a selected time window; Average displays the rolling mean over its configured window. The modifier type and duration are set per gauge, after the gauge's unit-conversion settings, and are retained with the dashboard configuration.
 
 The modified numeric reading can be distinguished from the unmodified value while its statistical window fills. These options allow gauges to show how a measurement is changing over time or to smooth short-term fluctuations, without requiring additional ECU PIDs. The [User Guide](docs/USER_GUIDE.md#statistical-modifiers--trend-and-rolling-average-315) explains modifier setup, window selection, and warm-up behavior.
 
@@ -444,6 +444,10 @@ This makes the horizontal gauge useful for measurements that can cross zero, whi
 **Trip 3** provides a manually resettable set of four selectable virtual PIDs: **Trip 3 Distance**, **Trip 3 Drive Time**, **Trip 3 MPG**, and **Trip 3 Fuel Used**. Unlike the daily statistics, Trip 3 accumulates across sessions and midnight until explicitly reset. Distance and time use kilometers and seconds, while fuel used is expressed in gallons and fuel economy in MPG.
 
 Trip 3 uses the existing fuel tracker's accepted trip samples and persistent `Fuel-Tracker.json` totals, without adding ECU PID requests. The [User Guide](docs/USER_GUIDE.md#trip-3--manually-resettable-trip-totals) describes the available PIDs, conversions, and reset confirmation.
+
+### Additional instrumentation refinements
+
+Version 3.17 also introduces adjustable gauge typography through Quick Controls, including round and horizontal font sizes and round tick-label positioning. The Cadillac V-Sport theme features blue tick marks, white tick labels and units, and a blue horizontal gauge frame with subtle gray interior shading.
 
 ---
 
