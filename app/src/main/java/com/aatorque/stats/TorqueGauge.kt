@@ -155,7 +155,9 @@ class TorqueGauge : Fragment() {
         binding.unitOverlay.dial = mClock
         mClock.unitOverlay = binding.unitOverlay
         applyGaugeTypography()
-        mClock.overlayUnitColor = mClock.unitTextColor
+        mClock.overlayUnitColor = requireContext().theme.obtainStyledAttributes(intArrayOf(R.attr.themedHorizontalAccentColor)).let { attrs ->
+            try { attrs.getColor(0, mClock.unitTextColor) } finally { attrs.recycle() }
+        }
         mClock.unitTextColor = Color.TRANSPARENT
         mClock.invalidate()
     }

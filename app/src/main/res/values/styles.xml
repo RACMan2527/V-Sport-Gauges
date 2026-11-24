@@ -1,6 +1,7 @@
 <resources xmlns:tools="http://schemas.android.com/tools" xmlns:android="http://schemas.android.com/apk/res/android">
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.Material3.DayNight">
+        <item name="themedHorizontalAccentColor">@android:color/white</item>
         <!-- Primary brand color. -->
         <item name="android:windowBackground">@color/bgColor</item>
         <item name="colorPrimary">@color/primaryColor</item>
