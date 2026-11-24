@@ -155,6 +155,15 @@ class SettingsActivity : AppCompatActivity(),
                 true
             }
 
+            R.id.action_aa_test_screen -> {
+                com.aatorque.stats.AaViewport.enableVirtualPreview(this)
+                if (supportFragmentManager.findFragmentByTag("preview")?.isVisible == true) {
+                    supportFragmentManager.popBackStackImmediate()
+                }
+                launchFragment("preview", DashboardPreviewFragment())
+                true
+            }
+
             R.id.action_reset_test_screen -> {
                 AlertDialog.Builder(this)
                     .setTitle(R.string.reset_test_screen)
@@ -162,8 +171,11 @@ class SettingsActivity : AppCompatActivity(),
                     .setNegativeButton(android.R.string.cancel, null)
                     .setPositiveButton(android.R.string.ok) { _, _ ->
                         com.aatorque.stats.AaViewport.reset(this)
-                        (findViewById<android.view.View>(R.id.preview_container)?.parent
-                            as? PreviewViewportLayout)?.requestLayout()
+                        // Re-enter through the original XML rather than resizing
+                        // an already-created virtual dashboard.
+                        if (supportFragmentManager.findFragmentByTag("preview")?.isVisible == true) {
+                            supportFragmentManager.popBackStackImmediate()
+                        }
                         Toast.makeText(this, R.string.reset_test_screen_done, Toast.LENGTH_SHORT).show()
                     }.show()
                 true

@@ -40,8 +40,8 @@ class PreviewViewportLayout @JvmOverloads constructor(
         virtualHeight = (viewport.height * ratio).roundToInt().coerceAtLeast(1)
         for (i in 0 until childCount) {
             getChildAt(i).measure(
-                View.MeasureSpec.makeMeasureSpec(virtualWidth, View.MeasureSpec.EXACTLY),
-                View.MeasureSpec.makeMeasureSpec(virtualHeight, View.MeasureSpec.EXACTLY)
+                View.MeasureSpec.makeMeasureSpec(virtualHeight, View.MeasureSpec.EXACTLY),
+                View.MeasureSpec.makeMeasureSpec(virtualWidth, View.MeasureSpec.EXACTLY)
             )
         }
         setMeasuredDimension(width, height)
@@ -53,12 +53,13 @@ class PreviewViewportLayout @JvmOverloads constructor(
         val scale = min(width.toFloat() / virtualHeight, height.toFloat() / virtualWidth)
         for (i in 0 until childCount) {
             val child = getChildAt(i)
-            val x = (width - virtualWidth) / 2
-            val y = (height - virtualHeight) / 2
-            child.layout(x, y, x + virtualWidth, y + virtualHeight)
-            child.pivotX = virtualWidth / 2f
-            child.pivotY = virtualHeight / 2f
-            child.rotation = -90f
+            // The existing RotateLayout performs the rotation and child layout.
+            // Scale only its outer portrait bounds, not the fragment directly.
+            val x = (width - virtualHeight) / 2
+            val y = (height - virtualWidth) / 2
+            child.layout(x, y, x + virtualHeight, y + virtualWidth)
+            child.pivotX = virtualHeight / 2f
+            child.pivotY = virtualWidth / 2f
             child.scaleX = scale
             child.scaleY = scale
         }

@@ -29,7 +29,10 @@ class DashboardPreviewFragment: Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val view = inflater.inflate(R.layout.fragment_dashboard_preview, container, false)
+        val layout = if (com.aatorque.stats.AaViewport.useVirtualPreview(requireContext()))
+            R.layout.fragment_dashboard_preview_aa
+        else R.layout.fragment_dashboard_preview
+        val view = inflater.inflate(layout, container, false)
         val data = runBlocking {
             requireContext().dataStore.data.first()
         }

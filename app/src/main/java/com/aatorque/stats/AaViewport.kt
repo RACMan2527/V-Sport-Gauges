@@ -24,10 +24,22 @@ object AaViewport {
         else Size(DEFAULT_WIDTH, DEFAULT_HEIGHT, 0)
     }
 
+    // Independent of capture: a new car measurement must never re-enable
+    // a rendering mode the owner disabled for recovery.
+    fun useVirtualPreview(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean("virtual_preview_enabled", false)
+
+    fun enableVirtualPreview(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean("virtual_preview_enabled", true).apply()
+    }
+
     fun reset(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .remove("width_px").remove("height_px").remove("density_dpi")
-            .putBoolean("reset_pending_capture", true).apply()
+            .putBoolean("reset_pending_capture", true)
+            .putBoolean("virtual_preview_enabled", false).apply()
         AppStateStore.changed(context.applicationContext)
         DiagnosticLog.event("TEST_SCREEN_VIEWPORT_RESET")
     }

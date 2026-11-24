@@ -7,6 +7,10 @@
         android:icon="@drawable/baseline_preview_24"
         app:showAsAction="ifRoom"/>
     <item
+        android:id="@+id/action_aa_test_screen"
+        android:title="@string/aa_test_screen"
+        app:showAsAction="never"/>
+    <item
         android:id="@+id/action_reset_test_screen"
         android:title="@string/reset_test_screen"
         app:showAsAction="never"/>
