@@ -304,7 +304,9 @@ open class DashboardFragment : AlbumArt() {
         settingsViewModel = ViewModelProvider(this)[SettingsViewModel::class.java]
         val context = requireContext()
         torqueRefresher.initialize(context)
-        torqueService.startTorque(context)
+        // The virtual context is for drawing only; use the real phone host
+        // for Android receiver and service lifecycle ownership.
+        torqueService.startTorque(if (previewRenderContext() != null) requireActivity() else context)
         fuelTracker.start()
         val registerWithView = { call: suspend (Flow<UserPreference>) -> Unit ->
             lifecycleScope.launch {

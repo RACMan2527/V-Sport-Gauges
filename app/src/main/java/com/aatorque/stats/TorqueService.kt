@@ -25,7 +25,10 @@ class TorqueService(private val quietReconnectLogs: Boolean = false) {
     private var connectStartedMs = 0L
     private fun elapsedMs() = android.os.SystemClock.elapsedRealtime() - connectStartedMs
     private var appContext: Context? = null
-    private var simulationReceiverRegistered = false
+    // Registration and binding must be released through the exact same
+    // Context instances, even when a preview's resource context disappears.
+    private var simulationReceiverContext: Context? = null
+    private var bindingContext: Context? = null
     private val simulationReceiver = object : android.content.BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
             applySimulationSetting()
@@ -101,15 +104,31 @@ class TorqueService(private val quietReconnectLogs: Boolean = false) {
         torqueService?.setDebugTestMode(simulateMetrics && torqueService?.isConnectedToECU == false)
     }
 
+    @Suppress("UNUSED_PARAMETER")
     fun onDestroy(context: Context) {
-        if (simulationReceiverRegistered) {
-            context.unregisterReceiver(simulationReceiver)
-            simulationReceiverRegistered = false
+        // Clear ownership before cleanup so repeated destruction is harmless.
+        val receiverOwner = simulationReceiverContext
+        val serviceOwner = bindingContext
+        simulationReceiverContext = null
+        bindingContext = null
+        hasBound = false
+        torqueService = null
+        torqueConnection.forceReconnect = null
+        if (receiverOwner != null) {
+            try {
+                receiverOwner.unregisterReceiver(simulationReceiver)
+            } catch (e: IllegalArgumentException) {
+                DiagnosticLog.event("TORQUE_RECEIVER_CLEANUP", e.javaClass.simpleName)
+                Timber.w(e, "Simulation receiver already unregistered")
+            }
         }
-        if (hasBound) {
-            context.unbindService(torqueConnection)
-            hasBound = false
-            torqueService = null
+        if (serviceOwner != null) {
+            try {
+                serviceOwner.unbindService(torqueConnection)
+            } catch (e: IllegalArgumentException) {
+                DiagnosticLog.event("TORQUE_BINDING_CLEANUP", e.javaClass.simpleName)
+                Timber.w(e, "Torque service already unbound")
+            }
         }
     }
 
@@ -119,7 +138,7 @@ class TorqueService(private val quietReconnectLogs: Boolean = false) {
     }
     fun startTorque(context: Context): Boolean {
         appContext = context.applicationContext
-        if (!simulationReceiverRegistered) {
+        if (simulationReceiverContext == null) {
             val filter = android.content.IntentFilter(ACTION_SIMULATION_SETTING_CHANGED)
             ContextCompat.registerReceiver(
                 context,
@@ -127,13 +146,16 @@ class TorqueService(private val quietReconnectLogs: Boolean = false) {
                 filter,
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
-            simulationReceiverRegistered = true
+            simulationReceiverContext = context
         }
         val intent = Intent()
         intent.setClassName("org.prowl.torque", "org.prowl.torque.remote.TorqueService")
         connectStartedMs = android.os.SystemClock.elapsedRealtime()
         if (!quietReconnectLogs) DiagnosticLog.event("TORQUE_CONNECT_ATTEMPT", "elapsedMs=0")
+        // Keep the original binding owner until its matching unbind.
+        if (hasBound) return true
         hasBound = context.bindService(intent, torqueConnection, Activity.BIND_AUTO_CREATE)
+        bindingContext = if (hasBound) context else null
         if (!hasBound && !quietReconnectLogs) DiagnosticLog.event("TORQUE_CONNECT_FAILURE", "elapsedMs=${elapsedMs()} reason=bind_failed")
         torqueConnection.forceReconnect = {
             onDestroy(context)
