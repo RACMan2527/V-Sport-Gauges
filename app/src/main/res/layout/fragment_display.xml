@@ -61,7 +61,7 @@
         android:gravity="center"
         android:textAlignment="gravity"
         android:singleLine="true"
-        android:textColor="?attr/themedGaugeLabelColor"
+        android:textColor="?attr/themedDisplayLabelColor"
         android:textSize="17sp"
         android:text="@{iconText}"
         app:backgroundResource="@{icon ?? 0}" />

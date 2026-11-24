@@ -2,6 +2,7 @@
     <!-- Base application theme. -->
     <style name="AppTheme" parent="Theme.Material3.DayNight">
         <item name="themedGaugeLabelColor">@android:color/white</item>
+        <item name="themedDisplayLabelColor">@android:color/white</item>
         <!-- Primary brand color. -->
         <item name="android:windowBackground">@color/bgColor</item>
         <item name="colorPrimary">@color/primaryColor</item>
@@ -227,6 +228,7 @@
         <item name="sv_tickPadding">-12dp</item>
         <item name="sv_tickRotation">false</item>
         <item name="themedHorizontalAccentColor">@color/cadillac_label_blue</item>
+        <item name="themedDisplayLabelColor">@color/cadillac_label_blue</item>
         <item name="themedGaugeLabelColor">@android:color/white</item>
     </style>
 
