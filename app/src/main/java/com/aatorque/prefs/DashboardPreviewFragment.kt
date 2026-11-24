@@ -2,6 +2,11 @@ package com.aatorque.prefs
 
 import android.content.Context
 import android.content.pm.ActivityInfo
+import android.content.res.Configuration
+import android.view.ContextThemeWrapper
+import com.aatorque.stats.AaViewport
+import com.aatorque.stats.DiagnosticLog
+import kotlin.math.roundToInt
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -20,6 +25,8 @@ import kotlinx.coroutines.runBlocking
 
 class DashboardPreviewFragment: Fragment() {
     val handler = Handler(Looper.getMainLooper())
+    internal var virtualRenderContext: Context? = null
+        private set
     companion object {
         val hideBars = WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.navigationBars()
     }
@@ -29,16 +36,46 @@ class DashboardPreviewFragment: Fragment() {
         container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
-        val layout = if (com.aatorque.stats.AaViewport.useVirtualPreview(requireContext()))
-            R.layout.fragment_dashboard_preview_aa
-        else R.layout.fragment_dashboard_preview
-        val view = inflater.inflate(layout, container, false)
-        val data = runBlocking {
-            requireContext().dataStore.data.first()
+        val context = requireContext()
+        val data = runBlocking { context.dataStore.data.first() }
+        val theme = mapTheme(context, data.selectedTheme)
+        val view = if (AaViewport.useVirtualPreview(context)) {
+            val viewport = AaViewport.read(context)
+            val dpi = viewport.renderDensityDpi
+            val config = Configuration().apply {
+                densityDpi = dpi
+                fontScale = viewport.renderFontScale
+                orientation = Configuration.ORIENTATION_LANDSCAPE
+                screenWidthDp = (viewport.width * 160f / dpi).roundToInt()
+                screenHeightDp = (viewport.height * 160f / dpi).roundToInt()
+                smallestScreenWidthDp = minOf(screenWidthDp, screenHeightDp)
+            }
+            val render = ContextThemeWrapper(context.createConfigurationContext(config), theme)
+            virtualRenderContext = render
+            val metrics = render.resources.displayMetrics
+            DiagnosticLog.event("TEST_SCREEN_METRICS",
+                "widthPx=${viewport.width} heightPx=${viewport.height} " +
+                    "capturedDpi=${viewport.densityDpi} capturedFontScale=${viewport.fontScale} " +
+                    "capturedScaledDensity=${viewport.scaledDensity} " +
+                    "renderDpi=${metrics.densityDpi} renderScaledDensity=${metrics.scaledDensity} " +
+                    "renderFontScale=${render.resources.configuration.fontScale}")
+            (inflater.cloneInContext(render)
+                .inflate(R.layout.fragment_dashboard_preview_aa, container, false)
+                as PreviewViewportLayout).apply { configureViewport(viewport) }
+        } else {
+            virtualRenderContext = null
+            // Keep the original phone preview and theme sequence unchanged.
+            inflater.inflate(R.layout.fragment_dashboard_preview, container, false).also {
+                inflater.context.setTheme(theme)
+            }
         }
-        inflater.context.setTheme(mapTheme(requireContext(), data.selectedTheme))
         forceRotate(true)
         return view
+    }
+
+    override fun onDestroyView() {
+        super.onDestroyView()
+        virtualRenderContext = null
     }
 
     fun forceRotate(isOn: Boolean) {

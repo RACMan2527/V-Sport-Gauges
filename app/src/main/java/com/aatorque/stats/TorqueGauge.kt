@@ -30,7 +30,7 @@ import java.util.Locale
 
 const val NUM_TICKS = 3
 val MIN_MAX_DEFAULT = Pair(0f, 100f)
-class TorqueGauge : Fragment() {
+class TorqueGauge : DashboardRenderFragment() {
 
     private var rootView: View? = null
     private val mClock: TorqueSpeedometer

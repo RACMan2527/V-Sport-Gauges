@@ -6,7 +6,6 @@ import android.view.View
 import android.view.ViewGroup
 import com.aatorque.stats.AaViewport
 import kotlin.math.min
-import kotlin.math.roundToInt
 
 /**
  * Measures the real dashboard at the car's virtual viewport, then transforms
@@ -25,19 +24,16 @@ class PreviewViewportLayout @JvmOverloads constructor(
         setBackgroundColor(android.graphics.Color.BLACK)
     }
 
+    /** One immutable viewport per inflated preview; resource metrics match it. */
+    fun configureViewport(viewport: AaViewport.Size) {
+        virtualWidth = viewport.width
+        virtualHeight = viewport.height
+        requestLayout()
+    }
+
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         val width = View.MeasureSpec.getSize(widthMeasureSpec)
         val height = View.MeasureSpec.getSize(heightMeasureSpec)
-        val viewport = AaViewport.read(context)
-        // Convert car pixels to equivalent phone pixels for matching dp geometry.
-        // Old captures without density retain the original pixel dimensions.
-        val densityRatio = if (AaViewport.validDensity(viewport.densityDpi))
-            resources.displayMetrics.densityDpi.toFloat() / viewport.densityDpi
-        else 1f
-        // Bound the virtual drawing surface, preserving its aspect ratio.
-        val ratio = min(densityRatio, 4096f / maxOf(viewport.width, viewport.height))
-        virtualWidth = (viewport.width * ratio).roundToInt().coerceAtLeast(1)
-        virtualHeight = (viewport.height * ratio).roundToInt().coerceAtLeast(1)
         for (i in 0 until childCount) {
             getChildAt(i).measure(
                 View.MeasureSpec.makeMeasureSpec(virtualHeight, View.MeasureSpec.EXACTLY),

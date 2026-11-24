@@ -19,7 +19,7 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /** Configurable horizontal bar for a single Torque PID and user-defined range. */
-class TorqueLoadBar : Fragment() {
+class TorqueLoadBar : DashboardRenderFragment() {
     private lateinit var gauge: EngineLoadBarView
     private lateinit var titleText: TextView
     private lateinit var valueText: TextView

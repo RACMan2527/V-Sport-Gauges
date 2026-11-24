@@ -57,6 +57,13 @@ import kotlin.math.abs
 
 open class DashboardFragment : AlbumArt() {
     private val overlayDimColor = Color.argb(110, 0, 0, 0)
+
+    // Configuration resources can still expose physical display width.
+    // The opt-in preview's measured dashboard is the actual overlay boundary.
+    private fun overlayWidthPx(): Int =
+        if (previewRenderContext() != null && ::rootView.isInitialized && rootView.width > 0)
+            rootView.width
+        else resources.displayMetrics.widthPixels
     lateinit var rootView: View
     lateinit var mLayoutDashboard: ConstraintLayout
 
@@ -151,7 +158,7 @@ open class DashboardFragment : AlbumArt() {
         }
         panel.addView(ok)
         overlay.addView(panel, FrameLayout.LayoutParams(
-            minOf(dp(490), resources.displayMetrics.widthPixels - dp(32)),
+            minOf(dp(490), overlayWidthPx() - dp(32)),
             -2, Gravity.CENTER))
         mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
             startToStart = ConstraintLayout.LayoutParams.PARENT_ID
@@ -795,7 +802,7 @@ open class DashboardFragment : AlbumArt() {
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
 
-        val panelWidth = minOf(dp(520), resources.displayMetrics.widthPixels - dp(40))
+        val panelWidth = minOf(dp(520), overlayWidthPx() - dp(40))
         overlay.addView(panel, FrameLayout.LayoutParams(
             panelWidth, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.CENTER
         ))
@@ -910,7 +917,7 @@ open class DashboardFragment : AlbumArt() {
             override fun onStartTrackingTouch(seekBar: SeekBar?) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar?) = Unit
         })
-        val panelWidth = minOf(dp(520), resources.displayMetrics.widthPixels - dp(40))
+        val panelWidth = minOf(dp(520), overlayWidthPx() - dp(40))
         overlay.addView(panel, FrameLayout.LayoutParams(panelWidth, -2, Gravity.CENTER))
         mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
             startToStart = ConstraintLayout.LayoutParams.PARENT_ID
@@ -1519,7 +1526,7 @@ open class DashboardFragment : AlbumArt() {
             }
         }
         overlay.addView(panel, FrameLayout.LayoutParams(
-            minOf(dp(490), resources.displayMetrics.widthPixels - dp(32)), -2, Gravity.CENTER))
+            minOf(dp(490), overlayWidthPx() - dp(32)), -2, Gravity.CENTER))
         mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
             startToStart = ConstraintLayout.LayoutParams.PARENT_ID
             endToEnd = ConstraintLayout.LayoutParams.PARENT_ID

@@ -18,7 +18,7 @@ import com.aatorque.utils.AwareObserver
 import timber.log.Timber
 
 
-class TorqueDisplay : Fragment() {
+class TorqueDisplay : DashboardRenderFragment() {
     lateinit var rootView: View
     private var unit = ""
 

@@ -4,7 +4,7 @@ import androidx.annotation.StringRes
 import androidx.fragment.app.Fragment
 import com.google.android.apps.auto.sdk.StatusBarController
 
-abstract class CarFragment : Fragment() {
+abstract class CarFragment : DashboardRenderFragment() {
 
     var title: String? = null
     fun setTitle(@StringRes resId: Int) {

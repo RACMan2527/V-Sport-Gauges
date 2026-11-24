@@ -28,7 +28,7 @@ import kotlin.math.roundToInt
 import kotlin.properties.Delegates
 
 
-class TorqueChart: Fragment() {
+class TorqueChart: DashboardRenderFragment() {
 
     class LegendBinding : ViewModel() {
         var color = MutableLiveData<Int>()

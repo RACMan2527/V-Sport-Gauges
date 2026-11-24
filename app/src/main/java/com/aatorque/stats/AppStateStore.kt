@@ -126,6 +126,8 @@ object AppStateStore {
             .put("aaContentWidthPx", prefs(context, "aa_content_area").getInt("width_px", 0))
             .put("aaContentHeightPx", prefs(context, "aa_content_area").getInt("height_px", 0))
             .put("aaContentDensityDpi", prefs(context, AaViewport.PREFS).getInt("density_dpi", 0))
+            .put("aaContentFontScale", prefs(context, AaViewport.PREFS).getFloat("font_scale", 0f).toDouble())
+            .put("aaContentScaledDensity", prefs(context, AaViewport.PREFS).getFloat("scaled_density", 0f).toDouble())
             .put("gaugeTypography", JSONObject().also { out ->
                 val settings = prefs(context, "gauge_typography")
                 out.put("roundFont", settings.getInt("round_font", 1))
@@ -200,16 +202,28 @@ object AppStateStore {
             val localWidth = aa.getInt("width_px", 0)
             val localHeight = aa.getInt("height_px", 0)
             val dpi = json.optInt("aaContentDensityDpi", 0)
+            val fontScale = json.optDouble("aaContentFontScale", 0.0).toFloat()
+            val scaledDensity = json.optDouble("aaContentScaledDensity", 0.0).toFloat()
             if (!aa.getBoolean("reset_pending_capture", false)) {
                 if (!AaViewport.validSize(localWidth, localHeight)) {
                     check(aa.edit().putInt("width_px", aaWidth)
                         .putInt("height_px", aaHeight)
                         .putInt("density_dpi", if (AaViewport.validDensity(dpi)) dpi else 0)
+                        .putFloat("font_scale", if (AaViewport.validFontScale(fontScale)) fontScale else 0f)
+                        .putFloat("scaled_density", if (AaViewport.validScaledDensity(scaledDensity)) scaledDensity else 0f)
                         .commit())
                 } else if (localWidth == aaWidth && localHeight == aaHeight &&
-                    !AaViewport.validDensity(aa.getInt("density_dpi", 0)) &&
                     AaViewport.validDensity(dpi)) {
-                    check(aa.edit().putInt("density_dpi", dpi).commit())
+                    val localDpi = aa.getInt("density_dpi", 0)
+                    if (!AaViewport.validDensity(localDpi) || localDpi == dpi) {
+                        val editor = aa.edit()
+                        if (!AaViewport.validDensity(localDpi)) editor.putInt("density_dpi", dpi)
+                        if (!AaViewport.validFontScale(aa.getFloat("font_scale", 0f)) &&
+                            AaViewport.validFontScale(fontScale)) editor.putFloat("font_scale", fontScale)
+                        if (!AaViewport.validScaledDensity(aa.getFloat("scaled_density", 0f)) &&
+                            AaViewport.validScaledDensity(scaledDensity)) editor.putFloat("scaled_density", scaledDensity)
+                        check(editor.commit())
+                    }
                 }
             }
         }

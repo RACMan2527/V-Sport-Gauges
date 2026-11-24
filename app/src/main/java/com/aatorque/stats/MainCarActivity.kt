@@ -105,19 +105,30 @@ class MainCarActivity : CarActivity() {
             val height = view.height
             if (AaViewport.validSize(width, height)) {
                 val prefs = getSharedPreferences(AaViewport.PREFS, MODE_PRIVATE)
-                val dpi = view.resources.displayMetrics.densityDpi
+                val metrics = view.resources.displayMetrics
+                val dpi = metrics.densityDpi
                 val density = if (AaViewport.validDensity(dpi)) dpi else 0
+                val configScale = view.resources.configuration.fontScale
+                val fontScale = if (AaViewport.validFontScale(configScale)) configScale else 0f
+                val scaledDensity = metrics.scaledDensity.takeIf {
+                    AaViewport.validScaledDensity(it)
+                } ?: 0f
                 if (prefs.getInt("width_px", 0) != width ||
                     prefs.getInt("height_px", 0) != height ||
                     prefs.getInt("density_dpi", 0) != density ||
+                    prefs.getFloat("font_scale", 0f) != fontScale ||
+                    prefs.getFloat("scaled_density", 0f) != scaledDensity ||
                     prefs.getBoolean("reset_pending_capture", false)) {
                     prefs.edit().putInt("width_px", width)
                         .putInt("height_px", height)
                         .putInt("density_dpi", density)
+                        .putFloat("font_scale", fontScale)
+                        .putFloat("scaled_density", scaledDensity)
                         .remove("reset_pending_capture").apply()
                     AppStateStore.changed(applicationContext)
                     DiagnosticLog.event("AA_CONTENT_SIZE",
-                        "widthPx=$width heightPx=$height densityDpi=$density")
+                        "widthPx=$width heightPx=$height densityDpi=$density " +
+                            "fontScale=$fontScale scaledDensity=$scaledDensity")
                 }
             }
         }
