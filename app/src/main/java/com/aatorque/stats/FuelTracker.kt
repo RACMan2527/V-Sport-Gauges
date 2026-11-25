@@ -240,8 +240,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val first = !known || ambiguous || wall < previousEpoch
         val includeFirst = reset && seconds <= 120.0 && miles <= 2.0 &&
             seconds <= elapsed + 30.0
-        var milesDelta = if (includeFirst) miles else if (first || reset) 0.0 else (miles - oldMiles).coerceAtLeast(0.0)
-        var secondsDelta = if (includeFirst) seconds else if (first || reset) 0.0 else (seconds - oldSeconds).coerceAtLeast(0.0)
+        val milesDelta = if (includeFirst) miles else if (first || reset) 0.0 else (miles - oldMiles).coerceAtLeast(0.0)
+        val secondsDelta = if (includeFirst) seconds else if (first || reset) 0.0 else (seconds - oldSeconds).coerceAtLeast(0.0)
         if (!first && !reset && (milesDelta > (elapsed + 30.0) * 180.0 / 3600.0 ||
             secondsDelta > elapsed + 30.0)) {
             DiagnosticLog.event("DAILY_TRIP_SAMPLE_REJECTED",
@@ -285,12 +285,17 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         if (fuel != null && fuel.token != oldToken) {
             val gallons = fuel.value
             val delta = if (oldGallons.isFinite()) gallons - oldGallons else 0.0
-            val budgetSeconds = if (oldGallons.isFinite()) (seconds - oldFuelSeconds).coerceAtLeast(0.0)
+            // Fuel is consumed while stationary too. Wall time protects the
+            // rate check if Torque trip time temporarily stops advancing.
+            val budgetSeconds = if (oldGallons.isFinite()) maxOf(
+                (seconds - oldFuelSeconds).coerceAtLeast(0.0),
+                if (oldFuelEpoch > 0L) (wall - oldFuelEpoch).coerceAtLeast(0L) / 1000.0 else 0.0)
                 else seconds
             val fromCurrentSession = !reset || fuel.token < 1_000_000_000_000L ||
                 fuel.token >= from - 5_000L
             when {
-                !fromCurrentSession || gallons > allowedFuel(seconds) ||
+                !fromCurrentSession ||
+                    ((!oldGallons.isFinite() || reset) && gallons > allowedFuel(seconds)) ||
                     delta > allowedFuel(budgetSeconds) -> {
                     noteFuelReject("implausible_fuel", now,
                         "gallons=$gallons delta=$delta seconds=$seconds budgetSeconds=$budgetSeconds")
@@ -325,8 +330,9 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         distribute(state, milesDelta * tankFraction, secondsDelta * tankFraction, acceptedFuel,
             fractionAfter(tankCutoff, fuelFrom, wall, continuous), seedOnly)
 
-        base.put("tripBaselineMiles", miles)
-        base.put("tripBaselineSeconds", seconds)
+        // Tiny backwards jitter is neither a new session nor new distance.
+        base.put("tripBaselineMiles", if (first || reset) miles else maxOf(miles, oldMiles))
+        base.put("tripBaselineSeconds", if (first || reset) seconds else maxOf(seconds, oldSeconds))
         base.put("tripSampleEpochMs", wall)
         for (key in listOf("tripBaselineMiles", "tripBaselineSeconds", "tripBaselineGallons",
             "tripFuelBaselineMiles", "tripSampleEpochMs")) {
@@ -639,24 +645,29 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val distance = readTripCounter(ts, "ff1204,0", 1_000_000.0, now, wall)
             ?.let { TripReading(it.value * 0.621371192, it.token) }
         val time = readTripCounter(ts, "ff1266,0", 100_000_000.0, now, wall)
-        val direct = useCumulativeFuel(ts, now)
-        val awaitingDirect = !direct && state.optString("tripFuelSource") == "ff1271_liters"
-        if (!awaitingDirect) selectFuelSource(direct)
+        val metadataVerified = useCumulativeFuel(ts, now)
+        val directReading = if (metadataVerified)
+            readTripCounter(ts, "ff1271,0", 1_000_000.0, now, wall)
+                ?.let { TripReading(it.value / 3.785411784, it.token) }
+            else null
+        val establishedDirect = state.optString("tripFuelSource") == "ff1271_liters"
+        // Never discard the old usable baseline solely because metadata matched.
+        // Require a fresh, plausible first direct reading before switching.
+        if (!establishedDirect && distance != null && time != null &&
+            directReading != null && directReading.value <= allowedFuel(time.value)) {
+            selectFuelSource(true)
+        }
+        val direct = state.optString("tripFuelSource") == "ff1271_liters"
         val lastReport = lastFuelSourceReportMs
         val compare = lastReport == null || now - lastReport >= 60_000L
-        // FF1205 remains Torque-owned. When direct fuel is available, read
+        // FF1205 remains Torque-owned. When direct fuel is established, read
         // session MPG only for the periodic comparison, not each two-second poll.
-        val mpg = if ((!direct && !awaitingDirect) || (direct && compare))
+        val mpg = if (!direct || compare)
             readTripCounter(ts, "ff1205,0", 1000.0, now, wall)?.takeIf { it.value > 0.0 }
             else null
         val derived = if (distance != null && mpg != null)
             TripReading(distance.value / mpg.value, mpg.token) else null
-        val fuel = when {
-            awaitingDirect -> null
-            direct -> readTripCounter(ts, "ff1271,0", 1_000_000.0, now, wall)
-                ?.let { TripReading(it.value / 3.785411784, it.token) }
-            else -> derived
-        }
+        val fuel = if (direct) directReading else derived
         if (distance != null && time != null) {
             if (fuel == null) noteFuelReject("missing_or_stale_fuel", now, "source=${state.optString("tripFuelSource", "ff1205_derived")}")
             recordTrip(distance, time, fuel, wall, now)
@@ -664,7 +675,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         lastSampleMs = now
         if (compare) {
             lastFuelSourceReportMs = now
-            val directGallons = if (direct) fuel?.value else null
+            val directGallons = directReading?.value
             val derivedGallons = derived?.value
             val difference = if (directGallons != null && derivedGallons != null)
                 directGallons - derivedGallons else null
@@ -674,7 +685,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 distance.value / directGallons else null
             DiagnosticLog.event("FUEL_CUMULATIVE_SAMPLE",
                 "source=${state.optString("tripFuelSource", "ff1205_derived")} sessionMiles=${distance?.value} sessionSeconds=${time?.value} sessionGallons=${fuel?.value} dailyGallons=${daily().optDouble("gallons")} trip3Gallons=${trip3().optDouble("gallons")} tankGallons=${state.optDouble("gallons")}")
-            if (direct) DiagnosticLog.event("FUEL_METHOD_COMPARE",
+            if (metadataVerified) DiagnosticLog.event("FUEL_METHOD_COMPARE",
                 "sessionMiles=${distance?.value} sessionMpg=${mpg?.value} directGallons=$directGallons derivedGallons=$derivedGallons deltaGallons=$difference deltaPct=$differencePct directMpg=$directMpg")
         }
 
