@@ -126,7 +126,7 @@
                 android:singleLine="true"
                 android:text="@{title}"
                 android:textAlignment="gravity"
-                android:textColor="?attr/themedGaugeLabelColor"
+                android:textColor="?attr/themedDisplayLabelColor"
                 android:textSize="20sp"
                 android:typeface="@{font}"
                 app:layout_constrainedWidth="true"
