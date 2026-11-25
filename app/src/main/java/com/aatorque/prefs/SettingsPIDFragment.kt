@@ -215,9 +215,12 @@ class SettingsPIDFragment:  PreferenceFragmentCompat() {
                 torqueService?.pids?.firstOrNull {
                     it.first == pidOnly
                 }?.let {entryVal ->
-                    var minVal = ceil(entryVal.second[3].toDouble()).toInt()
-                    var maxVal = floor(entryVal.second[4].toDouble()).toInt()
-                    if (minVal == 0 && maxVal == 0) {
+                    // Torque getPIDInformation CSV: name, short name, unit, MAX, MIN, scale.
+                    val rawMax = entryVal.second.getOrNull(3)?.trim()?.toDoubleOrNull()
+                    val rawMin = entryVal.second.getOrNull(4)?.trim()?.toDoubleOrNull()
+                    var minVal = rawMin?.takeIf { it.isFinite() }?.let { floor(it).toInt() } ?: 0
+                    var maxVal = rawMax?.takeIf { it.isFinite() }?.let { ceil(it).toInt() } ?: 100
+                    if (minVal >= maxVal) {
                         minVal = 0
                         maxVal = 100
                     }
