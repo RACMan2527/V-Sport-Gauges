@@ -70,7 +70,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     @Synchronized fun resetTrip3() {
         state.put("trip3", JSONObject().put("miles", 0.0).put("seconds", 0.0)
             .put("gallons", 0.0).put("mpgMiles", 0.0)
-            .put("startedAt", OffsetDateTime.now().toString()))
+            .put("startedAt", OffsetDateTime.now().toString())
+            .put("fuelCutoffEpochMs", System.currentTimeMillis()))
         save()
         DiagnosticLog.event("TRIP3_RESET", "confirmed")
     }
@@ -82,17 +83,9 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             "VS_TRIP3_TIME" -> trip.optDouble("seconds")
             "VS_TRIP3_GALLONS" -> trip.optDouble("gallons")
             "VS_TRIP3_MPG" -> trip.optDouble("gallons").takeIf { it > 0.0 }
-                ?.let { trip.optDouble("miles") / it } ?: 0.0
+                ?.let { trip.optDouble("mpgMiles", trip.optDouble("miles")) / it } ?: 0.0
             else -> 0.0
         }
-    }
-
-    private fun addTripIncrement(target: JSONObject, miles: Double, seconds: Double,
-                                 gallons: Double, pairedMiles: Double) {
-        target.put("miles", target.optDouble("miles") + miles)
-        target.put("seconds", target.optDouble("seconds") + seconds)
-        target.put("gallons", target.optDouble("gallons") + gallons)
-        target.put("mpgMiles", target.optDouble("mpgMiles") + pairedMiles)
     }
 
     @Synchronized fun dailyValue(id: String): Double {
@@ -103,184 +96,255 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             "VS_DAILY_GALLONS" -> today.optDouble("gallons")
             "VS_DAILY_MPG" -> {
                 val gallons = today.optDouble("gallons")
-                if (gallons > 0.0) today.optDouble("miles") / gallons else 0.0
+                if (gallons > 0.0) today.optDouble("mpgMiles", today.optDouble("miles")) / gallons else 0.0
             }
             else -> 0.0
         }
     }
 
-    /**
-     * Daily trip accounting is independent of tank accounting. Persist the Torque
-     * cumulative baseline so reopening the app cannot count the same trip twice.
-     * A fresh trip's first sample is included only when its counters are near zero;
-     * otherwise an unknown prior segment is deliberately not backfilled.
-     */
-    // Monotonic clock is used only for validating increments within this process.
-    // A restart never authorizes an unbounded catch-up increment.
-    private var dailyLastAcceptedMs = 0L
-    private var dailyResetCandidate = 0
+    // One persisted Torque-session baseline is shared by Daily, Trip 3 and Tank.
+    // The existing daily keys are mirrored for compatibility with older exports.
+    private data class TripReading(val value: Double, val token: Long)
+    private data class ObservedCounter(val reading: TripReading, val changedAt: Long)
+    private val observedCounters = mutableMapOf<String, ObservedCounter>()
+    private var resetCandidate: Pair<Long, Long>? = null
     private var lastTripCheckpointMs = 0L
+    private val maxFuelGallonsPerHour = 80.0
+    private val tripCounterFreshnessMs = 15_000L
+    private val maxSplitMs = 120_000L
 
-    private fun recordDailyTrip(miles: Double, seconds: Double, currentGallons: Double?) {
-        if (!miles.isFinite() || !seconds.isFinite() || miles < 0.0 || seconds < 0.0) return
-        val now = SystemClock.elapsedRealtime()
-        val today = daily()
-        var preMidnightMiles = 0.0
-        var preMidnightSeconds = 0.0
-        var preMidnightGallons = 0.0
-        var preMidnightPairedMiles = 0.0
-        // Attribute only the post-midnight portion of a continuous Torque trip.
-        // Do not extrapolate across missing samples, process restarts or resets.
-        if (today.has("rolloverFromDate")) {
-            val previousEpoch = today.optLong("rolloverPreviousEpoch", 0L)
-            val currentEpoch = System.currentTimeMillis()
-            val midnightEpoch = LocalDate.now().atStartOfDay(ZoneId.systemDefault())
-                .toInstant().toEpochMilli()
-            val oldMiles = today.optDouble("tripBaselineMiles", Double.NaN)
-            val oldSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
-            val oldGallons = today.optDouble("tripBaselineGallons", Double.NaN)
-            val oldFuelMiles = today.optDouble("tripFuelBaselineMiles", Double.NaN)
-            val canSplit = today.optString("rolloverFromDate") ==
-                LocalDate.now().minusDays(1).toString() &&
-                previousEpoch >= midnightEpoch - 120_000L &&
-                previousEpoch < midnightEpoch &&
-                currentEpoch > midnightEpoch &&
-                currentEpoch - previousEpoch <= 120_000L &&
-                dailyLastAcceptedMs != 0L &&
-                oldMiles.isFinite() && oldSeconds.isFinite() &&
-                miles >= oldMiles && seconds >= oldSeconds
-            if (canSplit) {
-                val fraction = (midnightEpoch - previousEpoch).toDouble() /
-                    (currentEpoch - previousEpoch).toDouble()
-                preMidnightMiles = (miles - oldMiles) * fraction
-                preMidnightSeconds = (seconds - oldSeconds) * fraction
-                today.put("tripBaselineMiles", oldMiles + preMidnightMiles)
-                today.put("tripBaselineSeconds", oldSeconds + (seconds - oldSeconds) * fraction)
-                if (currentGallons != null && oldGallons.isFinite() &&
-                    currentGallons >= oldGallons) {
-                    today.put("tripBaselineGallons",
-                        oldGallons + (currentGallons - oldGallons) * fraction)
-                    preMidnightGallons = (currentGallons - oldGallons) * fraction
-                    preMidnightPairedMiles = (miles - oldMiles) * fraction
-                    if (oldFuelMiles.isFinite()) {
-                        today.put("tripFuelBaselineMiles",
-                            oldFuelMiles + (miles - oldFuelMiles) * fraction)
-                    }
-                } else {
-                    today.remove("tripBaselineGallons")
-                    today.remove("tripFuelBaselineMiles")
-                }
-                DiagnosticLog.event("DAILY_MIDNIGHT_SPLIT", "fraction=$fraction")
-            } else {
-                today.put("tripBaselineMiles", miles)
-                today.put("tripBaselineSeconds", seconds)
-                if (currentGallons != null) {
-                    today.put("tripBaselineGallons", currentGallons)
-                    today.put("tripFuelBaselineMiles", miles)
-                } else {
-                    today.remove("tripBaselineGallons")
-                    today.remove("tripFuelBaselineMiles")
-                }
-                DiagnosticLog.event("DAILY_MIDNIGHT_REBASE", "unverified interval")
+    private fun accounting(): JSONObject {
+        state.optJSONObject("tripAccounting")?.let { return it }
+        val legacy = state.optJSONObject("daily")
+        val result = JSONObject()
+        if (legacy != null) {
+            for (key in listOf("tripBaselineMiles", "tripBaselineSeconds",
+                "tripBaselineGallons", "tripFuelBaselineMiles", "tripSampleEpochMs")) {
+                if (legacy.has(key)) result.put(key, legacy.get(key))
             }
-            today.remove("rolloverFromDate")
-            today.remove("rolloverPreviousEpoch")
+            if (legacy.has("tripBaselineGallons")) {
+                result.put("fuelBaselineSeconds", legacy.optDouble("tripBaselineSeconds", 0.0))
+                result.put("fuelBaselineEpochMs", legacy.optLong("tripSampleEpochMs", 0L))
+            }
         }
-        val previousMiles = today.optDouble("tripBaselineMiles", Double.NaN)
-        val previousSeconds = today.optDouble("tripBaselineSeconds", Double.NaN)
-        val previousGallons = today.optDouble("tripBaselineGallons", Double.NaN)
-        // Keep the highest confirmed cumulative fuel within a Torque trip.
-        // Recomputed trip MPG can make miles/MPG fall temporarily; counting
-        // its later recovery again would inflate daily fuel consumption.
-        val previousFuelMiles = today.optDouble("tripFuelBaselineMiles", Double.NaN)
-        val baselineKnown = previousMiles.isFinite() && previousSeconds.isFinite()
-        val reset = baselineKnown && (miles + 0.01 < previousMiles ||
-            seconds + 0.5 < previousSeconds)
+        // Existing totals and completed tanks remain intact.
+        if (!state.has("mpgMiles")) state.put("mpgMiles", state.optDouble("miles", 0.0))
+        state.put("tripAccounting", result)
+        return result
+    }
+
+    private fun readTripCounter(ts: ITorqueService, pid: String, maximum: Double,
+                                now: Long, wall: Long): TripReading? = try {
+        val value = read(ts, pid)
+        val token = ts.getPIDUpdateTime(arrayOf(pid)).firstOrNull() ?: 0L
+        val previous = observedCounters[pid]
+        if (value == null || value > maximum || token <= 0L ||
+            (token >= 1_000_000_000_000L && (wall - token > tripCounterFreshnessMs || token - wall > 5_000L))) {
+            null
+        } else if (previous != null && previous.reading.token == token) {
+            // Unchanged cache may supply a stationary distance, but cannot
+            // authenticate a changed value or indefinitely extend freshness.
+            previous.reading.takeIf {
+                it.value == value && now - previous.changedAt <= tripCounterFreshnessMs
+            }
+        } else {
+            TripReading(value, token).also { observedCounters[pid] = ObservedCounter(it, now) }
+        }
+    } catch (_: Exception) { null }
+
+    private fun allowedFuel(seconds: Double): Double =
+        maxFuelGallonsPerHour * (seconds.coerceAtLeast(0.0) + 5.0) / 3600.0 + 0.005
+
+    private fun clearFuelAnchor(base: JSONObject) {
+        for (key in listOf("tripBaselineGallons", "tripFuelBaselineMiles",
+            "fuelBaselineSeconds", "fuelBaselineEpochMs", "fuelToken")) base.remove(key)
+    }
+
+    private fun clearPendingFuel(scope: JSONObject) {
+        val pending = scope.optDouble("pendingFuelMiles", 0.0)
+        if (pending > 0.0) {
+            scope.put("unmatchedFuelMiles", scope.optDouble("unmatchedFuelMiles", 0.0) + pending)
+        }
+        scope.remove("pendingFuelMiles")
+    }
+
+    private fun clearPendingFuelAll(today: JSONObject) {
+        clearPendingFuel(today)
+        clearPendingFuel(trip3())
+        clearPendingFuel(state)
+    }
+
+    private fun setFuelAnchor(base: JSONObject, gallons: Double, miles: Double,
+                              seconds: Double, epoch: Long, token: Long) {
+        base.put("tripBaselineGallons", gallons)
+        base.put("tripFuelBaselineMiles", miles)
+        base.put("fuelBaselineSeconds", seconds)
+        base.put("fuelBaselineEpochMs", epoch)
+        base.put("fuelToken", token)
+    }
+
+    // Only short, continuous intervals may be apportioned across a reset or
+    // midnight. For an ambiguous longer crossing, omit that scope's increment.
+    private fun fractionAfter(cutoff: Long, from: Long, to: Long, continuous: Boolean): Double {
+        if (cutoff <= from || cutoff <= 0L) return 1.0
+        if (cutoff >= to || from <= 0L || !continuous || to - from > maxSplitMs) return 0.0
+        return (to - cutoff).toDouble() / (to - from).toDouble()
+    }
+
+    private fun distribute(scope: JSONObject, miles: Double, seconds: Double,
+                           gallons: Double?, fuelFraction: Double, seedOnly: Boolean) {
+        val priorMiles = scope.optDouble("miles", 0.0)
+        if (!scope.has("mpgMiles")) scope.put("mpgMiles", priorMiles)
+        val pending = scope.optDouble("pendingFuelMiles", 0.0) + miles
+        scope.put("miles", priorMiles + miles)
+        scope.put("seconds", scope.optDouble("seconds", 0.0) + seconds)
+        scope.put("pendingFuelMiles", pending)
+        if (seedOnly || (gallons != null && fuelFraction <= 0.0)) {
+            // No defensible fuel allocation for the pending distance.
+            clearPendingFuel(scope)
+        } else if (gallons != null) {
+            scope.put("gallons", scope.optDouble("gallons", 0.0) + gallons * fuelFraction)
+            scope.put("mpgMiles", scope.optDouble("mpgMiles", 0.0) + pending)
+            scope.remove("pendingFuelMiles")
+            if (scope === state) scope.put("fuelRateSeen", true)
+        }
+    }
+
+    private fun recordTrip(distance: TripReading, time: TripReading, fuel: TripReading?,
+                           wall: Long, now: Long) {
+        val miles = distance.value
+        val seconds = time.value
+        val today = daily()
+        val roadTrip = trip3()
+        val base = accounting()
+        val oldMiles = base.optDouble("tripBaselineMiles", Double.NaN)
+        val oldSeconds = base.optDouble("tripBaselineSeconds", Double.NaN)
+        val previousEpoch = base.optLong("tripSampleEpochMs", 0L)
+        val known = oldMiles.isFinite() && oldSeconds.isFinite() && previousEpoch > 0L
+        val elapsed = (wall - previousEpoch).coerceAtLeast(0L) / 1000.0
+        val reset = known && (miles + 0.01 < oldMiles || seconds + 0.5 < oldSeconds)
         if (reset) {
-            // One backward snapshot may be a stale Torque cache. Confirm before rebasing.
-            dailyResetCandidate++
-            if (dailyResetCandidate < 2) {
+            val sampleKey = distance.token to time.token
+            val candidate = resetCandidate
+            if (candidate == null) {
+                resetCandidate = sampleKey
                 DiagnosticLog.event("DAILY_TRIP_SAMPLE_REJECTED", "reason=possible_reset")
                 return
             }
-        } else {
-            dailyResetCandidate = 0
-        }
-        val first = !baselineKnown || reset || dailyLastAcceptedMs == 0L
-        // On a confirmed Torque reset, the new counters are already part of
-        // today's driving. Count only a demonstrably fresh, short first segment.
+            if (candidate == sampleKey) return
+        } else resetCandidate = null
+
+        // A long gap with counters that could belong to a completely new trip
+        // is ambiguous. Rebase rather than count an unknown trip twice.
+        val ambiguous = known && !reset && elapsed > 120.0 && seconds <= elapsed + 30.0
+        val first = !known || ambiguous || wall < previousEpoch
         val includeFirst = reset && seconds <= 120.0 && miles <= 2.0 &&
-            dailyLastAcceptedMs != 0L
-        val milesDelta = if (includeFirst) miles else if (first) 0.0 else miles - previousMiles
-        val secondsDelta = if (includeFirst) seconds else if (first) 0.0 else seconds - previousSeconds
-        val elapsedSeconds = if (dailyLastAcceptedMs == 0L) 0.0
-            else (now - dailyLastAcceptedMs).coerceAtLeast(0L) / 1000.0
-        // Permit a generous 180 mph and 30 seconds of polling lag; never
-        // allow a single bad Torque snapshot to inflate persistent daily totals.
-        if (!first && (milesDelta < 0.0 || secondsDelta < 0.0 ||
-                milesDelta > (elapsedSeconds + 30.0) * 180.0 / 3600.0 ||
-                secondsDelta > elapsedSeconds + 30.0)) {
+            seconds <= elapsed + 30.0
+        var milesDelta = if (includeFirst) miles else if (first || reset) 0.0 else (miles - oldMiles).coerceAtLeast(0.0)
+        var secondsDelta = if (includeFirst) seconds else if (first || reset) 0.0 else (seconds - oldSeconds).coerceAtLeast(0.0)
+        if (!first && !reset && (milesDelta > (elapsed + 30.0) * 180.0 / 3600.0 ||
+            secondsDelta > elapsed + 30.0)) {
             DiagnosticLog.event("DAILY_TRIP_SAMPLE_REJECTED",
-                "reason=implausible_delta miles=$milesDelta seconds=$secondsDelta elapsed=$elapsedSeconds")
+                "reason=implausible_delta miles=$milesDelta seconds=$secondsDelta elapsed=$elapsed")
             return
         }
-        var fuelIncrement = 0.0
-        var pairedIncrement = 0.0
-        if (currentGallons != null && currentGallons.isFinite()) {
-            // Reset or first observation establishes a baseline, never an
-            // unverified catch-up. On confirmed short trip resets include the
-            // short first segment just as the distance/time counters do.
+
+        var from = previousEpoch
+        if (reset || first) {
+            clearPendingFuelAll(today)
+            clearFuelAnchor(base)
             if (includeFirst) {
-                fuelIncrement = currentGallons
-                pairedIncrement = miles
-                today.put("tripBaselineGallons", currentGallons)
-                today.put("tripFuelBaselineMiles", miles)
-            } else if (first || !previousGallons.isFinite()) {
-                today.put("tripBaselineGallons", currentGallons)
-                today.put("tripFuelBaselineMiles", miles)
-            } else {
-                val gallonsDelta = currentGallons - previousGallons
-                if (gallonsDelta > 0.0) {
-                    val pairedMiles = if (previousFuelMiles.isFinite())
-                        (miles - previousFuelMiles).coerceAtLeast(0.0) else milesDelta.coerceAtLeast(0.0)
-                    fuelIncrement = gallonsDelta
-                    pairedIncrement = pairedMiles
-                    today.put("tripBaselineGallons", currentGallons)
-                    today.put("tripFuelBaselineMiles", miles)
-                } else if (gallonsDelta < 0.0) {
-                    // Preserve the high-water mark so a rebound is not
-                    // mistaken for newly consumed fuel.
-                    noteFuelHold(gallonsDelta, currentGallons, previousGallons, now)
+                from = (wall - (seconds * 1000.0).toLong()).coerceAtMost(wall)
+                // Fresh short sessions may include fuel before their first
+                // accepted reading, including zero-distance remote starts.
+                setFuelAnchor(base, 0.0, 0.0, 0.0, from, 0L)
+            }
+            if (reset) DiagnosticLog.event("DAILY_TRIP_RESET_DETECTED", "confirmed trip counters restarted includeFirst=$includeFirst")
+            else if (ambiguous) DiagnosticLog.event("FUEL_TRIP_BASELINE_REBASE", "reason=ambiguous_gap elapsedSeconds=$elapsed")
+        }
+
+        val continuous = known && !first && !reset || includeFirst
+        val midnight = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val dayCutoff = if (today.has("rolloverFromDate") || from < midnight) midnight else 0L
+        val dayFraction = fractionAfter(dayCutoff, from, wall, continuous)
+        if (today.has("rolloverFromDate")) {
+            if (dayFraction in 0.0..1.0 && dayFraction > 0.0 && dayFraction < 1.0)
+                DiagnosticLog.event("DAILY_MIDNIGHT_SPLIT", "fractionBefore=${1.0 - dayFraction}")
+            else if (dayFraction == 0.0)
+                DiagnosticLog.event("DAILY_MIDNIGHT_REBASE", "unverified interval")
+            today.remove("rolloverFromDate")
+            today.remove("rolloverPreviousEpoch")
+        }
+
+        val oldGallons = base.optDouble("tripBaselineGallons", Double.NaN)
+        val oldFuelEpoch = base.optLong("fuelBaselineEpochMs", 0L)
+        val oldFuelSeconds = base.optDouble("fuelBaselineSeconds", 0.0)
+        val oldToken = base.optLong("fuelToken", 0L)
+        var acceptedFuel: Double? = null
+        var seedOnly = false
+        if (fuel != null && fuel.token != oldToken) {
+            val gallons = fuel.value
+            val delta = if (oldGallons.isFinite()) gallons - oldGallons else 0.0
+            val budgetSeconds = if (oldGallons.isFinite()) (seconds - oldFuelSeconds).coerceAtLeast(0.0)
+                else seconds
+            val fromCurrentSession = !reset || fuel.token < 1_000_000_000_000L ||
+                fuel.token >= from - 5_000L
+            when {
+                !fromCurrentSession || gallons > allowedFuel(seconds) ||
+                    delta > allowedFuel(budgetSeconds) -> {
+                    noteFuelReject("implausible_fuel", now,
+                        "gallons=$gallons delta=$delta seconds=$seconds budgetSeconds=$budgetSeconds")
+                }
+                !oldGallons.isFinite() -> {
+                    // No previous value: establish the new-source baseline
+                    // without retroactively assigning unknown fuel.
+                    setFuelAnchor(base, gallons, miles, seconds, wall, fuel.token)
+                    seedOnly = true
+                }
+                delta < 0.0 -> noteFuelHold(delta, gallons, oldGallons, now)
+                else -> {
+                    acceptedFuel = delta
+                    setFuelAnchor(base, gallons, miles, seconds, wall, fuel.token)
                 }
             }
-        } else if (reset) {
-            // Never carry a previous session's fuel baseline into a reset.
-            today.remove("tripBaselineGallons")
-            today.remove("tripFuelBaselineMiles")
         }
-        // A temporarily missing fuel value within the same trip is not a reset.
-        addTripIncrement(today, milesDelta, secondsDelta, fuelIncrement, pairedIncrement)
-        val trip3State = trip3()
-        // Timestamp the first accepted accumulation; preserve an existing seeded start.
-        if (!trip3State.has("startedAt") && trip3State.optDouble("miles") == 0.0 &&
-            trip3State.optDouble("seconds") == 0.0 &&
-            (milesDelta + preMidnightMiles > 0.0 || secondsDelta + preMidnightSeconds > 0.0)) {
-            trip3State.put("startedAt", OffsetDateTime.now().toString())
+
+        val fuelFrom = if (oldFuelEpoch > 0L) oldFuelEpoch else from
+        val tripCutoff = roadTrip.optLong("fuelCutoffEpochMs", 0L)
+        val tankCutoff = state.optLong("fuelCutoffEpochMs", 0L)
+        val tripFraction = fractionAfter(tripCutoff, from, wall, continuous)
+        val tankFraction = fractionAfter(tankCutoff, from, wall, continuous)
+        // Daily's fuel interval may begin earlier than the last distance sample
+        // when fuel data was temporarily absent. Split only verified short gaps.
+        distribute(today, milesDelta * dayFraction, secondsDelta * dayFraction, acceptedFuel,
+            fractionAfter(midnight, fuelFrom, wall, continuous), seedOnly)
+        if (!roadTrip.has("startedAt") && (milesDelta > 0.0 || secondsDelta > 0.0 || (acceptedFuel ?: 0.0) > 0.0))
+            roadTrip.put("startedAt", OffsetDateTime.now().toString())
+        distribute(roadTrip, milesDelta * tripFraction, secondsDelta * tripFraction, acceptedFuel,
+            fractionAfter(tripCutoff, fuelFrom, wall, continuous), seedOnly)
+        distribute(state, milesDelta * tankFraction, secondsDelta * tankFraction, acceptedFuel,
+            fractionAfter(tankCutoff, fuelFrom, wall, continuous), seedOnly)
+
+        base.put("tripBaselineMiles", miles)
+        base.put("tripBaselineSeconds", seconds)
+        base.put("tripSampleEpochMs", wall)
+        for (key in listOf("tripBaselineMiles", "tripBaselineSeconds", "tripBaselineGallons",
+            "tripFuelBaselineMiles", "tripSampleEpochMs")) {
+            if (base.has(key)) today.put(key, base.get(key)) else today.remove(key)
         }
-        addTripIncrement(trip3State, milesDelta + preMidnightMiles,
-            secondsDelta + preMidnightSeconds, fuelIncrement + preMidnightGallons,
-            pairedIncrement + preMidnightPairedMiles)
-        today.put("tripBaselineMiles", miles)
-        today.put("tripBaselineSeconds", seconds)
-        today.put("tripSampleEpochMs", System.currentTimeMillis())
-        dailyLastAcceptedMs = now
-        if (lastTripCheckpointMs == 0L || now - lastTripCheckpointMs >= 60_000L) {
+        resetCandidate = null
+        if (reset || first || lastTripCheckpointMs == 0L || now - lastTripCheckpointMs >= 60_000L) {
             save()
             lastTripCheckpointMs = now
         }
-        if (reset) {
-            dailyResetCandidate = 0
-            DiagnosticLog.event("DAILY_TRIP_RESET_DETECTED", "confirmed trip counters restarted")
+    }
+
+    private var lastFuelRejectMs: Long? = null
+    private fun noteFuelReject(reason: String, now: Long, details: String) {
+        val previous = lastFuelRejectMs
+        if (previous == null || now - previous >= 60_000L) {
+            lastFuelRejectMs = now
+            DiagnosticLog.event("FUEL_CUMULATIVE_REJECTED", "reason=$reason $details")
         }
     }
 
@@ -290,7 +354,6 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     private var holdCount = 0
     private var holdStartedMs = 0L
     private var holdWorst = 0.0
-    private var tankResetCandidate = 0
 
     private fun noteFuelHold(delta: Double, current: Double, baseline: Double, now: Long) {
         if (holdCount == 0) holdStartedMs = now
@@ -332,17 +395,16 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         // Old files without a source marker contain the legacy derived baseline.
         val previous = state.optString("tripFuelSource", "ff1205_derived")
         if (source == previous) return
-        daily().remove("tripBaselineGallons")
-        daily().remove("tripFuelBaselineMiles")
-        previousTripGallons = null
+        val today = daily()
+        clearFuelAnchor(accounting())
+        clearPendingFuelAll(today)
+        today.remove("tripBaselineGallons")
+        today.remove("tripFuelBaselineMiles")
         state.put("tripFuelSource", source)
         DiagnosticLog.event("FUEL_SOURCE_CHANGE", "old=$previous new=$source")
         save()
     }
 
-    private var previousTripMiles: Double? = null
-    private var previousTripGallons: Double? = null
-    private var previousTripSeconds: Double? = null
     private var candidate: Double? = null
     private var candidateCount = 0
     private var candidateBaseline: Double? = null
@@ -436,7 +498,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             }.format(java.util.Date(id))
             val cells = listOf(
                 id.toString(), date, miles.toString(), gallons?.toString() ?: "",
-                gallons?.takeIf { it > 0.0 }?.let { (miles / it).toString() } ?: "",
+                gallons?.takeIf { it > 0.0 }?.let { (tank.optDouble("mpgMiles", miles) / it).toString() } ?: "",
                 tank.getLong("seconds").toString(),
                 if (tank.has("beforeLevel")) tank.getDouble("beforeLevel").toString() else "",
                 if (tank.has("afterLevel")) tank.getDouble("afterLevel").toString() else ""
@@ -504,10 +566,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         // Persist the latest confirmed baseline and tank counters on normal stop.
         save()
         lastSampleMs = 0L
-        previousTripMiles = null
-        previousTripGallons = null
-        previousTripSeconds = null
-        tankResetCandidate = 0
+        observedCounters.clear()
+        resetCandidate = null
         candidate = null
         candidateCount = 0
         candidateBaseline = null
@@ -535,7 +595,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             state.optBoolean("fuelRateSeen", false)) state.optDouble("gallons") else null
         val miles = state.optDouble("miles")
         return Summary(-1L, miles, gallons, state.optLong("seconds"),
-            gallons?.takeIf { it > 0.0 }?.let { miles / it })
+            gallons?.takeIf { it > 0.0 }?.let { state.optDouble("mpgMiles", miles) / it })
     }
 
     @Synchronized fun acknowledge(id: Long) {
@@ -556,7 +616,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     private fun summaryFromJson(o: JSONObject): Summary {
         val gallons = if (o.isNull("gallons") || !o.has("gallons")) null else o.getDouble("gallons")
         return Summary(o.getLong("id"), o.getDouble("miles"), gallons,
-            o.getLong("seconds"), gallons?.takeIf { it > 0.0 }?.let { o.getDouble("miles") / it })
+            o.getLong("seconds"), gallons?.takeIf { it > 0.0 }?.let { o.optDouble("mpgMiles", o.getDouble("miles")) / it })
     }
 
     private fun read(ts: ITorqueService, pid: String): Double? = try {
@@ -574,79 +634,48 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             lastSampleMs = 0L
             return
         }
-        // These are the same raw Torque trip values displayed on the dashboards.
-        daily() // Advance the local date before consuming the next sample.
-        val tripKm = read(ts, "ff1204,0")
-        val tripSeconds = read(ts, "ff1266,0")
-        val tripMiles = tripKm?.times(0.621371192)
+        val wall = System.currentTimeMillis()
+        daily()
+        val distance = readTripCounter(ts, "ff1204,0", 1_000_000.0, now, wall)
+            ?.let { TripReading(it.value * 0.621371192, it.token) }
+        val time = readTripCounter(ts, "ff1266,0", 100_000_000.0, now, wall)
         val direct = useCumulativeFuel(ts, now)
-        // If the direct source was already established in a previous process,
-        // do not fall back and discard its baseline on a temporary metadata error.
         val awaitingDirect = !direct && state.optString("tripFuelSource") == "ff1271_liters"
         if (!awaitingDirect) selectFuelSource(direct)
-        val tripGallons = if (awaitingDirect) null else if (direct) {
-            read(ts, "ff1271,0")?.takeIf { it < 1_000_000.0 }?.div(3.785411784)
-        } else {
-            val tripMpg = read(ts, "ff1205,0")?.takeIf { it > 0.0 && it < 1000.0 }
-            if (tripMiles != null && tripMpg != null) tripMiles / tripMpg else null
-        }
-
-        if (tripMiles != null && tripSeconds != null) {
-            recordDailyTrip(tripMiles, tripSeconds, tripGallons)
-        }
-
-        if (tripMiles != null && tripSeconds != null) {
-            val oldMiles = previousTripMiles
-            val oldSeconds = previousTripSeconds
-            val oldGallons = previousTripGallons
-            val reset = (oldMiles != null && tripMiles + 0.01 < oldMiles) ||
-                (oldSeconds != null && tripSeconds + 0.5 < oldSeconds)
-            if (reset) tankResetCandidate++ else tankResetCandidate = 0
-            if (reset && tankResetCandidate < 2) {
-                // Do not rebase tank accounting on a single stale snapshot.
-            } else {
-                if (reset) {
-                    previousTripGallons = null
-                    tankResetCandidate = 0
-                    // A confirmed fresh short trip contributes even at zero miles.
-                    if (tripSeconds <= 120.0 && tripMiles <= 2.0) {
-                        state.put("miles", state.optDouble("miles") + tripMiles)
-                        state.put("seconds", state.optLong("seconds") + tripSeconds.toLong())
-                        if (tripGallons != null) {
-                            state.put("gallons", state.optDouble("gallons") + tripGallons)
-                            state.put("fuelRateSeen", true)
-                        }
-                    }
-                    DiagnosticLog.event("FUEL_TRIP_RESET", "Torque trip distance/time reset")
-                } else if (oldMiles != null && oldSeconds != null) {
-                    val milesDelta = (tripMiles - oldMiles).coerceAtLeast(0.0)
-                    val secondsDelta = (tripSeconds - oldSeconds).coerceAtLeast(0.0)
-                    state.put("miles", state.optDouble("miles") + milesDelta)
-                    state.put("seconds", state.optLong("seconds") + secondsDelta.toLong())
-                    if (tripGallons != null && oldGallons != null) {
-                        val gallonsDelta = tripGallons - oldGallons
-                        if (gallonsDelta >= 0.0) {
-                            state.put("gallons", state.optDouble("gallons") + gallonsDelta)
-                            state.put("fuelRateSeen", true)
-                        } else if (gallonsDelta < -0.02) {
-                            DiagnosticLog.event("FUEL_TRIP_GALLONS_DECREASE", "delta=$gallonsDelta")
-                        }
-                    }
-                }
-                previousTripMiles = tripMiles
-                if (tripGallons != null &&
-                    (previousTripGallons == null || tripGallons >= previousTripGallons!!)) {
-                    previousTripGallons = tripGallons
-                }
-                previousTripSeconds = tripSeconds
-            }
-        }
-        lastSampleMs = now
         val lastReport = lastFuelSourceReportMs
-        if (direct && (lastReport == null || now - lastReport >= 60_000L)) {
+        val compare = lastReport == null || now - lastReport >= 60_000L
+        // FF1205 remains Torque-owned. When direct fuel is available, read
+        // session MPG only for the periodic comparison, not each two-second poll.
+        val mpg = if ((!direct && !awaitingDirect) || (direct && compare))
+            readTripCounter(ts, "ff1205,0", 1000.0, now, wall)?.takeIf { it.value > 0.0 }
+            else null
+        val derived = if (distance != null && mpg != null)
+            TripReading(distance.value / mpg.value, mpg.token) else null
+        val fuel = when {
+            awaitingDirect -> null
+            direct -> readTripCounter(ts, "ff1271,0", 1_000_000.0, now, wall)
+                ?.let { TripReading(it.value / 3.785411784, it.token) }
+            else -> derived
+        }
+        if (distance != null && time != null) {
+            if (fuel == null) noteFuelReject("missing_or_stale_fuel", now, "source=${state.optString("tripFuelSource", "ff1205_derived")}")
+            recordTrip(distance, time, fuel, wall, now)
+        } else noteFuelReject("missing_or_stale_trip_counter", now, "distance=${distance?.value} time=${time?.value}")
+        lastSampleMs = now
+        if (compare) {
             lastFuelSourceReportMs = now
+            val directGallons = if (direct) fuel?.value else null
+            val derivedGallons = derived?.value
+            val difference = if (directGallons != null && derivedGallons != null)
+                directGallons - derivedGallons else null
+            val differencePct = if (difference != null && derivedGallons != null && derivedGallons > 0.0)
+                difference / derivedGallons * 100.0 else null
+            val directMpg = if (distance != null && directGallons != null && directGallons > 0.0)
+                distance.value / directGallons else null
             DiagnosticLog.event("FUEL_CUMULATIVE_SAMPLE",
-                "sessionMiles=$tripMiles sessionSeconds=$tripSeconds sessionGallons=$tripGallons dailyGallons=${daily().optDouble("gallons")} trip3Gallons=${trip3().optDouble("gallons")} tankGallons=${state.optDouble("gallons")}")
+                "source=${state.optString("tripFuelSource", "ff1205_derived")} sessionMiles=${distance?.value} sessionSeconds=${time?.value} sessionGallons=${fuel?.value} dailyGallons=${daily().optDouble("gallons")} trip3Gallons=${trip3().optDouble("gallons")} tankGallons=${state.optDouble("gallons")}")
+            if (direct) DiagnosticLog.event("FUEL_METHOD_COMPARE",
+                "sessionMiles=${distance?.value} sessionMpg=${mpg?.value} directGallons=$directGallons derivedGallons=$derivedGallons deltaGallons=$difference deltaPct=$differencePct directMpg=$directMpg")
         }
 
         // Level availability gates only refill detection, not any trip totals.
@@ -766,6 +795,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val finished = JSONObject().put("id", id)
             .put("miles", state.optDouble("miles"))
             .put("gallons", gallons ?: JSONObject.NULL)
+            .put("mpgMiles", state.optDouble("mpgMiles", state.optDouble("miles")))
             .put("seconds", state.optLong("seconds"))
             .put("beforeLevel", before).put("afterLevel", after)
         next.getJSONArray("completed").put(finished)
@@ -778,6 +808,10 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         next.put("miles", 0.0)
         next.put("gallons", 0.0)
         next.put("seconds", 0L)
+        next.put("mpgMiles", 0.0)
+        next.remove("pendingFuelMiles")
+        next.remove("unmatchedFuelMiles")
+        next.put("fuelCutoffEpochMs", id)
         next.put("fuelRateValid", true)
         next.put("fuelRateSeen", false)
         commit(next)
