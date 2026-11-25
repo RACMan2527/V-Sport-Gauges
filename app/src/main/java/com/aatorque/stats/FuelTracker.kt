@@ -286,6 +286,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
 
     private var fuelMetadataVerified = false
     private var lastFuelMetadataCheckMs: Long? = null
+    private var lastFuelSourceReportMs: Long? = null
     private var holdCount = 0
     private var holdStartedMs = 0L
     private var holdWorst = 0.0
@@ -579,8 +580,11 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val tripSeconds = read(ts, "ff1266,0")
         val tripMiles = tripKm?.times(0.621371192)
         val direct = useCumulativeFuel(ts, now)
-        selectFuelSource(direct)
-        val tripGallons = if (direct) {
+        // If the direct source was already established in a previous process,
+        // do not fall back and discard its baseline on a temporary metadata error.
+        val awaitingDirect = !direct && state.optString("tripFuelSource") == "ff1271_liters"
+        if (!awaitingDirect) selectFuelSource(direct)
+        val tripGallons = if (awaitingDirect) null else if (direct) {
             read(ts, "ff1271,0")?.takeIf { it < 1_000_000.0 }?.div(3.785411784)
         } else {
             val tripMpg = read(ts, "ff1205,0")?.takeIf { it > 0.0 && it < 1000.0 }
@@ -601,43 +605,49 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             if (reset && tankResetCandidate < 2) {
                 // Do not rebase tank accounting on a single stale snapshot.
             } else {
-            if (reset) {
-                previousTripGallons = null
-                tankResetCandidate = 0
-                // A confirmed fresh short trip contributes even at zero miles.
-                if (tripSeconds <= 120.0 && tripMiles <= 2.0) {
-                    state.put("miles", state.optDouble("miles") + tripMiles)
-                    state.put("seconds", state.optLong("seconds") + tripSeconds.toLong())
-                    if (tripGallons != null) {
-                        state.put("gallons", state.optDouble("gallons") + tripGallons)
-                        state.put("fuelRateSeen", true)
+                if (reset) {
+                    previousTripGallons = null
+                    tankResetCandidate = 0
+                    // A confirmed fresh short trip contributes even at zero miles.
+                    if (tripSeconds <= 120.0 && tripMiles <= 2.0) {
+                        state.put("miles", state.optDouble("miles") + tripMiles)
+                        state.put("seconds", state.optLong("seconds") + tripSeconds.toLong())
+                        if (tripGallons != null) {
+                            state.put("gallons", state.optDouble("gallons") + tripGallons)
+                            state.put("fuelRateSeen", true)
+                        }
+                    }
+                    DiagnosticLog.event("FUEL_TRIP_RESET", "Torque trip distance/time reset")
+                } else if (oldMiles != null && oldSeconds != null) {
+                    val milesDelta = (tripMiles - oldMiles).coerceAtLeast(0.0)
+                    val secondsDelta = (tripSeconds - oldSeconds).coerceAtLeast(0.0)
+                    state.put("miles", state.optDouble("miles") + milesDelta)
+                    state.put("seconds", state.optLong("seconds") + secondsDelta.toLong())
+                    if (tripGallons != null && oldGallons != null) {
+                        val gallonsDelta = tripGallons - oldGallons
+                        if (gallonsDelta >= 0.0) {
+                            state.put("gallons", state.optDouble("gallons") + gallonsDelta)
+                            state.put("fuelRateSeen", true)
+                        } else if (gallonsDelta < -0.02) {
+                            DiagnosticLog.event("FUEL_TRIP_GALLONS_DECREASE", "delta=$gallonsDelta")
+                        }
                     }
                 }
-                DiagnosticLog.event("FUEL_TRIP_RESET", "Torque trip distance/time reset")
-            } else if (oldMiles != null && oldSeconds != null) {
-                val milesDelta = (tripMiles - oldMiles).coerceAtLeast(0.0)
-                val secondsDelta = (tripSeconds - oldSeconds).coerceAtLeast(0.0)
-                state.put("miles", state.optDouble("miles") + milesDelta)
-                state.put("seconds", state.optLong("seconds") + secondsDelta.toLong())
-                if (tripGallons != null && oldGallons != null) {
-                    val gallonsDelta = tripGallons - oldGallons
-                    if (gallonsDelta >= 0.0) {
-                        state.put("gallons", state.optDouble("gallons") + gallonsDelta)
-                        state.put("fuelRateSeen", true)
-                    } else if (gallonsDelta < -0.02) {
-                        DiagnosticLog.event("FUEL_TRIP_GALLONS_DECREASE", "delta=$gallonsDelta")
-                    }
+                previousTripMiles = tripMiles
+                if (tripGallons != null &&
+                    (previousTripGallons == null || tripGallons >= previousTripGallons!!)) {
+                    previousTripGallons = tripGallons
                 }
-            }
-            previousTripMiles = tripMiles
-            if (tripGallons != null &&
-                (previousTripGallons == null || tripGallons >= previousTripGallons!!)) {
-                previousTripGallons = tripGallons
-            }
-            previousTripSeconds = tripSeconds
+                previousTripSeconds = tripSeconds
             }
         }
         lastSampleMs = now
+        val lastReport = lastFuelSourceReportMs
+        if (direct && (lastReport == null || now - lastReport >= 60_000L)) {
+            lastFuelSourceReportMs = now
+            DiagnosticLog.event("FUEL_CUMULATIVE_SAMPLE",
+                "sessionMiles=$tripMiles sessionSeconds=$tripSeconds sessionGallons=$tripGallons dailyGallons=${daily().optDouble("gallons")} trip3Gallons=${trip3().optDouble("gallons")} tankGallons=${state.optDouble("gallons")}")
+        }
 
         // Level availability gates only refill detection, not any trip totals.
         val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
