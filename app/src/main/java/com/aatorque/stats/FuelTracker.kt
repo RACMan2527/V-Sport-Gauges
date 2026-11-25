@@ -17,8 +17,9 @@ import java.time.OffsetDateTime
 import java.time.ZoneId
 
 /**
- * Tank accounting from verified Torque trip PIDs ONLY:
- * ff1204 distance (km), ff1205 MPG (US), ff1266 time (seconds).
+ * Trip accounting from Torque trip distance (ff1204), time (ff1266)
+ * and cumulative fuel (ff1271, liters), after verifying Torque metadata.
+ * Until the cumulative PID is identified, retain the legacy MPG-derived fallback.
  * 012F fuel level is used solely for refill detection; no 010D or 015E.
  * Cached Torque trip values are read without requesting extra ECU polls.
  */
@@ -81,7 +82,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             "VS_TRIP3_TIME" -> trip.optDouble("seconds")
             "VS_TRIP3_GALLONS" -> trip.optDouble("gallons")
             "VS_TRIP3_MPG" -> trip.optDouble("gallons").takeIf { it > 0.0 }
-                ?.let { trip.optDouble("mpgMiles") / it } ?: 0.0
+                ?.let { trip.optDouble("miles") / it } ?: 0.0
             else -> 0.0
         }
     }
@@ -102,7 +103,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             "VS_DAILY_GALLONS" -> today.optDouble("gallons")
             "VS_DAILY_MPG" -> {
                 val gallons = today.optDouble("gallons")
-                if (gallons > 0.0) today.optDouble("mpgMiles") / gallons else 0.0
+                if (gallons > 0.0) today.optDouble("miles") / gallons else 0.0
             }
             else -> 0.0
         }
@@ -120,11 +121,10 @@ class FuelTracker(context: Context, private var service: TorqueService) {
     private var dailyResetCandidate = 0
     private var lastTripCheckpointMs = 0L
 
-    private fun recordDailyTrip(miles: Double, seconds: Double, mpg: Double?) {
+    private fun recordDailyTrip(miles: Double, seconds: Double, currentGallons: Double?) {
         if (!miles.isFinite() || !seconds.isFinite() || miles < 0.0 || seconds < 0.0) return
         val now = SystemClock.elapsedRealtime()
         val today = daily()
-        val currentGallons = mpg?.takeIf { it.isFinite() && it > 0.0 }?.let { miles / it }
         var preMidnightMiles = 0.0
         var preMidnightSeconds = 0.0
         var preMidnightGallons = 0.0
@@ -250,16 +250,15 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 } else if (gallonsDelta < 0.0) {
                     // Preserve the high-water mark so a rebound is not
                     // mistaken for newly consumed fuel.
-                    DiagnosticLog.event("DAILY_TRIP_FUEL_REBASE",
-                        "delta=$gallonsDelta mpg=$mpg")
+                    noteFuelHold(gallonsDelta, currentGallons, previousGallons, now)
                 }
             }
-        } else {
-            // Fuel-derived MPG is unavailable; restart its paired interval
-            // once a valid MPG sample returns.
+        } else if (reset) {
+            // Never carry a previous session's fuel baseline into a reset.
             today.remove("tripBaselineGallons")
             today.remove("tripFuelBaselineMiles")
         }
+        // A temporarily missing fuel value within the same trip is not a reset.
         addTripIncrement(today, milesDelta, secondsDelta, fuelIncrement, pairedIncrement)
         val trip3State = trip3()
         // Timestamp the first accepted accumulation; preserve an existing seeded start.
@@ -283,6 +282,61 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             dailyResetCandidate = 0
             DiagnosticLog.event("DAILY_TRIP_RESET_DETECTED", "confirmed trip counters restarted")
         }
+    }
+
+    private var fuelMetadataVerified = false
+    private var lastFuelMetadataCheckMs: Long? = null
+    private var holdCount = 0
+    private var holdStartedMs = 0L
+    private var holdWorst = 0.0
+    private var tankResetCandidate = 0
+
+    private fun noteFuelHold(delta: Double, current: Double, baseline: Double, now: Long) {
+        if (holdCount == 0) holdStartedMs = now
+        holdCount++
+        holdWorst = minOf(holdWorst, delta)
+        if (holdCount == 1 || now - holdStartedMs >= 60_000L) {
+            DiagnosticLog.event("DAILY_TRIP_FUEL_HOLD",
+                "count=$holdCount durationMs=${now - holdStartedMs} worstDelta=$holdWorst current=$current baseline=$baseline source=${state.optString("tripFuelSource")}")
+            if (holdCount > 1) {
+                holdCount = 0
+                holdWorst = 0.0
+            }
+        }
+    }
+
+    // The PID ID differs in older Torque inventories. Verify the actual API's
+    // long name and raw unit before interpreting any reading as liters.
+    private fun useCumulativeFuel(ts: ITorqueService, now: Long): Boolean {
+        if (fuelMetadataVerified) return true
+        val last = lastFuelMetadataCheckMs
+        if (last != null && now - last < 30_000L) return false
+        lastFuelMetadataCheckMs = now
+        val fields = try {
+            ts.getPIDInformation(arrayOf("ff1271,0")).firstOrNull()?.split(",")
+        } catch (_: Exception) { null }
+        val name = fields?.getOrNull(0)?.trim()?.lowercase(java.util.Locale.ROOT).orEmpty()
+        val unit = fields?.getOrNull(2)?.trim()?.lowercase(java.util.Locale.ROOT).orEmpty()
+        fuelMetadataVerified = name.contains("fuel") &&
+            (name.contains("used") || name.contains("consum")) &&
+            (name.contains("trip") || name.contains("session")) &&
+            unit in setOf("l", "liter", "liters", "litre", "litres")
+        DiagnosticLog.event("FUEL_CUMULATIVE_PID_CHECK",
+            "pid=ff1271,0 verified=$fuelMetadataVerified name=$name unit=$unit")
+        return fuelMetadataVerified
+    }
+
+    private fun selectFuelSource(direct: Boolean) {
+        val source = if (direct) "ff1271_liters" else "ff1205_derived"
+        // Old files without a source marker contain the legacy derived baseline.
+        val previous = state.optString("tripFuelSource", "ff1205_derived")
+        if (source == previous) return
+        daily().remove("tripBaselineGallons")
+        daily().remove("tripFuelBaselineMiles")
+        previousTripGallons = null
+        state.put("tripFuelSource", source)
+        DiagnosticLog.event("FUEL_SOURCE_CHANGE", "old=$previous new=$source")
+        save()
     }
 
     private var previousTripMiles: Double? = null
@@ -452,6 +506,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         previousTripMiles = null
         previousTripGallons = null
         previousTripSeconds = null
+        tankResetCandidate = 0
         candidate = null
         candidateCount = 0
         candidateBaseline = null
@@ -521,18 +576,20 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         // These are the same raw Torque trip values displayed on the dashboards.
         daily() // Advance the local date before consuming the next sample.
         val tripKm = read(ts, "ff1204,0")
-        val tripMpg = read(ts, "ff1205,0")?.takeIf { it > 0.0 && it < 1000.0 }
         val tripSeconds = read(ts, "ff1266,0")
         val tripMiles = tripKm?.times(0.621371192)
-        val tripGallons = if (tripMiles != null && tripMpg != null) tripMiles / tripMpg else null
-
-        if (tripMiles != null && tripSeconds != null) {
-            recordDailyTrip(tripMiles, tripSeconds, tripMpg)
+        val direct = useCumulativeFuel(ts, now)
+        selectFuelSource(direct)
+        val tripGallons = if (direct) {
+            read(ts, "ff1271,0")?.takeIf { it < 1_000_000.0 }?.div(3.785411784)
+        } else {
+            val tripMpg = read(ts, "ff1205,0")?.takeIf { it > 0.0 && it < 1000.0 }
+            if (tripMiles != null && tripMpg != null) tripMiles / tripMpg else null
         }
 
-        // Fuel-level availability must not gate daily trip accounting.
-        val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
-            ?: run { lastSampleMs = 0L; return }
+        if (tripMiles != null && tripSeconds != null) {
+            recordDailyTrip(tripMiles, tripSeconds, tripGallons)
+        }
 
         if (tripMiles != null && tripSeconds != null) {
             val oldMiles = previousTripMiles
@@ -540,8 +597,22 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             val oldGallons = previousTripGallons
             val reset = (oldMiles != null && tripMiles + 0.01 < oldMiles) ||
                 (oldSeconds != null && tripSeconds + 0.5 < oldSeconds)
+            if (reset) tankResetCandidate++ else tankResetCandidate = 0
+            if (reset && tankResetCandidate < 2) {
+                // Do not rebase tank accounting on a single stale snapshot.
+            } else {
             if (reset) {
                 previousTripGallons = null
+                tankResetCandidate = 0
+                // A confirmed fresh short trip contributes even at zero miles.
+                if (tripSeconds <= 120.0 && tripMiles <= 2.0) {
+                    state.put("miles", state.optDouble("miles") + tripMiles)
+                    state.put("seconds", state.optLong("seconds") + tripSeconds.toLong())
+                    if (tripGallons != null) {
+                        state.put("gallons", state.optDouble("gallons") + tripGallons)
+                        state.put("fuelRateSeen", true)
+                    }
+                }
                 DiagnosticLog.event("FUEL_TRIP_RESET", "Torque trip distance/time reset")
             } else if (oldMiles != null && oldSeconds != null) {
                 val milesDelta = (tripMiles - oldMiles).coerceAtLeast(0.0)
@@ -559,10 +630,24 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 }
             }
             previousTripMiles = tripMiles
-            if (tripGallons != null) previousTripGallons = tripGallons
+            if (tripGallons != null &&
+                (previousTripGallons == null || tripGallons >= previousTripGallons!!)) {
+                previousTripGallons = tripGallons
+            }
             previousTripSeconds = tripSeconds
+            }
         }
         lastSampleMs = now
+
+        // Level availability gates only refill detection, not any trip totals.
+        val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
+            ?: run {
+                if (now - lastPersistMs > 30_000L) {
+                    save()
+                    lastPersistMs = now
+                }
+                return
+            }
 
         // Only an observed engine-off -> running transition grants the immediate
         // post-start refill path. App/AA reconnects never count as engine starts.
