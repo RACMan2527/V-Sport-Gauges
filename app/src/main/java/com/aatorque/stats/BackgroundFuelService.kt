@@ -24,6 +24,18 @@ class BackgroundFuelService : Service() {
     private val handler = Handler(Looper.getMainLooper())
     private var lastState: String? = null
     private var attemptedAt = 0L
+    private val apl by lazy { AplController(this, torque) }
+    private var fuelOpened = false
+    private var fuelReadyCheckedAt = -30_000L
+    private fun activateFuelIfReady(now: Long) {
+        if (fuelOpened || now - fuelReadyCheckedAt < 30_000L) return
+        fuelReadyCheckedAt = now
+        if (!getSharedPreferences("background_fuel_activation", MODE_PRIVATE).getBoolean("test_dashboard_viewed", false)) return
+        if (listOf("Fuel-Tracker.json", "Fuel-Up-History.csv").any { PublicDocuments.fuelAccessError(this, it) != null }) return
+        FuelMonitor.backgroundOpen(this, torque)
+        fuelOpened = true
+        PerformancePollingOwnership.registerBackgroundStop { performance.stop() }
+    }
     private val check = object : Runnable {
         override fun run() {
             val now = SystemClock.elapsedRealtime()
@@ -33,7 +45,9 @@ class BackgroundFuelService : Service() {
                 try { api.isConnectedToECU } catch (_: Exception) { false } -> "ECU_CONNECTED"
                 else -> "ECU_DISCONNECTED"
             }
-            if (state == "ECU_CONNECTED" && PerformancePollingOwnership.shouldPollDashboardOne()) performance.start()
+            activateFuelIfReady(now)
+            apl.update(state == "ECU_CONNECTED")
+            if (fuelOpened && state == "ECU_CONNECTED" && PerformancePollingOwnership.shouldPollDashboardOne()) performance.start()
             else performance.stop()
             BatteryStats.sample(this@BackgroundFuelService, monitoring = true,
                 ecuDisconnected = state != "ECU_CONNECTED")
@@ -49,7 +63,7 @@ class BackgroundFuelService : Service() {
                     if (lastState != "TORQUE_UNAVAILABLE") DiagnosticLog.event("BACKGROUND_TORQUE_BIND_ERROR", e.javaClass.simpleName)
                 }
             }
-            handler.postDelayed(this, 5_000L)
+            handler.postDelayed(this, 1_000L)
         }
     }
     private val batteryReport = object : Runnable {
@@ -72,26 +86,11 @@ class BackgroundFuelService : Service() {
             .setSmallIcon(android.R.drawable.ic_menu_compass)
             .setContentIntent(open).setOngoing(true).build()
         startForeground(39010, notification)
-        if (!getSharedPreferences("background_fuel_activation", MODE_PRIVATE)
-                .getBoolean("test_dashboard_viewed", false)) {
-            DiagnosticLog.event("BACKGROUND_WAITING_FOR_TEST_DASHBOARD")
-            stopSelf()
-            return
-        }
-        val invalid = listOf("Fuel-Tracker.json", "Fuel-Up-History.csv")
-            .firstOrNull { PublicDocuments.fuelAccessError(this, it) != null }
-        if (invalid != null) {
-            DiagnosticLog.event("BACKGROUND_WAITING_FOR_FUEL_ACCESS",
-                invalid + " " + PublicDocuments.fuelAccessError(this, invalid))
-            stopSelf()
-            return
-        }
         DiagnosticLog.event("BACKGROUND_MONITOR_START")
         try {
             attemptedAt = SystemClock.elapsedRealtime()
             torque.startTorque(this)
-            FuelMonitor.backgroundOpen(this, torque)
-            PerformancePollingOwnership.registerBackgroundStop { performance.stop() }
+            activateFuelIfReady(SystemClock.elapsedRealtime())
             handler.post(check)
             handler.postDelayed(batteryReport, 3_600_000L)
         } catch (e: Exception) {
@@ -99,16 +98,20 @@ class BackgroundFuelService : Service() {
             stopSelf()
         }
     }
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int =
-        START_STICKY
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        handler.removeCallbacks(check)
+        handler.post(check)
+        return START_STICKY
+    }
     override fun onDestroy() {
         BatteryStats.interrupted(this)
         handler.removeCallbacks(check)
         handler.removeCallbacks(batteryReport)
-        PerformancePollingOwnership.unregisterBackgroundStop()
+        apl.stop("app_stopped")
+        if (fuelOpened) PerformancePollingOwnership.unregisterBackgroundStop()
         performance.stop()
         performanceScope.cancel()
-        FuelMonitor.backgroundClosed()
+        if (fuelOpened) FuelMonitor.backgroundClosed()
         torque.onDestroy(this)
         DiagnosticLog.event("BACKGROUND_MONITOR_STOP")
         super.onDestroy()

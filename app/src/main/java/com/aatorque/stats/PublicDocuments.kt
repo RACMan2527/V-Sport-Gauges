@@ -107,6 +107,7 @@ object PublicDocuments {
 
     fun linkFuelDocument(context: Context, uri: Uri, grantFlags: Int, expectedName: String) {
         require(expectedName in fuelNames)
+        require(android.provider.DocumentsContract.getDocumentId(uri) == "primary:" + ROOT + expectedName) { "Select the copy inside the APL Test folder" }
         val resolver = context.contentResolver
         val flags = grantFlags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
             android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)

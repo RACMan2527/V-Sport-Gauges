@@ -32,8 +32,14 @@
     <item
         android:id="@+id/force_update"
         android:title="@string/force_update"
-        app:showAsAction="never"
-        />
+        android:visible="false"
+        app:showAsAction="never" />
+    <item
+        android:id="@+id/action_apl"
+        android:title="Automatic Performance Logging"
+        android:checkable="true"
+        android:checked="true"
+        app:showAsAction="never" />
     <item
         android:id="@+id/action_credits"
         android:title="@string/activity_credits_title"

@@ -7,7 +7,7 @@ import java.util.concurrent.TimeUnit
 
 /** Separate 200 ms recording clock; no IPC and no disk access here.
  * Only the lifecycle owner starts/stops this recorder. */
-class AplRecorder(private val writer: AplLogWriter) {
+class AplRecorder(private val writer: AplLogWriter, private val triggerVerified: (Long) -> Boolean = { false }) {
     enum class State { WAITING, INITIALIZING, ARMED, RECORDING, SAVED }
     data class Row(val elapsedMs: Long, val wallMs: Long,
                    val samples: Map<String, PidSampleCache.Sample>)
@@ -73,7 +73,7 @@ class AplRecorder(private val writer: AplLogWriter) {
         }
         lastTick = now
         val row = Row(now, System.currentTimeMillis(), PidSampleCache.snapshot(generation))
-        val signal = input(row)
+        val signal = if (triggerVerified(generation)) input(row) else null
         val ready = ring.size == 50 && now - ring.first().elapsedMs >= 9_800L && signal != null
         val existing = event
         if (existing != null && existing.size < 660) existing.add(row)

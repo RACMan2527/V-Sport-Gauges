@@ -72,6 +72,25 @@ open class DashboardFragment : AlbumArt() {
     private val fuelTracker by lazy { FuelMonitor.dashboardOpen(requireContext(), torqueService) }
     private var tankSummaryOverlay: View? = null
     private val tankSummaryHandler = Handler(Looper.getMainLooper())
+    private val aplIndicatorHandler = Handler(Looper.getMainLooper())
+    private val aplIndicatorCheck = object : Runnable {
+        override fun run() {
+            if (!isAdded || !isResumed || !::binding.isInitialized) return
+            val enabled = AplStatus.enabled(requireContext())
+            val state = AplStatus.state()
+            binding.aplIndicator.visibility = if (enabled) View.VISIBLE else View.INVISIBLE
+            val color = when (state) {
+                AplRecorder.State.WAITING -> Color.GRAY
+                AplRecorder.State.INITIALIZING -> Color.YELLOW
+                AplRecorder.State.ARMED -> Color.rgb(141, 188, 232)
+                AplRecorder.State.RECORDING -> Color.RED
+                AplRecorder.State.SAVED -> Color.GREEN
+            }
+            binding.aplIndicator.setColorFilter(color)
+            binding.aplIndicator.contentDescription = "Automatic Performance Logging: " + state.name
+            aplIndicatorHandler.postDelayed(this, 200L)
+        }
+    }
     private val tankSummaryCheck = object : Runnable {
         override fun run() {
             if (isResumed && tankSummaryOverlay == null && quickOverlay == null) {
@@ -1033,6 +1052,9 @@ open class DashboardFragment : AlbumArt() {
         PerformancePollingOwnership.foregroundOpened()
         Timber.d("onResume")
         super.onResume()
+        if (AplStatus.enabled(requireContext()) && PublicDocuments.hasFolderAccess(requireContext())) AplStatus.requestService(requireContext())
+        aplIndicatorHandler.removeCallbacks(aplIndicatorCheck)
+        aplIndicatorHandler.post(aplIndicatorCheck)
         tankSummaryHandler.removeCallbacks(tankSummaryCheck)
         tankSummaryHandler.post(tankSummaryCheck)
         if (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE && !torqueStartupTimedOut) {
@@ -1059,6 +1081,7 @@ open class DashboardFragment : AlbumArt() {
     }
 
     override fun onPause() {
+        aplIndicatorHandler.removeCallbacks(aplIndicatorCheck)
         tankSummaryHandler.removeCallbacks(tankSummaryCheck)
         tankSummaryOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         tankSummaryOverlay = null
@@ -1074,6 +1097,7 @@ open class DashboardFragment : AlbumArt() {
     }
 
     override fun onDestroy() {
+        aplIndicatorHandler.removeCallbacks(aplIndicatorCheck)
         FuelMonitor.dashboardClosed()
         super.onDestroy()
         torqueService.onDestroy(requireContext())

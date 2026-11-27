@@ -113,9 +113,7 @@ class SettingsActivity : AppCompatActivity(),
                 .replace(R.id.settings_fragment, SettingsFragment())
                 .commit()
         }
-        lifecycleScope.launch(Dispatchers.IO) {
-            checkUpdate()
-        }
+        // Test package never offers a production APK update.
         supportFragmentManager.registerFragmentLifecycleCallbacks(
             object : FragmentManager.FragmentLifecycleCallbacks() {
                 override fun onFragmentResumed(fm: FragmentManager, f: Fragment) {
@@ -144,12 +142,19 @@ class SettingsActivity : AppCompatActivity(),
 
     override fun onCreateOptionsMenu(menu: Menu?): Boolean {
         menuInflater.inflate(R.menu.settings_menu, menu)
+        menu?.findItem(R.id.action_apl)?.isChecked = com.aatorque.stats.AplStatus.enabled(this)
         return true
     }
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         // Handle item selection
         return when (item.itemId) {
+            R.id.action_apl -> {
+                val enabled = !com.aatorque.stats.AplStatus.enabled(this)
+                com.aatorque.stats.AplStatus.setEnabled(this, enabled)
+                item.isChecked = enabled
+                true
+            }
             R.id.action_preview -> {
                 launchFragment("preview", DashboardPreviewFragment())
                 true
@@ -276,6 +281,7 @@ class SettingsActivity : AppCompatActivity(),
         if (result.resultCode == Activity.RESULT_OK && uri != null) {
             try {
                 PublicDocuments.linkFolder(this, uri, result.data?.flags ?: 0)
+                if (com.aatorque.stats.AplStatus.enabled(this)) com.aatorque.stats.AplStatus.requestService(this)
                 com.aatorque.stats.DiagnosticLog.event("DOCUMENTS_FOLDER_LINKED")
                 com.aatorque.stats.AppStateStore.onFolderAuthorized(this) { ok, error ->
                     if (ok) promptFuelSetup()
@@ -618,6 +624,7 @@ class SettingsActivity : AppCompatActivity(),
 
     override fun onResume() {
         super.onResume()
+        if (com.aatorque.stats.AplStatus.enabled(this) && PublicDocuments.hasFolderAccess(this)) com.aatorque.stats.AplStatus.requestService(this)
         val permissionsToRequest: MutableList<String> = ArrayList()
         if (ContextCompat.checkSelfPermission(this, PERMISSION_CAR_VENDOR_EXTENSION)
             != PackageManager.PERMISSION_GRANTED

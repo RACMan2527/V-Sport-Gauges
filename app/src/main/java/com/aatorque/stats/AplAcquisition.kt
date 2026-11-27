@@ -14,8 +14,10 @@ class AplAcquisition(private val torque: TorqueService) {
     }
     @Volatile private var generation: Long? = null
     private var task: ScheduledFuture<*>? = null
-    private var metadataGeneration: Long? = null
-    private var verified = emptySet<String>()
+    @Volatile private var metadataGeneration: Long? = null
+    @Volatile private var verified = emptySet<String>()
+    fun triggerVerified(session: Long): Boolean = metadataGeneration == session &&
+        verified.containsAll(listOf(AplPidInventory.RPM, "49,0", "04,0"))
     private var cursor = 0
     private var requested = 0L
     private var calls = 0L
