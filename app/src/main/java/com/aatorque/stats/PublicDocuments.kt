@@ -304,7 +304,9 @@ object PublicDocuments {
             .getString(FOLDER_URI, null) ?: return
         val tree = Uri.parse(saved)
         val resolver = context.contentResolver
-        val parentId = android.provider.DocumentsContract.getTreeDocumentId(tree) + "/Performance"
+        val directory = folderDocument(context, ROOT, "Performance",
+            android.provider.DocumentsContract.Document.MIME_TYPE_DIR, true) ?: return
+        val parentId = android.provider.DocumentsContract.getDocumentId(directory)
         val children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
         val found = mutableListOf<Uri>()
         resolver.query(children, arrayOf(

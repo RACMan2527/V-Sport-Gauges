@@ -230,7 +230,7 @@ open class DashboardFragment : AlbumArt() {
         val now = android.os.SystemClock.elapsedRealtime()
         val samples = PidSampleCache.generation()?.let { PidSampleCache.snapshot(it) }.orEmpty()
         val fresh = samples.values.count { it.quality != PidValidator.Quality.SUSPECT &&
-            it.value?.isFinite() == true && (it.ageMs(now) ?: Long.MAX_VALUE) <= 400L }
+            it.value?.isFinite() == true && (it.ageMs(now) ?: Long.MAX_VALUE) <= AplPidInventory.maxAgeMs(it.pid) }
         val state = if (AplStatus.enabled(requireContext())) AplStatus.state().name else "OFF"
         val hz = stats?.hz?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
         val rate = acq?.requestsPerSec?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
@@ -256,7 +256,7 @@ open class DashboardFragment : AlbumArt() {
                 s == null -> "MISSING"
                 s.quality == PidValidator.Quality.SUSPECT -> "SUSPECT"
                 age == null -> "UNKNOWN AGE"
-                age > 400 -> "EXPIRED"
+                age > AplPidInventory.maxAgeMs(pid.id) -> "EXPIRED"
                 else -> s.quality.name
             }
             "${pid.key}: $value  |  $quality  |  ${age?.let { "${it}ms" } ?: "—"}"

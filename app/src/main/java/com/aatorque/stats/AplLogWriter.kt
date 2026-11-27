@@ -66,7 +66,7 @@ class AplLogWriter(context: Context) {
                     sample == null -> "MISSING"
                     sample.quality == PidValidator.Quality.SUSPECT -> "SUSPECT"
                     age == null -> "UNKNOWN_AGE"
-                    age > 400L -> "EXPIRED"
+                    age > AplPidInventory.maxAgeMs(pid.id) -> "EXPIRED"
                     else -> sample.quality.name
                 }
                 append(',').append(sample?.value?.takeIf { it.isFinite() } ?: "")

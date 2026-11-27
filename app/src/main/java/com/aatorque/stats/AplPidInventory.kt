@@ -4,8 +4,8 @@ package com.aatorque.stats
 object AplPidInventory {
     data class Requirement(val key: String, val id: String, val percentMetadata: Boolean = false)
     val requirements = listOf(
-        Requirement("horsepower", "e17181,-2138499810"),
-        Requirement("torque", "e6d079,1880094478"),
+        Requirement("horsepower", "e15b07,-2138499810"),
+        Requirement("torque", "e1a236,1880094478"),
         Requirement("rpm", "0c,0"),
         Requirement("gps_speed", "ff1001,0"),
         Requirement("gear", "22199a,65"),
@@ -17,6 +17,8 @@ object AplPidInventory {
     )
     val ids = requirements.map { it.id }.toSet()
     const val RPM = "0c,0"
+    val triggerIds = setOf(RPM, "49,0", "04,0")
+    fun maxAgeMs(id: String): Long = if (id in triggerIds) 400L else 2000L
 
     /** Standard Mode 01 pedal D and absolute throttle are candidates until Torque
      * advertises matching percent metadata. Never silently substitute another PID.

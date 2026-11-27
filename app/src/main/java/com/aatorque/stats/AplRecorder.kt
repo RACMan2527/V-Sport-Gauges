@@ -31,6 +31,7 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
     private var ticks = 0L
     private var firstTick = 0L
     private var readinessReason = "Filling pre-trigger buffer"
+    private var loggedReadiness = ""
     data class Stats(val buffer: Int, val durationMs: Long?, val count: Int, val failures: Int,
                      val lastSaved: Long?, val hz: Double?, val reason: String)
     fun stats(): Stats = synchronized(lock) {
@@ -99,6 +100,10 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
             !bufferReady -> "Filling pre-trigger buffer"
             else -> "Trigger ready"
         }
+        if (readinessReason != loggedReadiness) {
+            loggedReadiness = readinessReason
+            DiagnosticLog.event("APL_READINESS", "reason=$readinessReason buffer=${ring.size}")
+        }
         val existing = event
         if (existing != null && existing.size < 660) existing.add(row)
         when (detector.update(now, signal, ready)) {
@@ -120,11 +125,15 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         }
         if (ring.size == 50) ring.removeFirst()
         ring.addLast(row)
-        state = when {
+        val nextState = when {
             event != null -> State.RECORDING
             !ready -> State.INITIALIZING
             saved -> State.SAVED
             else -> State.ARMED
+        }
+        if (nextState != state) {
+            DiagnosticLog.event("APL_STATE", "old=$state new=$nextState reason=$readinessReason")
+            state = nextState
         }
     }
 

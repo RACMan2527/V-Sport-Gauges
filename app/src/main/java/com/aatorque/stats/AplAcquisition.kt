@@ -26,10 +26,20 @@ class AplAcquisition(private val torque: TorqueService) {
     @Volatile private var skipped = 0L
     @Volatile private var failures = 0L
     private var lastReport = 0L
-    private val createdAt = SystemClock.elapsedRealtime()
+    @Volatile private var recentRate = 0.0
+    private var rateAt = SystemClock.elapsedRealtime()
+    private var rateCount = 0L
+    private var optionalAt = 0L
+    private fun updateRate(now: Long) {
+        if (now - rateAt >= 1000L) {
+            recentRate = (requested - rateCount) * 1000.0 / (now - rateAt)
+            rateCount = requested
+            rateAt = now
+        }
+    }
     @Volatile private var mode = "baseline"
     data class Stats(val mode: String, val requestsPerSec: Double, val calls: Long, val skipped: Long, val failures: Long, val inventory: Map<String, String>)
-    fun stats() = Stats(mode, requested * 1000.0 / (SystemClock.elapsedRealtime() - createdAt).coerceAtLeast(1L),
+    fun stats() = Stats(mode, recentRate,
         calls, skipped, failures, inventory)
 
     @Synchronized fun start(session: Long) {
@@ -43,7 +53,7 @@ class AplAcquisition(private val torque: TorqueService) {
                 failures++
                 AplPollingGuard.batchFailed(SystemClock.elapsedRealtime())
             }
-        }, 0L, 200L, TimeUnit.MILLISECONDS)
+        }, 0L, 150L, TimeUnit.MILLISECONDS)
     }
 
     @Synchronized fun stop() {
@@ -81,6 +91,7 @@ class AplAcquisition(private val torque: TorqueService) {
         val ts = torque.torqueService ?: return
         if (!ts.isConnectedToECU) return
         val now = SystemClock.elapsedRealtime()
+        updateRate(now)
         val decision = AplPollingGuard.decide(now)
         mode = decision.reason
         if (!decision.allowed) { skipped++; report(now, decision.reason); return }
@@ -94,16 +105,20 @@ class AplAcquisition(private val torque: TorqueService) {
                 val sample = samples[id]
                 val age = sample?.ageMs(now)
                 sample == null || sample.quality == PidValidator.Quality.SUSPECT ||
-                    age == null || age > 200L
+                    age == null || age > (if (id in AplPidInventory.triggerIds) 150L else 1500L)
             }
         }
         if (missing.isEmpty()) { report(now, "cache"); return }
-        val triggerMissing = missing.filter { it in setOf(AplPidInventory.RPM, "49,0", "04,0") }
-        val selected = if (decision.batch) missing.take(10)
-            else {
-                val priority = if (triggerMissing.isNotEmpty() && cursor % 4 != 3) triggerMissing else missing
-                listOf(priority[(cursor++ and Int.MAX_VALUE) % priority.size])
-            }
+        val triggerMissing = missing.filter { it in AplPidInventory.triggerIds }
+        val optional = missing.filter { it !in AplPidInventory.triggerIds }
+        // One grouped request for missing trigger inputs; never round-robin them.
+        // At most one slower telemetry PID per second, only when guard permits.
+        val selected = triggerMissing.toMutableList()
+        if (decision.batch && optional.isNotEmpty() && now - optionalAt >= 1000L) {
+            selected.add(optional[(cursor++ and Int.MAX_VALUE) % optional.size])
+            optionalAt = now
+        }
+        if (selected.isEmpty()) { report(now, "cache"); return }
         val ids = selected.toTypedArray()
         val started = SystemClock.elapsedRealtime()
         val batch = ids.size > 1
@@ -138,6 +153,7 @@ class AplAcquisition(private val torque: TorqueService) {
         } finally {
             val ended = SystemClock.elapsedRealtime()
             if (current(session)) AplPollingGuard.completed(ended, ended - started, batch)
+            updateRate(ended)
             report(ended, decision.reason)
         }
     }

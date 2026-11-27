@@ -16,6 +16,9 @@ object AplPollingGuard {
     private var fallback = false
     private var nextAllowed = 0L
     private var windowAt = 0L
+    private var suspended = false
+    private var healthyWindows = 0
+    private var lastMode = ""
     private const val WINDOW = 10_000L
 
     fun observeGauge(latencyMs: Long, stale: Boolean) = synchronized(lock) {
@@ -35,6 +38,9 @@ object AplPollingGuard {
         fallback = false
         nextAllowed = now
         windowAt = now
+        suspended = false
+        healthyWindows = 0
+        lastMode = ""
     }
 
     fun stop() = synchronized(lock) { active = false }
@@ -52,18 +58,41 @@ object AplPollingGuard {
             baselineMs = mean.coerceAtLeast(1.0)
             baselineRate = rate
             baselineStale = stale
-        } else if (now - windowAt >= WINDOW && mean != null && baselineMs != null) {
-            val slower = mean > baselineMs!! * 1.10 && mean > baselineMs!! + 2.0
-            val lowerRate = rate < (baselineRate ?: rate) * 0.95
-            val moreStale = stale > (baselineStale ?: stale) + 0.02
-            if (slower || lowerRate || moreStale) {
-                fallback = true
-                nextAllowed = now + 2_000L
-            }
+            DiagnosticLog.event("APL_GUARD_BASELINE", "latencyMs=$mean rate=$rate stale=$stale")
         }
-        if (now - windowAt >= WINDOW) windowAt = now
-        if (now < nextAllowed) Decision(false, !fallback, "backoff")
-        else Decision(true, !fallback, if (fallback) "single" else "batch")
+        if (now - windowAt >= WINDOW) {
+            windowAt = now
+            if (mean != null && baselineMs != null) {
+                val slower = mean > baselineMs!! * 1.10 && mean > baselineMs!! + 2.0
+                val lowerRate = rate < (baselineRate ?: rate) * 0.95
+                val moreStale = stale > (baselineStale ?: stale) + 0.02
+                if (slower || lowerRate || moreStale) {
+                    healthyWindows = 0
+                    if (fallback) { suspended = true; nextAllowed = now + WINDOW }
+                    else { fallback = true; nextAllowed = now + 2000L }
+                } else {
+                    healthyWindows++
+                    if (suspended && now >= nextAllowed && healthyWindows >= 1) {
+                        suspended = false
+                        fallback = true
+                        healthyWindows = 0
+                    }
+                    // Stay trigger-only after degradation; avoid oscillating into optional traffic.
+                }
+            }
+            DiagnosticLog.event("APL_GUARD_WINDOW", "baselineMs=$baselineMs latencyMs=$mean rate=$rate stale=$stale triggerOnly=$fallback suspended=$suspended")
+        }
+        val decision = when {
+            suspended -> Decision(false, false, "suspended")
+            now < nextAllowed -> Decision(false, !fallback, "backoff")
+            fallback || baselineMs == null -> Decision(true, false, "trigger-only")
+            else -> Decision(true, true, "limited")
+        }
+        if (decision.reason != lastMode) {
+            lastMode = decision.reason
+            DiagnosticLog.event("APL_GUARD_STATE", "mode=$lastMode latencyMs=$mean baselineMs=$baselineMs")
+        }
+        decision
     }
 
     fun batchFailed(now: Long) = synchronized(lock) {
@@ -74,6 +103,6 @@ object AplPollingGuard {
         if (batch && duration > 200L) {
             fallback = true
             nextAllowed = now + 400L
-        } else if (fallback) nextAllowed = now + 200L
+        }
     }
 }
