@@ -214,28 +214,37 @@ class TorqueRefresher {
             }
             val aplGeneration = PidSampleCache.generation()
             val requestStarted = android.os.SystemClock.elapsedRealtime()
-            val value = try {
-                ts.getPIDValuesAsDouble(arrayOf(torqueData.pid!!))[0]
-            } catch (e: ArrayIndexOutOfBoundsException) {
-                Timber.e("Torque returned invalid data for ${torqueData.pid}")
-                markPollResult(torqueData, false)
-                DiagnosticLog.event("PID_RESPONSE_MISSING", "${diagnosticPid(torqueData)}")
-                return@runIfConnected
+            val pid = torqueData.pid!!
+            val owner = "${System.identityHashCode(this)}:$pid"
+            PidSampleCache.request(aplGeneration, pid, "gauge", requestStarted)
+            var requestQuality: PidValidator.Result? = null
+            val modifierEnabled = torqueData.display.modifierEnabled && torqueData.display.modifierType in 1..2
+            val (value, quality) = try {
+                val raw = try {
+                    ts.getPIDValuesAsDouble(arrayOf(pid))[0]
+                } catch (e: ArrayIndexOutOfBoundsException) {
+                    Timber.e("Torque returned invalid data for $pid")
+                    markPollResult(torqueData, false)
+                    DiagnosticLog.event("PID_RESPONSE_MISSING", diagnosticPid(torqueData))
+                    return@runIfConnected
+                } finally {
+                    diagLastResponseMs.set(android.os.SystemClock.elapsedRealtime() - requestStarted)
+                }
+                val checked = PidValidator.inspect(ts, pid, raw,
+                    consumer = if (modifierEnabled) "modifier-${System.identityHashCode(torqueData)}" else "gauges")
+                requestQuality = checked
+                PidSampleCache.publish(aplGeneration, pid, raw, checked.updateTime, checked.quality)
+                raw to checked
             } finally {
-                diagLastResponseMs.set(android.os.SystemClock.elapsedRealtime() - requestStarted)
-
+                val duration = android.os.SystemClock.elapsedRealtime() - requestStarted
+                PidSampleCache.completed(aplGeneration, pid, duration)
+                if (aplGeneration != null && pollingEnabled && PidSampleCache.generation() == aplGeneration) {
+                    val checked = requestQuality
+                    val usable = checked != null && checked.quality != PidValidator.Quality.SUSPECT
+                    AplPollingGuard.observeGauge(owner, duration, usable,
+                        usable && PidValidator.sourceExpired(pid, checked!!.updateTime))
+                }
             }
-            // Statistical history must contain fresh ECU samples only. A cached
-            // startup zero (or any repeated timestamp) must never seed Trend.
-            // Track each gauge independently: dashboards can share the same PID.
-            val modifierEnabled = torqueData.display.modifierEnabled &&
-                torqueData.display.modifierType in 1..2
-            val quality = PidValidator.inspect(
-                ts, torqueData.pid!!, value,
-                consumer = if (modifierEnabled) "modifier-${System.identityHashCode(torqueData)}" else "gauges"
-            )
-            if (aplGeneration != null) AplPollingGuard.observeGauge(diagLastResponseMs.get(), quality.quality == PidValidator.Quality.STALE)
-            PidSampleCache.publish(aplGeneration, torqueData.pid!!, value, quality.updateTime, quality.quality)
             if (modifierEnabled && quality.quality != PidValidator.Quality.VALID) {
                 return@runIfConnected
             }
@@ -341,9 +350,12 @@ class TorqueRefresher {
                         var initialAgeMs: Long? = null
                         do {
                             val aplGeneration = PidSampleCache.generation()
+                            val aplRpmStarted = android.os.SystemClock.elapsedRealtime()
+                            PidSampleCache.request(aplGeneration, AplPidInventory.RPM, "minimum", aplRpmStarted)
                             val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                             initialRpm = rpm
                             initialRpmUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
+                            PidSampleCache.completed(aplGeneration, AplPidInventory.RPM, android.os.SystemClock.elapsedRealtime() - aplRpmStarted)
                             initialAgeMs = rpmAgeMs(initialRpmUpdate, System.currentTimeMillis())
                             rpmValid = ts.isConnectedToECU && rpm != null && rpm.isFinite() &&
                                 rpm > 300.0 && rpm <= 7000.0 &&
@@ -393,9 +405,12 @@ class TorqueRefresher {
                                         var finalAgeMs: Long? = null
                                         do {
                                             val aplGeneration = PidSampleCache.generation()
+                            val aplRpmStarted = android.os.SystemClock.elapsedRealtime()
+                            PidSampleCache.request(aplGeneration, AplPidInventory.RPM, "minimum", aplRpmStarted)
                             val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                                             finalRpm = rpm
                                             finalUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
+                                            PidSampleCache.completed(aplGeneration, AplPidInventory.RPM, android.os.SystemClock.elapsedRealtime() - aplRpmStarted)
                                             finalAgeMs = rpmAgeMs(finalUpdate, System.currentTimeMillis())
                                             finalRpmValid = ts.isConnectedToECU && rpm != null && rpm.isFinite() &&
                                                 rpm > 300.0 && rpm <= 7000.0 && rpm != initialRpm &&

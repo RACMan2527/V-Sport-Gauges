@@ -31,6 +31,9 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
     private var ticks = 0L
     private var firstTick = 0L
     private var readinessReason = "Filling pre-trigger buffer"
+    private var lastReadyAt: Long? = null
+    private var readinessChanges = 0
+    private var lastReadinessReport = 0L
     private var loggedReadiness = ""
     data class Stats(val buffer: Int, val durationMs: Long?, val count: Int, val failures: Int,
                      val lastSaved: Long?, val hz: Double?, val reason: String)
@@ -67,7 +70,7 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
             val s = row.samples[id] ?: return null
             val age = s.ageMs(row.elapsedMs) ?: return null
             return s.takeIf { it.quality != PidValidator.Quality.SUSPECT &&
-                it.sourceToken > 0 && age <= 400L && it.value?.isFinite() == true }
+                it.sourceToken > 0 && age <= it.freshnessLimitMs && it.value?.isFinite() == true }
         }
         val rpm = fresh(AplPidInventory.RPM) ?: return null
         val pedal = fresh("49,0") ?: return null
@@ -94,15 +97,23 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         // slower native update rates (GPS/gear), and is quality-tagged in every CSV row.
         val bufferReady = ring.size == 50 && now - ring.first().elapsedMs >= 9_500L
         val ready = bufferReady && signal != null
+        if (ready) lastReadyAt = now
+        val displayReady = bufferReady && triggerVerified(generation) &&
+            (ready || lastReadyAt?.let { now - it <= 1000L } == true)
         readinessReason = when {
             !triggerVerified(generation) -> "Waiting for trigger PID metadata"
-            signal == null -> "Waiting for fresh RPM, pedal or load"
+            signal == null -> "Waiting: " + AplPidInventory.requirements.filter { it.id in AplPidInventory.triggerIds }
+                .filter { pid -> row.samples[pid.id]?.let { s -> s.quality != PidValidator.Quality.SUSPECT &&
+                    s.sourceToken > 0 && (s.ageMs(now) ?: Long.MAX_VALUE) <= s.freshnessLimitMs } != true }
+                .joinToString(",") { it.key }
             !bufferReady -> "Filling pre-trigger buffer"
             else -> "Trigger ready"
         }
-        if (readinessReason != loggedReadiness) {
-            loggedReadiness = readinessReason
-            DiagnosticLog.event("APL_READINESS", "reason=$readinessReason buffer=${ring.size}")
+        if (readinessReason != loggedReadiness) { readinessChanges++; loggedReadiness = readinessReason }
+        if (lastReadinessReport == 0L || now - lastReadinessReport >= 60_000L) {
+            DiagnosticLog.event("APL_READINESS", "reason=$readinessReason buffer=${ring.size} changes=$readinessChanges")
+            lastReadinessReport = now
+            readinessChanges = 0
         }
         val existing = event
         if (existing != null && existing.size < 660) existing.add(row)
@@ -127,12 +138,13 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         ring.addLast(row)
         val nextState = when {
             event != null -> State.RECORDING
-            !ready -> State.INITIALIZING
+            !displayReady -> State.INITIALIZING
             saved -> State.SAVED
             else -> State.ARMED
         }
         if (nextState != state) {
-            DiagnosticLog.event("APL_STATE", "old=$state new=$nextState reason=$readinessReason")
+            if (state == State.RECORDING || nextState == State.RECORDING || nextState == State.SAVED)
+                DiagnosticLog.event("APL_STATE", "old=$state new=$nextState reason=$readinessReason")
             state = nextState
         }
     }
@@ -152,6 +164,10 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
     }
 
     private fun stopLocked(reason: String) {
+        lastReadyAt = null
+        lastReadinessReport = 0L
+        readinessChanges = 0
+        loggedReadiness = ""
         task?.cancel(false)
         task = null
         finishLocked(reason)

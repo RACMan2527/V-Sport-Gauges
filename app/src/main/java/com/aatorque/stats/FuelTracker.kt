@@ -702,6 +702,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         // Only an observed engine-off -> running transition grants the immediate
         // post-start refill path. App/AA reconnects never count as engine starts.
         val aplGeneration = PidSampleCache.generation()
+        val aplRpmStarted = android.os.SystemClock.elapsedRealtime()
+        PidSampleCache.request(aplGeneration, AplPidInventory.RPM, "fuel", aplRpmStarted)
         val rpm = read(ts, "0c,0")?.takeIf { it <= 7000.0 }
         if (rpm != null) {
             val rpmQuality = PidValidator.inspect(ts, "0c,0", rpm, 0.0, 7000.0, "fuel_rpm")
@@ -719,6 +721,7 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 }
             }
         }
+        PidSampleCache.completed(aplGeneration, AplPidInventory.RPM, android.os.SystemClock.elapsedRealtime() - aplRpmStarted)
         // Fuel readings must represent distinct ECU updates, not cached API returns.
         val fuelQuality = PidValidator.inspect(ts, "2f,0", level, 0.0, 100.0, "fuel")
         if (fuelQuality.updateTime <= 0L && !warnedNoFuelTimestamp) {

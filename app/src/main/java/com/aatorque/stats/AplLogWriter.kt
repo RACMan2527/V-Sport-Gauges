@@ -52,7 +52,7 @@ class AplLogWriter(context: Context) {
     private fun encode(event: AplRecorder.Event): String = buildString {
         append("local_time,relative_ms,session,event_end_reason")
         for (pid in AplPidInventory.requirements) {
-            append(",${pid.key}_raw,${pid.key}_quality,${pid.key}_source_token,${pid.key}_age_ms")
+            append(",${pid.key}_raw,${pid.key}_quality,${pid.key}_source_token,${pid.key}_age_ms,${pid.key}_age_limit_ms")
         }
         append("\r\n")
         for (row in event.rows) {
@@ -66,13 +66,14 @@ class AplLogWriter(context: Context) {
                     sample == null -> "MISSING"
                     sample.quality == PidValidator.Quality.SUSPECT -> "SUSPECT"
                     age == null -> "UNKNOWN_AGE"
-                    age > AplPidInventory.maxAgeMs(pid.id) -> "EXPIRED"
+                    age > sample.freshnessLimitMs -> "EXPIRED"
                     else -> sample.quality.name
                 }
                 append(',').append(sample?.value?.takeIf { it.isFinite() } ?: "")
                 append(',').append(quality)
                 append(',').append(sample?.sourceToken ?: "")
                 append(',').append(age ?: "")
+                append(',').append(sample?.freshnessLimitMs ?: "")
             }
             append("\r\n")
         }

@@ -58,6 +58,15 @@ object PidValidator {
         }
     }
 
+    /** Guard uses actual source age where available, without changing dashboard diagnostics. */
+    fun sourceExpired(pid: String, token: Long, now: Long = android.os.SystemClock.elapsedRealtime(),
+                      wall: Long = System.currentTimeMillis()): Boolean {
+        if (token <= 0L) return false
+        if (token >= 1_000_000_000_000L) return token > wall || wall - token > freshnessLimitMs(pid)
+        val observed = sourceAges[pid] ?: return false
+        return observed.token == token && now - observed.observedAtMs > freshnessLimitMs(pid)
+    }
+
     data class ExpiredSnapshot(val expired: Int, val total: Int)
     fun expiredSnapshot(): ExpiredSnapshot {
         val now = android.os.SystemClock.elapsedRealtime()

@@ -1,108 +1,108 @@
 package com.aatorque.stats
 
-import android.os.SystemClock
-
-/** Passive gauge latency measurements; no locks held across Torque IPC.
- * Baseline is collected with supplemental acquisition inactive. */
+/** Compare actual gauge latency, usable throughput and expiration, not cached repeats. */
 object AplPollingGuard {
-    private data class Observation(val at: Long, val latency: Long, val stale: Boolean)
+    private data class Observation(val owner: String, val latency: Long, val usable: Boolean, val expired: Boolean)
+    private data class Window(val owners: Set<String>, val period: Long, val latency: Double,
+                              val rate: Double, val expired: Double, val failed: Double)
     private val lock = Any()
-    private val observations = ArrayDeque<Observation>()
-    private var baselineMs: Double? = null
-    private var baselineRate: Double? = null
-    private var baselineStale: Double? = null
-    private var started = 0L
+    private val observations = ArrayList<Observation>()
+    private var baseline: Window? = null
     private var active = false
-    private var fallback = false
-    private var nextAllowed = 0L
     private var windowAt = 0L
-    private var suspended = false
-    private var healthyWindows = 0
+    private var nextAllowed = 0L
+    private var level = 0
+    private var healthy = 0
     private var lastMode = ""
     private const val WINDOW = 10_000L
 
-    fun observeGauge(latencyMs: Long, stale: Boolean) = synchronized(lock) {
-        val now = SystemClock.elapsedRealtime()
-        observations.addLast(Observation(now, latencyMs.coerceAtLeast(0L), stale))
-        while (observations.isNotEmpty() &&
-            (now - observations.first().at > WINDOW || observations.size > 4000)) observations.removeFirst()
+    fun observeGauge(owner: String, latencyMs: Long, usable: Boolean, expired: Boolean) = synchronized(lock) {
+        if (active && observations.size < 8000)
+            observations.add(Observation(owner, latencyMs.coerceAtLeast(0L), usable, expired))
     }
-
     fun start(now: Long) = synchronized(lock) {
         observations.clear()
-        baselineMs = null
-        baselineRate = null
-        baselineStale = null
-        started = now
+        baseline = null
         active = true
-        fallback = false
-        nextAllowed = now
         windowAt = now
-        suspended = false
-        healthyWindows = 0
+        nextAllowed = now + WINDOW
+        level = 0
+        healthy = 0
         lastMode = ""
     }
-
-    fun stop() = synchronized(lock) { active = false }
+    fun stop() = synchronized(lock) { active = false; observations.clear() }
     data class Decision(val allowed: Boolean, val batch: Boolean, val reason: String)
 
     fun decide(now: Long): Decision = synchronized(lock) {
         if (!active) return@synchronized Decision(false, false, "inactive")
-        while (observations.isNotEmpty() && now - observations.first().at > WINDOW) observations.removeFirst()
-        if (now - started < WINDOW) return@synchronized Decision(false, false, "baseline")
-        val enough = observations.size >= 20
-        val mean = if (enough) observations.map { it.latency }.average() else null
-        val rate = observations.size / 10.0
-        val stale = if (enough) observations.count { it.stale }.toDouble() / observations.size else 0.0
-        if (baselineMs == null && mean != null) {
-            baselineMs = mean.coerceAtLeast(1.0)
-            baselineRate = rate
-            baselineStale = stale
-            DiagnosticLog.event("APL_GUARD_BASELINE", "latencyMs=$mean rate=$rate stale=$stale")
-        }
         if (now - windowAt >= WINDOW) {
+            val elapsed = now - windowAt
             windowAt = now
-            if (mean != null && baselineMs != null) {
-                val slower = mean > baselineMs!! * 1.10 && mean > baselineMs!! + 2.0
-                val lowerRate = rate < (baselineRate ?: rate) * 0.95
-                val moreStale = stale > (baselineStale ?: stale) + 0.02
-                if (slower || lowerRate || moreStale) {
-                    healthyWindows = 0
-                    if (fallback) { suspended = true; nextAllowed = now + WINDOW }
-                    else { fallback = true; nextAllowed = now + 2000L }
+            val count = observations.size
+            val successful = observations.count { it.usable }
+            val current = if (count >= 20) Window(
+                observations.map { it.owner }.toSet(), TorqueRefresher.SAMPLE_INTERVAL,
+                observations.map { it.latency }.average(), successful * 1000.0 / elapsed,
+                observations.count { it.expired }.toDouble() / count,
+                (count - successful).toDouble() / count
+            ) else null
+            observations.clear()
+            val old = baseline
+            if (current == null) {
+                if (old != null) { level = 2; healthy = 0; nextAllowed = now + WINDOW }
+                else { level = 1; healthy = 0 }
+            } else if (old == null || old.owners != current.owners || old.period != current.period) {
+                if (old != null || level == 1) {
+                    baseline = null
+                    level = 0
+                    nextAllowed = now + WINDOW
+                    healthy = 0
+                    DiagnosticLog.event("APL_GUARD_REBASE", "owners=${current.owners.size} period=${current.period}")
                 } else {
-                    healthyWindows++
-                    if (suspended && now >= nextAllowed && healthyWindows >= 1) {
-                        suspended = false
-                        fallback = true
-                        healthyWindows = 0
-                    }
-                    // Stay trigger-only after degradation; avoid oscillating into optional traffic.
+                    baseline = current
+                    level = 0
+                    healthy = 0
+                    DiagnosticLog.event("APL_GUARD_BASELINE", "latencyMs=${current.latency} rate=${current.rate} expired=${current.expired} failed=${current.failed}")
                 }
+            } else {
+                val degraded = (current.latency > old.latency * 1.10 && current.latency > old.latency + 2.0) ||
+                    current.rate < old.rate * 0.90 || current.expired > old.expired + 0.02 ||
+                    current.failed > old.failed + 0.02
+                if (degraded) {
+                    healthy = 0
+                    level = (level + 1).coerceAtMost(2)
+                    nextAllowed = now + if (level == 2) WINDOW else 1000L
+                } else {
+                    healthy++
+                    if (healthy >= 2 && level > 0) {
+                        level--
+                        healthy = 0
+                        nextAllowed = now
+                    }
+                }
+                DiagnosticLog.event("APL_GUARD_WINDOW", "baselineMs=${old.latency} latencyMs=${current.latency} rate=${current.rate} expired=${current.expired} failed=${current.failed} level=$level")
             }
-            DiagnosticLog.event("APL_GUARD_WINDOW", "baselineMs=$baselineMs latencyMs=$mean rate=$rate stale=$stale triggerOnly=$fallback suspended=$suspended")
         }
         val decision = when {
-            suspended -> Decision(false, false, "suspended")
-            now < nextAllowed -> Decision(false, !fallback, "backoff")
-            fallback || baselineMs == null -> Decision(true, false, "trigger-only")
-            else -> Decision(true, true, "limited")
+            level == 2 -> Decision(false, false, "suspended")
+            now < nextAllowed -> Decision(false, false, if (baseline == null) "baseline" else "backoff")
+            level == 1 || baseline == null -> Decision(true, false, "reduced")
+            else -> Decision(true, true, "normal")
         }
         if (decision.reason != lastMode) {
             lastMode = decision.reason
-            DiagnosticLog.event("APL_GUARD_STATE", "mode=$lastMode latencyMs=$mean baselineMs=$baselineMs")
+            DiagnosticLog.event("APL_GUARD_STATE", "mode=$lastMode")
         }
         decision
     }
 
     fun batchFailed(now: Long) = synchronized(lock) {
-        fallback = true
-        nextAllowed = now + 400L
+        if (!active) return@synchronized
+        level = maxOf(level, 1)
+        healthy = 0
+        nextAllowed = maxOf(nextAllowed, now + 400L)
     }
-    fun completed(now: Long, duration: Long, batch: Boolean) = synchronized(lock) {
-        if (batch && duration > 200L) {
-            fallback = true
-            nextAllowed = now + 400L
-        }
+    fun completed(now: Long, duration: Long, batch: Boolean) {
+        if (duration > 200L) batchFailed(now)
     }
 }

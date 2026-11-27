@@ -30,6 +30,8 @@ class AplAcquisition(private val torque: TorqueService) {
     private var rateAt = SystemClock.elapsedRealtime()
     private var rateCount = 0L
     private var optionalAt = 0L
+    private val lastAttempt = HashMap<String, Long>()
+    private var metricsAt = SystemClock.elapsedRealtime()
     private fun updateRate(now: Long) {
         if (now - rateAt >= 1000L) {
             recentRate = (requested - rateCount) * 1000.0 / (now - rateAt)
@@ -53,7 +55,7 @@ class AplAcquisition(private val torque: TorqueService) {
                 failures++
                 AplPollingGuard.batchFailed(SystemClock.elapsedRealtime())
             }
-        }, 0L, 150L, TimeUnit.MILLISECONDS)
+        }, 0L, 100L, TimeUnit.MILLISECONDS)
     }
 
     @Synchronized fun stop() {
@@ -100,35 +102,45 @@ class AplAcquisition(private val torque: TorqueService) {
             return
         }
         val samples = PidSampleCache.snapshot(session)
-        val missing = AplPidInventory.requirements.map { it.id }.filter { id ->
-            if (id !in verified) false else {
+        val due = AplPidInventory.requirements.map { it.id }.filter { id ->
+            if (id !in verified || PidSampleCache.regularPolling(session, id, now, TorqueRefresher.SAMPLE_INTERVAL)) false
+            else {
                 val sample = samples[id]
+                val interval = sample?.sourceIntervalMs
+                val cadence = if (id in AplPidInventory.triggerIds) (interval?.div(3) ?: 100L).coerceIn(100L, 250L)
+                    else (interval?.div(2) ?: 500L).coerceIn(200L, 1000L)
                 val age = sample?.ageMs(now)
-                sample == null || sample.quality == PidValidator.Quality.SUSPECT ||
-                    age == null || age > (if (id in AplPidInventory.triggerIds) 150L else 1500L)
+                val needs = sample == null || sample.quality == PidValidator.Quality.SUSPECT ||
+                    age == null || age >= cadence
+                needs && now - (lastAttempt[id] ?: -10_000L) >= cadence
             }
         }
-        if (missing.isEmpty()) { report(now, "cache"); return }
-        val triggerMissing = missing.filter { it in AplPidInventory.triggerIds }
-        val optional = missing.filter { it !in AplPidInventory.triggerIds }
-        // One grouped request for missing trigger inputs; never round-robin them.
-        // At most one slower telemetry PID per second, only when guard permits.
-        val selected = triggerMissing.toMutableList()
-        if (decision.batch && optional.isNotEmpty() && now - optionalAt >= 1000L) {
-            selected.add(optional[(cursor++ and Int.MAX_VALUE) % optional.size])
+        val selected = due.filter { it in AplPidInventory.triggerIds }.toMutableList()
+        val optional = due.filter { it !in AplPidInventory.triggerIds }
+            .sortedBy { lastAttempt[it] ?: Long.MIN_VALUE }
+        val optionalPeriod = if (decision.batch) 200L else 1000L
+        if (optional.isNotEmpty() && now - optionalAt >= optionalPeriod) {
+            selected.addAll(optional.take(if (decision.batch) 2 else 1))
             optionalAt = now
         }
+        if (selected.isEmpty()) { report(now, "cache"); return }
+        selected.removeAll { PidSampleCache.regularPolling(session, it, SystemClock.elapsedRealtime(), TorqueRefresher.SAMPLE_INTERVAL) }
         if (selected.isEmpty()) { report(now, "cache"); return }
         val ids = selected.toTypedArray()
         val started = SystemClock.elapsedRealtime()
         val batch = ids.size > 1
         try {
             if (!current(session)) return
-            val values = ts.getPIDValuesAsDouble(ids)
-            val tokens = ts.getPIDUpdateTime(ids)
+            for (id in ids) {
+                lastAttempt[id] = started
+                PidSampleCache.request(session, id, "apl", started)
+            }
             calls++
             requested += ids.size
-            if (values.size != ids.size || tokens.size != ids.size) {
+            val before = if (ids.any { it in AplPidInventory.triggerIds }) ts.getPIDUpdateTime(ids) else null
+            val values = ts.getPIDValuesAsDouble(ids)
+            val tokens = ts.getPIDUpdateTime(ids)
+            if (values.size != ids.size || tokens.size != ids.size || (before != null && before.size != ids.size)) {
                 failures++
                 AplPollingGuard.batchFailed(SystemClock.elapsedRealtime())
                 return
@@ -138,6 +150,7 @@ class AplAcquisition(private val torque: TorqueService) {
                 val pid = ids[i]
                 val value = values[i]
                 val token = tokens[i]
+                if (pid in AplPidInventory.triggerIds && before != null && before[i] != token) continue
                 val bounds = PidValidator.bounds(pid)
                 val acceptable = value.isFinite() && kotlin.math.abs(value) < Float.MAX_VALUE.toDouble() &&
                     token > 0L && (bounds == null ||
@@ -152,13 +165,21 @@ class AplAcquisition(private val torque: TorqueService) {
             AplPollingGuard.batchFailed(SystemClock.elapsedRealtime())
         } finally {
             val ended = SystemClock.elapsedRealtime()
-            if (current(session)) AplPollingGuard.completed(ended, ended - started, batch)
+            if (current(session)) {
+                ids.forEach { PidSampleCache.completed(session, it, ended - started) }
+                AplPollingGuard.completed(ended, ended - started, batch)
+            }
             updateRate(ended)
             report(ended, decision.reason)
         }
     }
 
     private fun report(now: Long, mode: String) {
+        val session = generation
+        if (session != null && now - metricsAt >= 60_000L) {
+            PidSampleCache.drainMetrics(session, now, now - metricsAt).forEach { DiagnosticLog.event("APL_PID_METRICS", it) }
+            metricsAt = now
+        }
         if (now - lastReport < 60_000L) return
         lastReport = now
         DiagnosticLog.event("APL_ACQUISITION", "mode=$mode calls=$calls requested=$requested skipped=$skipped failures=$failures")

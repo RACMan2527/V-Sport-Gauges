@@ -76,6 +76,39 @@ class AplRegressionTest {
         PidSampleCache.endSession(b)
     }
 
+    @Test fun learnedCadenceUsesDistinctEpochTokensAndNeverRefreshesRepeatedAge() {
+        val session = PidSampleCache.beginSession()
+        try {
+            val pid = "49,0"
+            val q = PidValidator.Quality.VALID
+            val epoch = 1_800_000_000_000L
+            for (i in 0L..3L) {
+                PidSampleCache.publish(session, pid, 70.0, epoch + i * 600L, q, i * 600L, epoch + i * 600L)
+            }
+            val first = PidSampleCache.snapshot(session).getValue(pid)
+            assertEquals(600L, first.sourceIntervalMs)
+            assertEquals(800L, first.freshnessLimitMs)
+            PidSampleCache.publish(session, pid, 70.0, epoch + 1800L, q, 2800L, epoch + 2800L)
+            val repeat = PidSampleCache.snapshot(session).getValue(pid)
+            assertEquals(1000L, repeat.ageMs(2800L))
+            assertEquals(800L, repeat.freshnessLimitMs)
+            assertTrue(repeat.ageMs(2800L)!! > repeat.freshnessLimitMs)
+        } finally { PidSampleCache.endSession(session) }
+    }
+
+    @Test fun regularGaugeLeaseExpiresAfterHandoff() {
+        val session = PidSampleCache.beginSession()
+        try {
+            val pid = AplPidInventory.RPM
+            PidSampleCache.request(session, pid, "gauge", 1000L)
+            assertTrue(PidSampleCache.regularPolling(session, pid, 1300L, 100L))
+            assertFalse(PidSampleCache.regularPolling(session, pid, 1400L, 100L))
+            assertFalse(PidSampleCache.regularPolling(session, "49,0", 1300L, 100L))
+            assertEquals(2000L, PidSampleCache.triggerAgeLimit(pid, 5000L))
+            assertEquals(400L, PidSampleCache.triggerAgeLimit(pid, null))
+        } finally { PidSampleCache.endSession(session) }
+    }
+
     @Test fun inventoryRequiresMatchingPedalMetadata() {
         val statuses = AplPidInventory.verify(listOf("49,0"), listOf("Accelerator Pedal D,Pedal,%,100,0"))
         assertEquals("metadata_present", statuses["pedal"])
