@@ -18,12 +18,12 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Append-only diagnostics in Documents/V-Sport Gauges/Logs. No disk I/O on PID polling threads.
+ * Append-only diagnostics in Documents/V-Sport Gauges APL Test/Logs. No disk I/O on PID polling threads.
  * Android 10+ uses MediaStore; older Android uses public Documents.
  */
 object DiagnosticLog {
-    private const val PREFIX = "V-Sport-Gauges-"
-    private const val SUBFOLDER = "V-Sport Gauges"
+    private const val PREFIX = "V-Sport-Gauges-APL-Test-"
+    private const val SUBFOLDER = "V-Sport Gauges APL Test"
     private const val MAX_BYTES = 5L * 1024 * 1024
     private const val KEEP_FILES = 8
     private const val MAX_PENDING = 512
@@ -289,7 +289,7 @@ object DiagnosticLog {
 
     @Suppress("DEPRECATION")
     private fun writeLegacy(line: String, day: String) {
-        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "V-Sport Gauges/Logs")
+        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "V-Sport Gauges APL Test/Logs")
         if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("Documents unavailable")
         val bytes = line.toByteArray(Charsets.UTF_8).size
         if (currentDay != day) {

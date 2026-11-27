@@ -295,7 +295,7 @@ class SettingsActivity : AppCompatActivity(),
 
     private fun promptDocumentsFolder() {
         AlertDialog.Builder(this).setTitle("V-Sport Gauges files")
-            .setMessage("Select the existing Documents/V-Sport Gauges folder once to reuse logs, fuel history and other files after reinstall. Existing files will not be replaced.")
+            .setMessage("Select the existing Documents/V-Sport Gauges APL Test folder once to reuse logs, fuel history and other files after reinstall. Existing files will not be replaced.")
             .setPositiveButton("Select folder") { _, _ ->
                 documentsFolderPicker.launch(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
@@ -304,7 +304,7 @@ class SettingsActivity : AppCompatActivity(),
                     putExtra(DocumentsContract.EXTRA_INITIAL_URI,
                         DocumentsContract.buildDocumentUri(
                             "com.android.externalstorage.documents",
-                            "primary:Documents/V-Sport Gauges"))
+                            "primary:Documents/V-Sport Gauges APL Test"))
                 })
             }
             .setNegativeButton("Later") { _, _ -> promptFuelSetup() }
@@ -319,7 +319,7 @@ class SettingsActivity : AppCompatActivity(),
             }
         if (PublicDocuments.hasFolderAccess(this)) {
             AlertDialog.Builder(this).setTitle("Missing fuel file")
-                .setMessage("$name was not found or could not be validated in Documents/V-Sport Gauges. Existing files are never overwritten. If this file already exists, inspect it before proceeding.")
+                .setMessage("$name was not found or could not be validated in Documents/V-Sport Gauges APL Test. Existing files are never overwritten. If this file already exists, inspect it before proceeding.")
                 .setPositiveButton("Create if missing") { _, _ ->
                     try {
                         require(PublicDocuments.readExisting(this, PublicDocuments.ROOT, name) == null) {
@@ -339,7 +339,7 @@ class SettingsActivity : AppCompatActivity(),
         com.aatorque.stats.DiagnosticLog.event("FUEL_DOCUMENT_ACCESS_REQUIRED",
             name + " " + PublicDocuments.fuelAccessError(this, name))
         AlertDialog.Builder(this).setTitle("Persistent fuel files")
-            .setMessage("Select the existing $name in Documents/V-Sport Gauges to preserve tank history. Do not create a new file if one exists.")
+            .setMessage("Select the existing $name in Documents/V-Sport Gauges APL Test to preserve tank history. Do not create a new file if one exists.")
             .setPositiveButton("Create new") { _, _ ->
                 creatingFuelName = name
                 createPersistentFuel.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -577,7 +577,7 @@ class SettingsActivity : AppCompatActivity(),
                 type = EXPORT_MIME
                 // Suggest a file name based on the original file name
                 putExtra(Intent.EXTRA_TITLE, "dashboards.pb")
-                putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Documents/V-Sport Gauges/Exports"))
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Documents/V-Sport Gauges APL Test/Exports"))
             }
         }
 
@@ -597,7 +597,7 @@ class SettingsActivity : AppCompatActivity(),
             return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
                 type = input
-                putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Documents/V-Sport Gauges/Exports"))
+                putExtra(DocumentsContract.EXTRA_INITIAL_URI, DocumentsContract.buildDocumentUri("com.android.externalstorage.documents", "primary:Documents/V-Sport Gauges APL Test/Exports"))
             }
         }
 

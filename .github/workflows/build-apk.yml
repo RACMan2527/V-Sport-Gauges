@@ -5,6 +5,7 @@ on:
     branches:
       - feature/engine-load-progressive-bar
       - feature/sample-screening-all-time-peak
+      - feature/automatic-performance-logging
       - master
   workflow_dispatch:
     inputs:

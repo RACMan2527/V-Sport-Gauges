@@ -11,7 +11,7 @@ import java.io.File
 
 /** App-owned public Documents files. MediaStore creates the relative directories on Android 10+. */
 object PublicDocuments {
-    const val ROOT = "Documents/V-Sport Gauges/"
+    const val ROOT = "Documents/V-Sport Gauges APL Test/"
     const val LOGS = ROOT + "Logs/"
     const val EXPORTS = ROOT + "Exports/"
 
@@ -29,8 +29,8 @@ object PublicDocuments {
 
     fun linkFolder(context: Context, uri: Uri, grantFlags: Int) {
         val id = android.provider.DocumentsContract.getTreeDocumentId(uri)
-        require(id == "primary:Documents/V-Sport Gauges") {
-            "Select Documents/V-Sport Gauges (not its parent)"
+        require(id == "primary:Documents/V-Sport Gauges APL Test") {
+            "Select Documents/V-Sport Gauges APL Test (not its parent)"
         }
         val flags = grantFlags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
             android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
