@@ -18,12 +18,11 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Append-only diagnostics in Documents/V-Sport Gauges APL Test/Logs. No disk I/O on PID polling threads.
+ * Append-only diagnostics in the selected Documents folder's Logs subfolder. No disk I/O on PID polling threads.
  * Android 10+ uses MediaStore; older Android uses public Documents.
  */
 object DiagnosticLog {
     private const val PREFIX = "V-Sport-Gauges-APL-Test-"
-    private const val SUBFOLDER = "V-Sport Gauges APL Test"
     private const val MAX_BYTES = 5L * 1024 * 1024
     private const val KEEP_FILES = 8
     private const val MAX_PENDING = 512
@@ -36,6 +35,7 @@ object DiagnosticLog {
     private val filenameStamp = DateTimeFormatter.ofPattern("yyyyMMdd")
     @Volatile private var app: Context? = null
     private var currentUri: Uri? = null
+    private var currentLogPath: String? = null
     private var currentFile: File? = null
     private var bytesWritten = 0L
     private var currentDay: String? = null
@@ -222,6 +222,12 @@ object DiagnosticLog {
     private fun writeMediaStore(context: Context, line: String, day: String) {
         val resolver = context.contentResolver
         val bytes = line.toByteArray(Charsets.UTF_8)
+        val logPath = PublicDocuments.selectedRoot(context) + "Logs/"
+        if (currentLogPath != logPath) {
+            currentLogPath = logPath
+            currentUri = null
+            currentDay = null
+        }
         if (currentDay != day || currentUri == null || bytesWritten + bytes.size > MAX_BYTES) {
             if (currentDay != day) {
                 currentDay = day
@@ -237,7 +243,7 @@ object DiagnosticLog {
                 resolver.query(collection,
                     arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.SIZE),
                     "${MediaStore.Files.FileColumns.RELATIVE_PATH}=? AND ${MediaStore.Files.FileColumns.DISPLAY_NAME}=?",
-                    arrayOf(PublicDocuments.LOGS, name), null
+                    arrayOf(logPath, name), null
                 )?.use { cursor ->
                     if (cursor.moveToFirst()) {
                         existingUri = android.content.ContentUris.withAppendedId(collection, cursor.getLong(0))
@@ -251,10 +257,10 @@ object DiagnosticLog {
                 currentUri = existingUri ?: resolver.insert(collection, ContentValues().apply {
                     put(MediaStore.Files.FileColumns.DISPLAY_NAME, name)
                     put(MediaStore.Files.FileColumns.MIME_TYPE, "text/plain")
-                    put(MediaStore.Files.FileColumns.RELATIVE_PATH, PublicDocuments.LOGS)
+                    put(MediaStore.Files.FileColumns.RELATIVE_PATH, logPath)
                 }) ?: throw IllegalStateException("Unable to create Documents log")
                 bytesWritten = existingBytes
-                if (existingUri == null) trimMediaStore(context)
+                if (existingUri == null) trimMediaStore(context, logPath)
                 break
             }
         }
@@ -266,14 +272,14 @@ object DiagnosticLog {
     }
 
     @androidx.annotation.RequiresApi(Build.VERSION_CODES.Q)
-    private fun trimMediaStore(context: Context) {
+    private fun trimMediaStore(context: Context, logPath: String) {
         val resolver = context.contentResolver
         val collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
         val entries = mutableListOf<Pair<String, Uri>>()
         resolver.query(collection,
             arrayOf(MediaStore.Files.FileColumns._ID, MediaStore.Files.FileColumns.DISPLAY_NAME),
             "${MediaStore.Files.FileColumns.RELATIVE_PATH}=? AND ${MediaStore.Files.FileColumns.DISPLAY_NAME} LIKE ?",
-            arrayOf(PublicDocuments.LOGS, "$PREFIX%.log"), null
+            arrayOf(logPath, "$PREFIX%.log"), null
         )?.use { cursor ->
             while (cursor.moveToNext()) {
                 val name = cursor.getString(1)
@@ -289,7 +295,7 @@ object DiagnosticLog {
 
     @Suppress("DEPRECATION")
     private fun writeLegacy(line: String, day: String) {
-        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "V-Sport Gauges APL Test/Logs")
+        val dir = File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS), "V-Sport Gauges/Logs")
         if (!dir.exists() && !dir.mkdirs()) throw IllegalStateException("Documents unavailable")
         val bytes = line.toByteArray(Charsets.UTF_8).size
         if (currentDay != day) {

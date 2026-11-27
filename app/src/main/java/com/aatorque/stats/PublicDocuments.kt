@@ -11,7 +11,7 @@ import java.io.File
 
 /** App-owned public Documents files. MediaStore creates the relative directories on Android 10+. */
 object PublicDocuments {
-    const val ROOT = "Documents/V-Sport Gauges APL Test/"
+    const val ROOT = "Documents/V-Sport Gauges/"
     const val LOGS = ROOT + "Logs/"
     const val EXPORTS = ROOT + "Exports/"
     const val PERFORMANCE = ROOT + "Performance/"
@@ -28,10 +28,20 @@ object PublicDocuments {
         }
     }
 
+    /** Actual selected Documents path; ROOT remains the logical SAF path prefix. */
+    fun selectedRoot(context: Context): String {
+        if (!hasFolderAccess(context)) return ROOT
+        val saved = context.getSharedPreferences(FOLDER_PREFS, Context.MODE_PRIVATE)
+            .getString(FOLDER_URI, null) ?: return ROOT
+        return android.provider.DocumentsContract.getTreeDocumentId(Uri.parse(saved))
+            .removePrefix("primary:").trimEnd('/') + "/"
+    }
+
     fun linkFolder(context: Context, uri: Uri, grantFlags: Int) {
         val id = android.provider.DocumentsContract.getTreeDocumentId(uri)
-        require(id == "primary:Documents/V-Sport Gauges APL Test") {
-            "Select Documents/V-Sport Gauges APL Test (not its parent)"
+        require(uri.authority == "com.android.externalstorage.documents" &&
+            id.startsWith("primary:Documents/") && id.removePrefix("primary:Documents/").isNotBlank()) {
+            "Select an existing folder inside internal storage Documents (not Documents itself)"
         }
         val flags = grantFlags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
             android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -107,7 +117,6 @@ object PublicDocuments {
 
     fun linkFuelDocument(context: Context, uri: Uri, grantFlags: Int, expectedName: String) {
         require(expectedName in fuelNames)
-        require(android.provider.DocumentsContract.getDocumentId(uri) == "primary:" + ROOT + expectedName) { "Select the copy inside the APL Test folder" }
         val resolver = context.contentResolver
         val flags = grantFlags and (android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
             android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -271,7 +280,7 @@ object PublicDocuments {
     }
 
     /** SAF temporary document is renamed only after the complete stream closes.
-     * APL requires the explicitly authorized test Documents folder. */
+     * APL requires the explicitly authorized Documents folder. */
     fun writePerformanceAtomic(context: Context, name: String, bytes: ByteArray): Uri {
         require(name.startsWith("APL-") && name.endsWith(".csv") && '/' !in name)
         require(hasFolderAccess(context)) { "APL Documents folder authorization required" }
