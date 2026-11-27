@@ -80,6 +80,7 @@
             name="minMaxBelow"
             type="Boolean" />
 
+        <variable name="aplEnabled" type="boolean" />
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -172,18 +173,32 @@
                 app:layout_constraintStart_toEndOf="@id/dashboardClock"
                 app:layout_constraintTop_toTopOf="@id/dashboardClock" />
 
-            <ImageView
-                android:id="@+id/brokenLinkIndicator"
+            <FrameLayout
+                android:id="@+id/connectionIndicatorSlot"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:layout_marginStart="14dp"
                 android:translationY="3dp"
-                android:contentDescription="@string/broken_link_description"
-                android:src="@drawable/broken_link"
-                android:visibility="@{brokenLink ? View.VISIBLE : View.GONE}"
                 app:layout_constraintStart_toEndOf="@id/dashboardDirection"
                 app:layout_constraintTop_toTopOf="@id/dashboardDirection"
-                app:layout_constraintBottom_toBottomOf="@id/dashboardDirection" />
+                app:layout_constraintBottom_toBottomOf="@id/dashboardDirection">
+
+                <ImageView
+                    android:id="@+id/aplIndicator"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:src="@drawable/apl_indicator"
+                    android:visibility="@{aplEnabled &amp;&amp; !brokenLink ? View.VISIBLE : View.INVISIBLE}"
+                    android:contentDescription="Automatic Performance Logging" />
+
+                <ImageView
+                    android:id="@+id/brokenLinkIndicator"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:contentDescription="@string/broken_link_description"
+                    android:src="@drawable/broken_link"
+                    android:visibility="@{brokenLink ? View.VISIBLE : View.GONE}" />
+            </FrameLayout>
 
             <TextView
                 android:id="@+id/lowBatteryIndicator"
@@ -196,20 +211,9 @@
                 android:textColor="#FF5555"
                 android:gravity="center_vertical"
                 android:visibility="@{lowBattery ? View.VISIBLE : View.GONE}"
-                app:layout_constraintStart_toEndOf="@id/brokenLinkIndicator"
+                app:layout_constraintStart_toEndOf="@id/connectionIndicatorSlot"
                 app:layout_constraintTop_toTopOf="@id/dashboardDirection"
                 app:layout_constraintBottom_toBottomOf="@id/dashboardDirection" />
-
-            <ImageView
-                android:id="@+id/aplIndicator"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
-                android:src="@drawable/apl_indicator"
-                android:visibility="invisible"
-                android:contentDescription="Automatic Performance Logging"
-                app:layout_constraintEnd_toStartOf="@id/cadillacVSeriesBadge"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent" />
 
             <ImageView
                 android:id="@+id/cadillacVSeriesBadge"
