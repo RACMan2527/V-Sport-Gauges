@@ -14,6 +14,7 @@ object PublicDocuments {
     const val ROOT = "Documents/V-Sport Gauges APL Test/"
     const val LOGS = ROOT + "Logs/"
     const val EXPORTS = ROOT + "Exports/"
+    const val PERFORMANCE = ROOT + "Performance/"
 
     private const val FOLDER_PREFS = "persistent_documents_folder"
     private const val FOLDER_URI = "tree_uri"
@@ -266,5 +267,47 @@ object PublicDocuments {
         resolver.openOutputStream(uri, "wt")?.use { it.write(bytes) }
             ?: throw IllegalStateException("Cannot write public Documents file: $name")
         return uri
+    }
+
+    /** SAF temporary document is renamed only after the complete stream closes.
+     * APL requires the explicitly authorized test Documents folder. */
+    fun writePerformanceAtomic(context: Context, name: String, bytes: ByteArray): Uri {
+        require(name.startsWith("APL-") && name.endsWith(".csv") && '/' !in name)
+        require(hasFolderAccess(context)) { "APL Documents folder authorization required" }
+        val resolver = context.contentResolver
+        val temp = folderDocument(context, PERFORMANCE, name + ".partial",
+            "application/octet-stream", true) ?: error("Cannot create APL temporary file")
+        try {
+            resolver.openOutputStream(temp, "wt")?.use { it.write(bytes) }
+                ?: error("Cannot write APL temporary file")
+            return android.provider.DocumentsContract.renameDocument(resolver, temp, name)
+                ?: error("Cannot finalize APL recording")
+        } catch (e: Exception) {
+            runCatching { android.provider.DocumentsContract.deleteDocument(resolver, temp) }
+            throw e
+        }
+    }
+
+    fun cleanupPerformanceTemps(context: Context) {
+        if (!hasFolderAccess(context)) return
+        val saved = context.getSharedPreferences(FOLDER_PREFS, Context.MODE_PRIVATE)
+            .getString(FOLDER_URI, null) ?: return
+        val tree = Uri.parse(saved)
+        val resolver = context.contentResolver
+        val parentId = android.provider.DocumentsContract.getTreeDocumentId(tree) + "/Performance"
+        val children = android.provider.DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
+        val found = mutableListOf<Uri>()
+        resolver.query(children, arrayOf(
+            android.provider.DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            android.provider.DocumentsContract.Document.COLUMN_DISPLAY_NAME),
+            null, null, null)?.use { cursor ->
+            while (cursor.moveToNext()) {
+                val name = cursor.getString(1)
+                if (name.startsWith("APL-") && name.endsWith(".csv.partial")) {
+                    found.add(android.provider.DocumentsContract.buildDocumentUriUsingTree(tree, cursor.getString(0)))
+                }
+            }
+        }
+        for (uri in found) android.provider.DocumentsContract.deleteDocument(resolver, uri)
     }
 }
