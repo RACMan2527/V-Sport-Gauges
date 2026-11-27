@@ -86,7 +86,9 @@ open class DashboardFragment : AlbumArt() {
                 AplRecorder.State.RECORDING -> Color.RED
                 AplRecorder.State.SAVED -> Color.GREEN
             }
-            binding.aplIndicator.setColorFilter(color)
+            // Keep the document/trace Cadillac blue; tint only the status-dot layer.
+            val layers = binding.aplIndicator.drawable.mutate() as android.graphics.drawable.LayerDrawable
+            layers.findDrawableByLayerId(R.id.apl_status_dot).setTint(color)
             binding.aplIndicator.contentDescription = "Automatic Performance Logging: " + state.name
             aplIndicatorHandler.postDelayed(this, 200L)
         }
