@@ -9,6 +9,9 @@ object AplStatus {
     private const val PREFS = "apl_settings"
     private const val ENABLED = "enabled"
     @Volatile internal var recorder: AplRecorder? = null
+    @Volatile internal var acquisition: AplAcquisition? = null
+    fun recorderStats() = recorder?.stats()
+    fun acquisitionStats() = acquisition?.stats()
     fun enabled(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(ENABLED, true)
     fun state(): AplRecorder.State = recorder?.state ?: AplRecorder.State.WAITING
@@ -49,6 +52,7 @@ class AplController(private val context: Context, private val torque: TorqueServ
         acquisition = acquire
         recorder = record
         AplStatus.recorder = record
+        AplStatus.acquisition = acquire
         acquire.start(session)
         record.start(session)
         DiagnosticLog.event("APL_SESSION_START", "session=$session")
@@ -62,6 +66,7 @@ class AplController(private val context: Context, private val torque: TorqueServ
     fun stop(reason: String) {
         val session = generation ?: return
         generation = null
+        if (AplStatus.acquisition === acquisition) AplStatus.acquisition = null
         acquisition?.close()
         acquisition = null
         recorder?.stop(reason)

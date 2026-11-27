@@ -19,11 +19,16 @@ class AplAcquisition(private val torque: TorqueService) {
     fun triggerVerified(session: Long): Boolean = metadataGeneration == session &&
         verified.containsAll(listOf(AplPidInventory.RPM, "49,0", "04,0"))
     private var cursor = 0
-    private var requested = 0L
-    private var calls = 0L
-    private var skipped = 0L
-    private var failures = 0L
+    @Volatile private var requested = 0L
+    @Volatile private var calls = 0L
+    @Volatile private var skipped = 0L
+    @Volatile private var failures = 0L
     private var lastReport = 0L
+    private val createdAt = SystemClock.elapsedRealtime()
+    @Volatile private var mode = "baseline"
+    data class Stats(val mode: String, val requestsPerSec: Double, val calls: Long, val skipped: Long, val failures: Long)
+    fun stats() = Stats(mode, requested * 1000.0 / (SystemClock.elapsedRealtime() - createdAt).coerceAtLeast(1L),
+        calls, skipped, failures)
 
     @Synchronized fun start(session: Long) {
         if (generation == session && task != null) return
@@ -73,6 +78,7 @@ class AplAcquisition(private val torque: TorqueService) {
         if (!ts.isConnectedToECU) return
         val now = SystemClock.elapsedRealtime()
         val decision = AplPollingGuard.decide(now)
+        mode = decision.reason
         if (!decision.allowed) { skipped++; report(now, decision.reason); return }
         if (metadataGeneration != session) {
             verify(ts, session)

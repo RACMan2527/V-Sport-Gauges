@@ -25,6 +25,18 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
     private var triggerMs = 0L
     private var triggerWallMs = 0L
     private var saved = false
+    private var count = 0
+    private var failures = 0
+    private var lastSaved: Long? = null
+    private var ticks = 0L
+    private var firstTick = 0L
+    data class Stats(val buffer: Int, val durationMs: Long?, val count: Int, val failures: Int,
+                     val lastSaved: Long?, val hz: Double?)
+    fun stats(): Stats = synchronized(lock) {
+        Stats(ring.size, if (event != null) (lastTick - triggerMs).coerceAtLeast(0L) else null,
+            count, failures, lastSaved, if (ticks > 1 && lastTick > firstTick)
+                (ticks - 1) * 1000.0 / (lastTick - firstTick) else null)
+    }
     private var lastTick = 0L
     private val detector = AplEventDetector()
     @Volatile var state = State.WAITING
@@ -72,9 +84,15 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
             if (!detector.recording) detector.reset()
         }
         lastTick = now
+        if (ticks == 0L) firstTick = now
+        ticks++
         val row = Row(now, System.currentTimeMillis(), PidSampleCache.snapshot(generation))
         val signal = if (triggerVerified(generation)) input(row) else null
-        val ready = ring.size == 50 && now - ring.first().elapsedMs >= 9_500L && signal != null
+        val allFresh = AplPidInventory.ids.all { id -> row.samples[id]?.let { s ->
+            s.quality != PidValidator.Quality.SUSPECT && s.value?.isFinite() == true &&
+                s.sourceToken > 0 && (s.ageMs(now) ?: Long.MAX_VALUE) <= 400L
+        } == true }
+        val ready = ring.size == 50 && now - ring.first().elapsedMs >= 9_500L && signal != null && allFresh
         val existing = event
         if (existing != null && existing.size < 660) existing.add(row)
         when (detector.update(now, signal, ready)) {
@@ -110,7 +128,10 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         event = null
         writer.submit(Event(generation, triggerMs, triggerWallMs, reason, rows)) { success ->
             synchronized(lock) {
-                if (session == generation && success) saved = true
+                if (session == generation) {
+                    if (success) { saved = true; count++; lastSaved = System.currentTimeMillis() }
+                    else failures++
+                }
             }
         }
     }
@@ -125,6 +146,11 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         session = null
         lastTick = 0L
         saved = false
+        count = 0
+        failures = 0
+        lastSaved = null
+        ticks = 0
+        firstTick = 0
         state = State.WAITING
     }
 

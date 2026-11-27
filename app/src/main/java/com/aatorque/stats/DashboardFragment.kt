@@ -208,10 +208,11 @@ open class DashboardFragment : AlbumArt() {
     private var quickIndex = 0
     private val quickHandler = Handler(Looper.getMainLooper())
     private val quickTimeout = Runnable {
-        if (quickPage != "diagnostics" && quickPage != "battery") closeQuickControls()
+        if (quickPage != "diagnostics" && quickPage != "battery" && quickPage != "aplLive" && quickPage != "apl") closeQuickControls()
     }
     private val quickMain = listOf("Reset Records", "Gauge Sizes", "Polling & Refresh",
-        "Live Diagnostics", "Battery Stats", "Fuel Summary Preview", "Close Menu")
+        "Live Diagnostics", "Battery Stats", "Fuel Summary Preview", "APL", "Close Menu")
+    private val quickApl = listOf("APL", "Live View", "Back")
     private val quickTiming = listOf("PID Polling", "Screen Refresh", "Back")
     private val quickReset = listOf("Reset TRIP 3", "Reset MIN/MAX", "Back")
     private val quickDailyReset = listOf("Reset Daily MAX", "Reset Daily MIN", "Reset Both", "Back")
@@ -223,11 +224,48 @@ open class DashboardFragment : AlbumArt() {
     private var quickResetSelection = 0
     private val diagnosticsHandler = Handler(Looper.getMainLooper())
     private var diagnosticsValueViews: List<TextView> = emptyList()
+    private var aplLiveText: TextView? = null
+    private fun aplSummary(): String {
+        val stats = AplStatus.recorderStats()
+        val acq = AplStatus.acquisitionStats()
+        val now = android.os.SystemClock.elapsedRealtime()
+        val samples = PidSampleCache.generation()?.let { PidSampleCache.snapshot(it) }.orEmpty()
+        val fresh = samples.values.count { it.quality != PidValidator.Quality.SUSPECT &&
+            it.value?.isFinite() == true && (it.ageMs(now) ?: Long.MAX_VALUE) <= 400L }
+        val state = if (AplStatus.enabled(requireContext())) AplStatus.state().name else "OFF"
+        val hz = stats?.hz?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
+        val rate = acq?.requestsPerSec?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
+        val saved = stats?.lastSaved?.let { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(it)) } ?: "—"
+        return "APL: $state  |  Buffer ${stats?.buffer ?: 0}/50  |  Fresh $fresh/10  |  $hz Hz\n" +
+            "Mode: ${acq?.mode ?: "—"}  |  Supplemental $rate PID/s  |  Skips ${acq?.skipped ?: 0}\n" +
+            "Recording: ${stats?.durationMs?.let { "${it / 1000}s" } ?: "—"}  |  Saved ${stats?.count ?: 0}  |  Last $saved  |  Save errors ${stats?.failures ?: 0}\n" +
+            "Acquisition errors: ${acq?.failures ?: 0}"
+    }
+    private fun aplLive(): String {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val samples = PidSampleCache.generation()?.let { PidSampleCache.snapshot(it) }.orEmpty()
+        return aplSummary() + "\n" + AplPidInventory.requirements.joinToString("\n") { pid ->
+            val s = samples[pid.id]
+            val age = s?.ageMs(now)
+            val value = s?.value?.takeIf { it.isFinite() && kotlin.math.abs(it) < Float.MAX_VALUE.toDouble() }
+                ?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "—"
+            val quality = when {
+                s == null -> "MISSING"
+                s.quality == PidValidator.Quality.SUSPECT -> "SUSPECT"
+                age == null -> "UNKNOWN AGE"
+                age > 400 -> "EXPIRED"
+                else -> s.quality.name
+            }
+            "${pid.key}: $value  |  $quality  |  ${age?.let { "${it}ms" } ?: "—"}"
+        }
+    }
     private var diagnosticsLastCount = 0L
     private var diagnosticsLastSampleMs = 0L
     private val diagnosticsRefresh = object : Runnable {
         override fun run() {
-            if (quickPage != "diagnostics" || quickOverlay == null || !isAdded) return
+            if (quickOverlay == null || !isAdded || quickPage !in listOf("diagnostics", "aplLive")) return
+            aplLiveText?.text = if (quickPage == "aplLive") aplLive() else aplSummary()
+            if (quickPage == "aplLive") { diagnosticsHandler.postDelayed(this, 1000L); return }
             val snapshot = torqueRefresher.diagnosticsSnapshot()
             val now = android.os.SystemClock.elapsedRealtime()
             val elapsed = now - diagnosticsLastSampleMs
@@ -1181,12 +1219,13 @@ open class DashboardFragment : AlbumArt() {
     private fun quickTouch() {
         quickHandler.removeCallbacks(quickTimeout)
         // Keep diagnostics open until the user explicitly exits it.
-        if (quickPage != "diagnostics" && quickPage != "battery") quickHandler.postDelayed(quickTimeout, 5_000L)
+        if (quickPage != "diagnostics" && quickPage != "battery" && quickPage != "aplLive" && quickPage != "apl") quickHandler.postDelayed(quickTimeout, 5_000L)
     }
 
     private fun closeQuickControls() {
         diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
         diagnosticsValueViews = emptyList()
+        aplLiveText = null
         quickHandler.removeCallbacks(quickTimeout)
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         quickOverlay = null
@@ -1200,6 +1239,7 @@ open class DashboardFragment : AlbumArt() {
     private fun openQuickControls(page: String = "main") {
         diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
         diagnosticsValueViews = emptyList()
+        aplLiveText = null
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         quickOverlay = null
         quickPage = page
@@ -1219,6 +1259,7 @@ open class DashboardFragment : AlbumArt() {
             "dailyReset" -> "reset"
             "fontLevels", "fontOffset" -> "fonts"
             "fonts" -> "sizes"
+            "aplLive" -> "apl"
             else -> "main"
         })
     }
@@ -1231,6 +1272,7 @@ open class DashboardFragment : AlbumArt() {
         }
         val count = when (quickPage) {
             "main" -> quickMain.size
+            "apl" -> quickApl.size
             "reset" -> quickReset.size
             "dailyReset" -> quickDailyReset.size
             "sizes" -> quickSizes.size
@@ -1258,7 +1300,8 @@ open class DashboardFragment : AlbumArt() {
                     closeQuickControls()
                     showTankSummary(fuelTracker.previewSummary(), preview = true)
                 }
-                6 -> closeQuickControls()
+                6 -> openQuickControls("apl")
+                7 -> closeQuickControls()
                 else -> closeQuickControls()
             }
             "timing" -> when (quickIndex) {
@@ -1309,6 +1352,12 @@ open class DashboardFragment : AlbumArt() {
                 }
                 else -> openQuickControls("fonts")
             }
+            "apl" -> when (quickIndex) {
+                0 -> { AplStatus.setEnabled(requireContext(), !AplStatus.enabled(requireContext())); renderQuickControls() }
+                1 -> openQuickControls("aplLive")
+                else -> openQuickControls()
+            }
+            "aplLive" -> openQuickControls("apl")
             "diagnostics", "battery" -> openQuickControls()
             else -> openQuickControls()
         }
@@ -1395,12 +1444,23 @@ open class DashboardFragment : AlbumArt() {
             "timing" -> "POLLING & REFRESH"
             "confirm" -> "CONFIRM RESET"
             "battery" -> "BATTERY STATS"
+            "apl" -> "AUTOMATIC PERFORMANCE LOGGING"
+            "aplLive" -> "APL LIVE VIEW"
             else -> "LIVE DIAGNOSTICS"
         }
         row(heading) { quickTouch() }
         when (quickPage) {
             "main" -> quickMain.forEachIndexed { i, label ->
-                row(label, i == quickIndex) { quickIndex = i; quickSelect() }
+                row(if (label == "APL") "APL: " + if (AplStatus.enabled(context)) "ON" else "OFF" else label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "apl" -> quickApl.forEachIndexed { i, label ->
+                row(if (i == 0) "APL: " + if (AplStatus.enabled(context)) "ON" else "OFF" else label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "aplLive" -> {
+                val view = TextView(context).apply { textSize = 13f; setTextColor(Color.WHITE) }
+                panel.addView(view)
+                aplLiveText = view
+                row("BACK") { openQuickControls("apl") }
             }
             "reset" -> quickReset.forEachIndexed { i, label ->
                 row(label, i == quickIndex) { quickIndex = i; quickSelect() }
@@ -1542,6 +1602,8 @@ open class DashboardFragment : AlbumArt() {
                     panel.addView(line)
                 }
                 diagnosticsValueViews = valueViews
+                aplLiveText = TextView(context).apply { textSize = 12f; setTextColor(Color.WHITE) }
+                aplLiveText?.let { panel.addView(it) }
                 row("Torque Connection: " + currentConnectionStatus.name) {}
                 row("Data Stream: " + if (communicationFaultActive) "Fault" else "Monitoring") {}
                 row("BACK") { openQuickControls() }
@@ -1552,8 +1614,10 @@ open class DashboardFragment : AlbumArt() {
                 diagnosticsHandler.post(diagnosticsRefresh)
             }
         }
-        overlay.addView(panel, FrameLayout.LayoutParams(
-            minOf(dp(490), overlayWidthPx() - dp(32)), -2, Gravity.CENTER))
+        val scroll = android.widget.ScrollView(context).apply { addView(panel); isFillViewport = false }
+        overlay.addView(scroll, FrameLayout.LayoutParams(
+            minOf(dp(if (quickPage == "aplLive") 700 else 490), overlayWidthPx() - dp(32)),
+            -2, Gravity.CENTER))
         mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
             startToStart = ConstraintLayout.LayoutParams.PARENT_ID
             endToEnd = ConstraintLayout.LayoutParams.PARENT_ID
@@ -1562,6 +1626,10 @@ open class DashboardFragment : AlbumArt() {
         })
         overlay.bringToFront()
         quickOverlay = overlay
+        if (quickPage == "aplLive" || quickPage == "diagnostics") {
+            diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
+            diagnosticsHandler.post(diagnosticsRefresh)
+        }
         quickTouch()
     }
 
