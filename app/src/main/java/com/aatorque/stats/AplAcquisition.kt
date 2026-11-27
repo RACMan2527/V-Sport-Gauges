@@ -18,6 +18,8 @@ class AplAcquisition(private val torque: TorqueService) {
     @Volatile private var verified = emptySet<String>()
     fun triggerVerified(session: Long): Boolean = metadataGeneration == session &&
         verified.containsAll(listOf(AplPidInventory.RPM, "49,0", "04,0"))
+    @Volatile private var inventory = emptyMap<String, String>()
+    private var lastVerifyAt = 0L
     private var cursor = 0
     @Volatile private var requested = 0L
     @Volatile private var calls = 0L
@@ -26,9 +28,9 @@ class AplAcquisition(private val torque: TorqueService) {
     private var lastReport = 0L
     private val createdAt = SystemClock.elapsedRealtime()
     @Volatile private var mode = "baseline"
-    data class Stats(val mode: String, val requestsPerSec: Double, val calls: Long, val skipped: Long, val failures: Long)
+    data class Stats(val mode: String, val requestsPerSec: Double, val calls: Long, val skipped: Long, val failures: Long, val inventory: Map<String, String>)
     fun stats() = Stats(mode, requested * 1000.0 / (SystemClock.elapsedRealtime() - createdAt).coerceAtLeast(1L),
-        calls, skipped, failures)
+        calls, skipped, failures, inventory)
 
     @Synchronized fun start(session: Long) {
         if (generation == session && task != null) return
@@ -68,6 +70,8 @@ class AplAcquisition(private val torque: TorqueService) {
         verified = AplPidInventory.requirements.filter {
             statuses[it.key] == "metadata_present"
         }.map { it.id }.toSet()
+        inventory = statuses
+        lastVerifyAt = SystemClock.elapsedRealtime()
         metadataGeneration = session
         DiagnosticLog.event("APL_PID_INVENTORY", statuses.entries.joinToString(" ") { it.key + "=" + it.value })
     }
@@ -80,7 +84,7 @@ class AplAcquisition(private val torque: TorqueService) {
         val decision = AplPollingGuard.decide(now)
         mode = decision.reason
         if (!decision.allowed) { skipped++; report(now, decision.reason); return }
-        if (metadataGeneration != session) {
+        if (metadataGeneration != session || (!triggerVerified(session) && now - lastVerifyAt >= 10_000L)) {
             verify(ts, session)
             return
         }
@@ -94,8 +98,12 @@ class AplAcquisition(private val torque: TorqueService) {
             }
         }
         if (missing.isEmpty()) { report(now, "cache"); return }
+        val triggerMissing = missing.filter { it in setOf(AplPidInventory.RPM, "49,0", "04,0") }
         val selected = if (decision.batch) missing.take(10)
-            else listOf(missing[(cursor++ and Int.MAX_VALUE) % missing.size])
+            else {
+                val priority = if (triggerMissing.isNotEmpty() && cursor % 4 != 3) triggerMissing else missing
+                listOf(priority[(cursor++ and Int.MAX_VALUE) % priority.size])
+            }
         val ids = selected.toTypedArray()
         val started = SystemClock.elapsedRealtime()
         val batch = ids.size > 1

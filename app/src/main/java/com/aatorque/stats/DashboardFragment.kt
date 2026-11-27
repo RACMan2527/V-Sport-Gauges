@@ -178,7 +178,7 @@ open class DashboardFragment : AlbumArt() {
         }
         panel.addView(ok)
         overlay.addView(panel, FrameLayout.LayoutParams(
-            minOf(dp(490), overlayWidthPx() - dp(32)),
+            minOf(dp(if (quickPage == "apl" || quickPage == "aplLive") 700 else 490), overlayWidthPx() - dp(32)),
             -2, Gravity.CENTER))
         mLayoutDashboard.addView(overlay, ConstraintLayout.LayoutParams(-1, -1).apply {
             startToStart = ConstraintLayout.LayoutParams.PARENT_ID
@@ -208,7 +208,7 @@ open class DashboardFragment : AlbumArt() {
     private var quickIndex = 0
     private val quickHandler = Handler(Looper.getMainLooper())
     private val quickTimeout = Runnable {
-        if (quickPage != "diagnostics" && quickPage != "battery") closeQuickControls()
+        if (quickPage != "diagnostics" && quickPage != "battery" && quickPage != "apl" && quickPage != "aplLive") closeQuickControls()
     }
     private val quickMain = listOf("Reset Records", "Gauge Sizes", "Polling & Refresh",
         "Live Diagnostics", "Battery Stats", "Fuel Summary Preview", "APL", "Close Menu")
@@ -223,11 +223,56 @@ open class DashboardFragment : AlbumArt() {
     private var quickResetSelection = 0
     private val diagnosticsHandler = Handler(Looper.getMainLooper())
     private var diagnosticsValueViews: List<TextView> = emptyList()
+    private var aplLiveText: TextView? = null
+    private fun aplSummary(): String {
+        val stats = AplStatus.recorderStats()
+        val acq = AplStatus.acquisitionStats()
+        val now = android.os.SystemClock.elapsedRealtime()
+        val samples = PidSampleCache.generation()?.let { PidSampleCache.snapshot(it) }.orEmpty()
+        val fresh = samples.values.count { it.quality != PidValidator.Quality.SUSPECT &&
+            it.value?.isFinite() == true && (it.ageMs(now) ?: Long.MAX_VALUE) <= 400L }
+        val state = if (AplStatus.enabled(requireContext())) AplStatus.state().name else "OFF"
+        val hz = stats?.hz?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
+        val rate = acq?.requestsPerSec?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
+        val saved = stats?.lastSaved?.let { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(it)) } ?: "—"
+        val reason = stats?.reason ?: if (state == "OFF") "Disabled" else "Waiting for ECU / folder / service"
+        return "APL: $state  |  Buffer ${stats?.buffer ?: 0}/50  |  Fresh $fresh/10  |  $hz Hz\n" +
+            "Readiness: $reason\n" +
+            "Mode: ${acq?.mode ?: "—"}  |  Supplemental $rate PID/s  |  Skips ${acq?.skipped ?: 0}\n" +
+            "Recording: ${stats?.durationMs?.let { "${it / 1000}s" } ?: "—"}  |  Saved ${stats?.count ?: 0}  |  Last $saved  |  Save errors ${stats?.failures ?: 0}\n" +
+            "Acquisition errors: ${acq?.failures ?: 0}"
+    }
+    private fun aplLive(): String {
+        val now = android.os.SystemClock.elapsedRealtime()
+        val samples = PidSampleCache.generation()?.let { PidSampleCache.snapshot(it) }.orEmpty()
+        return aplSummary() + "\n" + AplPidInventory.requirements.joinToString("\n") { pid ->
+            val s = samples[pid.id]
+            val age = s?.ageMs(now)
+            val value = s?.value?.takeIf { it.isFinite() && kotlin.math.abs(it) < Float.MAX_VALUE.toDouble() }
+                ?.let { String.format(java.util.Locale.US, "%.2f", it) } ?: "—"
+            val metadata = AplStatus.acquisitionStats()?.inventory?.get(pid.key)
+            val quality = when {
+                metadata != null && metadata != "metadata_present" -> metadata.uppercase(java.util.Locale.US)
+                s == null -> "MISSING"
+                s.quality == PidValidator.Quality.SUSPECT -> "SUSPECT"
+                age == null -> "UNKNOWN AGE"
+                age > 400 -> "EXPIRED"
+                else -> s.quality.name
+            }
+            "${pid.key}: $value  |  $quality  |  ${age?.let { "${it}ms" } ?: "—"}"
+        }
+    }
     private var diagnosticsLastCount = 0L
     private var diagnosticsLastSampleMs = 0L
     private val diagnosticsRefresh = object : Runnable {
         override fun run() {
-            if (quickPage != "diagnostics" || quickOverlay == null || !isAdded) return
+            if (quickOverlay == null || !isAdded) return
+            if (quickPage == "apl" || quickPage == "aplLive") {
+                aplLiveText?.text = if (quickPage == "aplLive") aplLive() else aplSummary()
+                diagnosticsHandler.postDelayed(this, 1000L)
+                return
+            }
+            if (quickPage != "diagnostics") return
             val snapshot = torqueRefresher.diagnosticsSnapshot()
             val now = android.os.SystemClock.elapsedRealtime()
             val elapsed = now - diagnosticsLastSampleMs
@@ -1181,12 +1226,13 @@ open class DashboardFragment : AlbumArt() {
     private fun quickTouch() {
         quickHandler.removeCallbacks(quickTimeout)
         // Keep diagnostics open until the user explicitly exits it.
-        if (quickPage != "diagnostics" && quickPage != "battery") quickHandler.postDelayed(quickTimeout, 5_000L)
+        if (quickPage != "diagnostics" && quickPage != "battery" && quickPage != "apl" && quickPage != "aplLive") quickHandler.postDelayed(quickTimeout, 5_000L)
     }
 
     private fun closeQuickControls() {
         diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
         diagnosticsValueViews = emptyList()
+        aplLiveText = null
         quickHandler.removeCallbacks(quickTimeout)
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         quickOverlay = null
@@ -1200,6 +1246,7 @@ open class DashboardFragment : AlbumArt() {
     private fun openQuickControls(page: String = "main") {
         diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
         diagnosticsValueViews = emptyList()
+        aplLiveText = null
         quickOverlay?.let { (it.parent as? ViewGroup)?.removeView(it) }
         quickOverlay = null
         quickPage = page
@@ -1219,6 +1266,7 @@ open class DashboardFragment : AlbumArt() {
             "dailyReset" -> "reset"
             "fontLevels", "fontOffset" -> "fonts"
             "fonts" -> "sizes"
+            "aplLive" -> "apl"
             else -> "main"
         })
     }
@@ -1231,6 +1279,7 @@ open class DashboardFragment : AlbumArt() {
         }
         val count = when (quickPage) {
             "main" -> quickMain.size
+            "apl" -> 3
             "reset" -> quickReset.size
             "dailyReset" -> quickDailyReset.size
             "sizes" -> quickSizes.size
@@ -1258,7 +1307,7 @@ open class DashboardFragment : AlbumArt() {
                     closeQuickControls()
                     showTankSummary(fuelTracker.previewSummary(), preview = true)
                 }
-                6 -> { AplStatus.setEnabled(requireContext(), !AplStatus.enabled(requireContext())); renderQuickControls() }
+                6 -> openQuickControls("apl")
                 7 -> closeQuickControls()
                 else -> closeQuickControls()
             }
@@ -1310,6 +1359,12 @@ open class DashboardFragment : AlbumArt() {
                 }
                 else -> openQuickControls("fonts")
             }
+            "apl" -> when (quickIndex) {
+                0 -> { AplStatus.setEnabled(requireContext(), !AplStatus.enabled(requireContext())); renderQuickControls() }
+                1 -> openQuickControls("aplLive")
+                else -> openQuickControls()
+            }
+            "aplLive" -> openQuickControls("apl")
             "diagnostics", "battery" -> openQuickControls()
             else -> openQuickControls()
         }
@@ -1396,12 +1451,28 @@ open class DashboardFragment : AlbumArt() {
             "timing" -> "POLLING & REFRESH"
             "confirm" -> "CONFIRM RESET"
             "battery" -> "BATTERY STATS"
+            "apl" -> "AUTOMATIC PERFORMANCE LOGGING"
+            "aplLive" -> "APL LIVE PIDS"
             else -> "LIVE DIAGNOSTICS"
         }
         row(heading) { quickTouch() }
         when (quickPage) {
             "main" -> quickMain.forEachIndexed { i, label ->
                 row(if (label == "APL") "APL: " + (if (AplStatus.enabled(context)) "ON" else "OFF") else label, i == quickIndex) { quickIndex = i; quickSelect() }
+            }
+            "apl" -> {
+                row("APL: " + (if (AplStatus.enabled(context)) "ON" else "OFF"), quickIndex == 0) { quickIndex = 0; quickSelect() }
+                val stats = TextView(context).apply { textSize = 13f; setTextColor(Color.WHITE); text = aplSummary() }
+                aplLiveText = stats
+                panel.addView(stats)
+                row("Live PID Values", quickIndex == 1) { quickIndex = 1; quickSelect() }
+                row("BACK", quickIndex == 2) { quickIndex = 2; quickSelect() }
+            }
+            "aplLive" -> {
+                val stats = TextView(context).apply { textSize = 13f; setTextColor(Color.WHITE); text = aplLive() }
+                aplLiveText = stats
+                panel.addView(stats)
+                row("BACK") { openQuickControls("apl") }
             }
             "reset" -> quickReset.forEachIndexed { i, label ->
                 row(label, i == quickIndex) { quickIndex = i; quickSelect() }
@@ -1565,7 +1636,7 @@ open class DashboardFragment : AlbumArt() {
         })
         overlay.bringToFront()
         quickOverlay = overlay
-        if (quickPage == "diagnostics") {
+        if (quickPage == "diagnostics" || quickPage == "apl" || quickPage == "aplLive") {
             diagnosticsHandler.removeCallbacks(diagnosticsRefresh)
             diagnosticsHandler.post(diagnosticsRefresh)
         }

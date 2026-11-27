@@ -30,12 +30,13 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
     private var lastSaved: Long? = null
     private var ticks = 0L
     private var firstTick = 0L
+    private var readinessReason = "Filling pre-trigger buffer"
     data class Stats(val buffer: Int, val durationMs: Long?, val count: Int, val failures: Int,
-                     val lastSaved: Long?, val hz: Double?)
+                     val lastSaved: Long?, val hz: Double?, val reason: String)
     fun stats(): Stats = synchronized(lock) {
         Stats(ring.size, if (event != null) (lastTick - triggerMs).coerceAtLeast(0L) else null,
             count, failures, lastSaved, if (ticks > 1 && lastTick > firstTick)
-                (ticks - 1) * 1000.0 / (lastTick - firstTick) else null)
+                (ticks - 1) * 1000.0 / (lastTick - firstTick) else null, readinessReason)
     }
     private var lastTick = 0L
     private val detector = AplEventDetector()
@@ -88,11 +89,16 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         ticks++
         val row = Row(now, System.currentTimeMillis(), PidSampleCache.snapshot(generation))
         val signal = if (triggerVerified(generation)) input(row) else null
-        val allFresh = AplPidInventory.ids.all { id -> row.samples[id]?.let { s ->
-            s.quality != PidValidator.Quality.SUSPECT && s.value?.isFinite() == true &&
-                s.sourceToken > 0 && (s.ageMs(now) ?: Long.MAX_VALUE) <= 400L
-        } == true }
-        val ready = ring.size == 50 && now - ring.first().elapsedMs >= 9_500L && signal != null && allFresh
+        // Only trigger inputs require 400 ms freshness. Optional telemetry may have
+        // slower native update rates (GPS/gear), and is quality-tagged in every CSV row.
+        val bufferReady = ring.size == 50 && now - ring.first().elapsedMs >= 9_500L
+        val ready = bufferReady && signal != null
+        readinessReason = when {
+            !triggerVerified(generation) -> "Waiting for trigger PID metadata"
+            signal == null -> "Waiting for fresh RPM, pedal or load"
+            !bufferReady -> "Filling pre-trigger buffer"
+            else -> "Trigger ready"
+        }
         val existing = event
         if (existing != null && existing.size < 660) existing.add(row)
         when (detector.update(now, signal, ready)) {
