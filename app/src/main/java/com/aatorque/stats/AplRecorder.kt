@@ -74,7 +74,7 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         lastTick = now
         val row = Row(now, System.currentTimeMillis(), PidSampleCache.snapshot(generation))
         val signal = if (triggerVerified(generation)) input(row) else null
-        val ready = ring.size == 50 && now - ring.first().elapsedMs >= 9_800L && signal != null
+        val ready = ring.size == 50 && now - ring.first().elapsedMs >= 9_500L && signal != null
         val existing = event
         if (existing != null && existing.size < 660) existing.add(row)
         when (detector.update(now, signal, ready)) {
@@ -92,7 +92,7 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
         }
         if (event?.size == 660) {
             finishLocked("capacity_limit")
-            detector.reset()
+            detector.capacityReached()
         }
         if (ring.size == 50) ring.removeFirst()
         ring.addLast(row)
@@ -132,6 +132,6 @@ class AplRecorder(private val writer: AplLogWriter, private val triggerVerified:
     fun close() {
         stop("app_stopped")
         worker.shutdown()
-        writer.close()
+        // Writer is owned by the service controller and drains across ECU sessions.
     }
 }

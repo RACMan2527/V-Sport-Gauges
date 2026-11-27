@@ -107,7 +107,7 @@ class BackgroundFuelService : Service() {
         BatteryStats.interrupted(this)
         handler.removeCallbacks(check)
         handler.removeCallbacks(batteryReport)
-        apl.stop("app_stopped")
+        apl.close()
         if (fuelOpened) PerformancePollingOwnership.unregisterBackgroundStop()
         performance.stop()
         performanceScope.cancel()

@@ -53,7 +53,8 @@ object PidSampleCache {
             val same = previous?.sourceToken == token
             val firstSeen = if (same) previous!!.firstSeenAtMs else observedAtMs
             val changed = if (same) previous!!.changedTokenObserved else previous != null && usable
-            val age = if (token >= 1_000_000_000_000L && token <= wallMs) wallMs - token else null
+            val epochAge = if (token >= 1_000_000_000_000L && token <= wallMs) wallMs - token else null
+            val age = if (same) previous!!.ageMs(observedAtMs)?.let { old -> maxOf(old, epochAge ?: old) } ?: epochAge else epochAge
             val classified = when {
                 !usable -> PidValidator.Quality.SUSPECT
                 same -> PidValidator.Quality.STALE

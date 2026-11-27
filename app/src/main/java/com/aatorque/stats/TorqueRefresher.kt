@@ -223,7 +223,7 @@ class TorqueRefresher {
                 return@runIfConnected
             } finally {
                 diagLastResponseMs.set(android.os.SystemClock.elapsedRealtime() - requestStarted)
-                if (aplGeneration != null) AplPollingGuard.observeGauge(diagLastResponseMs.get())
+
             }
             // Statistical history must contain fresh ECU samples only. A cached
             // startup zero (or any repeated timestamp) must never seed Trend.
@@ -234,6 +234,7 @@ class TorqueRefresher {
                 ts, torqueData.pid!!, value,
                 consumer = if (modifierEnabled) "modifier-${System.identityHashCode(torqueData)}" else "gauges"
             )
+            if (aplGeneration != null) AplPollingGuard.observeGauge(diagLastResponseMs.get(), quality.quality == PidValidator.Quality.STALE)
             PidSampleCache.publish(aplGeneration, torqueData.pid!!, value, quality.updateTime, quality.quality)
             if (modifierEnabled && quality.quality != PidValidator.Quality.VALID) {
                 return@runIfConnected

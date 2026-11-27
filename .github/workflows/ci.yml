@@ -24,6 +24,10 @@ jobs:
       - name: Lint Release
         run: echo "" >> ./local.properties && ./gradlew lintRelease
 
+      - name: APL regression tests
+        if: github.ref == 'refs/heads/feature/automatic-performance-logging'
+        run: ./gradlew :app:testDebugUnitTest
+
       - name: Build Android Auto test APK
         run: ./gradlew assembleDebug
 

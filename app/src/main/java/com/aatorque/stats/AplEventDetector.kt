@@ -28,7 +28,15 @@ class AplEventDetector {
                 return Action.FINISH
             }
             if (input != null && qualifies(input)) {
-                if (postAt != null) postAt = null
+                if (postAt != null) {
+                    val first = triggerInput
+                    if (first == null) { triggerAt = now; triggerInput = input }
+                    else if (now - triggerAt!! >= 400L && distinct(first, input)) {
+                        postAt = null
+                        triggerAt = null
+                        triggerInput = null
+                    }
+                }
                 releaseAt = null
                 releaseInput = null
             } else if (postAt == null) {
@@ -48,6 +56,7 @@ class AplEventDetector {
                     releaseInput = null
                 }
             }
+            if (input == null || !qualifies(input)) { triggerAt = null; triggerInput = null }
             if (postAt?.let { now - it >= 5000L } == true) {
                 clearEvent()
                 return Action.FINISH
@@ -84,6 +93,11 @@ class AplEventDetector {
         releaseAt = null
         releaseInput = null
         postAt = null
+    }
+
+    fun capacityReached() {
+        clearEvent()
+        requireRelease = true
     }
 
     fun reset() {

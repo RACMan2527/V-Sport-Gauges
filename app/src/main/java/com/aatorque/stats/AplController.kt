@@ -31,6 +31,8 @@ class AplController(private val context: Context, private val torque: TorqueServ
     private var generation: Long? = null
     private var acquisition: AplAcquisition? = null
     private var recorder: AplRecorder? = null
+    private val writer by lazy { AplLogWriter(context) }
+    private var writerUsed = false
 
     fun update(connected: Boolean) {
         val enabled = AplStatus.enabled(context)
@@ -42,13 +44,19 @@ class AplController(private val context: Context, private val torque: TorqueServ
         val session = PidSampleCache.beginSession()
         generation = session
         val acquire = AplAcquisition(torque)
-        val record = AplRecorder(AplLogWriter(context), acquire::triggerVerified)
+        writerUsed = true
+        val record = AplRecorder(writer, acquire::triggerVerified)
         acquisition = acquire
         recorder = record
         AplStatus.recorder = record
         acquire.start(session)
         record.start(session)
         DiagnosticLog.event("APL_SESSION_START", "session=$session")
+    }
+
+    fun close() {
+        stop("app_stopped")
+        if (writerUsed) writer.close()
     }
 
     fun stop(reason: String) {
