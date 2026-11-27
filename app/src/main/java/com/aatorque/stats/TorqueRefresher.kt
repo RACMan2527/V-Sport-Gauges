@@ -212,6 +212,7 @@ class TorqueRefresher {
             if (ts.isConnectedToECU && conWatcher.value != ConnectStatus.CONNECTED) {
                 runBlocking { conWatcher.emit(ConnectStatus.CONNECTED) }
             }
+            val aplGeneration = PidSampleCache.generation()
             val requestStarted = android.os.SystemClock.elapsedRealtime()
             val value = try {
                 ts.getPIDValuesAsDouble(arrayOf(torqueData.pid!!))[0]
@@ -232,6 +233,7 @@ class TorqueRefresher {
                 ts, torqueData.pid!!, value,
                 consumer = if (modifierEnabled) "modifier-${System.identityHashCode(torqueData)}" else "gauges"
             )
+            PidSampleCache.publish(aplGeneration, torqueData.pid!!, value, quality.updateTime, quality.quality)
             if (modifierEnabled && quality.quality != PidValidator.Quality.VALID) {
                 return@runIfConnected
             }
@@ -336,6 +338,7 @@ class TorqueRefresher {
                         val deadline = android.os.SystemClock.elapsedRealtime() + 1000L
                         var initialAgeMs: Long? = null
                         do {
+                            val aplGeneration = PidSampleCache.generation()
                             val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                             initialRpm = rpm
                             initialRpmUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
@@ -343,6 +346,7 @@ class TorqueRefresher {
                             rpmValid = ts.isConnectedToECU && rpm != null && rpm.isFinite() &&
                                 rpm > 300.0 && rpm <= 7000.0 &&
                                 initialAgeMs != null && initialAgeMs <= maxRpmAgeMs
+                            if (rpmValid) PidSampleCache.publish(aplGeneration, AplPidInventory.RPM, rpm, initialRpmUpdate, PidValidator.Quality.VALID)
                             if (rpmValid || !pollingEnabled || activeService !== service ||
                                 android.os.SystemClock.elapsedRealtime() >= deadline) break
                             Thread.sleep(200L)
@@ -386,7 +390,8 @@ class TorqueRefresher {
                                         var finalUpdate = 0L
                                         var finalAgeMs: Long? = null
                                         do {
-                                            val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
+                                            val aplGeneration = PidSampleCache.generation()
+                            val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
                                             finalRpm = rpm
                                             finalUpdate = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
                                             finalAgeMs = rpmAgeMs(finalUpdate, System.currentTimeMillis())
@@ -394,6 +399,7 @@ class TorqueRefresher {
                                                 rpm > 300.0 && rpm <= 7000.0 && rpm != initialRpm &&
                                                 finalAgeMs != null && finalAgeMs <= maxRpmAgeMs &&
                                                 finalUpdate != initialRpmUpdate
+                                            if (finalRpmValid) PidSampleCache.publish(aplGeneration, AplPidInventory.RPM, rpm, finalUpdate, PidValidator.Quality.VALID)
                                             if (finalRpmValid || !pollingEnabled || activeService !== service ||
                                                 android.os.SystemClock.elapsedRealtime() >= deadline) break
                                             Thread.sleep(200L)
