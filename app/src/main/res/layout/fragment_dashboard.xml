@@ -204,7 +204,6 @@
                 android:id="@+id/aplIndicator"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:layout_marginEnd="12dp"
                 android:src="@drawable/apl_indicator"
                 android:visibility="invisible"
                 android:contentDescription="Automatic Performance Logging"

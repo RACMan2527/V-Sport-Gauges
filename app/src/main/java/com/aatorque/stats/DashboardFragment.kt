@@ -78,7 +78,7 @@ open class DashboardFragment : AlbumArt() {
             if (!isAdded || !isResumed || !::binding.isInitialized) return
             val enabled = AplStatus.enabled(requireContext())
             val state = AplStatus.state()
-            binding.aplIndicator.visibility = if (enabled) View.VISIBLE else View.INVISIBLE
+            binding.aplIndicator.visibility = if (enabled && positionAplIndicator()) View.VISIBLE else View.INVISIBLE
             val color = when (state) {
                 AplRecorder.State.WAITING -> Color.GRAY
                 AplRecorder.State.INITIALIZING -> Color.YELLOW
@@ -92,6 +92,54 @@ open class DashboardFragment : AlbumArt() {
             aplIndicatorHandler.postDelayed(this, 200L)
         }
     }
+    /** Center in the visible space between the title text and V badge.
+     * Match the clock's digit ink height, not the TextClock's padded view height. */
+    private fun positionAplIndicator(): Boolean {
+        val icon = binding.aplIndicator
+        val clock = binding.dashboardClock
+        val title = binding.textTitle
+        val badge = binding.cadillacVSeriesBadge
+        val header = icon.parent as? ViewGroup ?: return false
+        if (icon.width <= 0 || icon.height <= 0 || clock.height <= 0 || header.width <= 0) return false
+
+        val digits = android.graphics.Rect()
+        val clockText = "0123456789"
+        clock.paint.getTextBounds(clockText, 0, clockText.length, digits)
+        if (digits.height() <= 0) return false
+
+        val titleLayout = title.layout
+        val titleRight = if (title.visibility == View.VISIBLE && titleLayout != null && titleLayout.lineCount > 0) {
+            val textRight = title.left + title.totalPaddingLeft +
+                titleLayout.getLineRight(0) - title.scrollX
+            textRight.coerceIn(0f, header.width.toFloat())
+        } else {
+            // While connecting, reserve the right half of the centered status group.
+            binding.connectionStatusGroup.right.toFloat()
+        }
+        val logoLeft = if (badge.visibility == View.VISIBLE) badge.left.toFloat()
+            else header.width - 18f * resources.displayMetrics.density
+        val gap = logoLeft - titleRight
+        if (gap <= 0f) return false
+
+        // Vector ink bounds: y=5.6..33.4, x=1.6..38.4 within a 40-unit viewport.
+        val requestedSize = digits.height() * (40f / 27.8f)
+        val padding = 4f * resources.displayMetrics.density
+        val availableSize = (gap - 2f * padding) * (40f / 36.8f)
+        if (availableSize <= 0f) return false
+        val size = minOf(requestedSize, availableSize)
+        val scale = size / icon.width
+        icon.pivotX = icon.width / 2f
+        icon.pivotY = icon.height / 2f
+        icon.scaleX = scale
+        icon.scaleY = scale
+        val centerX = (titleRight + logoLeft) / 2f
+        val digitCenterY = clock.top + clock.baseline + (digits.top + digits.bottom) / 2f
+        // The waveform ink center is at 19.5, slightly above its viewport center.
+        icon.translationX = centerX - icon.left - icon.width / 2f
+        icon.translationY = digitCenterY - icon.top - icon.height / 2f + size * (0.5f / 40f)
+        return true
+    }
+
     private val tankSummaryCheck = object : Runnable {
         override fun run() {
             if (isResumed && tankSummaryOverlay == null && quickOverlay == null) {
