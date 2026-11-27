@@ -22,7 +22,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Android 10+ uses MediaStore; older Android uses public Documents.
  */
 object DiagnosticLog {
-    private const val PREFIX = "V-Sport-Gauges-APL-Test-"
+    private const val PREFIX = "V-Sport-Gauges-"
     private const val MAX_BYTES = 5L * 1024 * 1024
     private const val KEEP_FILES = 8
     private const val MAX_PENDING = 512

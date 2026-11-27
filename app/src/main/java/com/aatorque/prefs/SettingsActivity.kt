@@ -113,7 +113,9 @@ class SettingsActivity : AppCompatActivity(),
                 .replace(R.id.settings_fragment, SettingsFragment())
                 .commit()
         }
-        // Test package never offers a production APK update.
+        lifecycleScope.launch(Dispatchers.IO) {
+            checkUpdate()
+        }
         supportFragmentManager.registerFragmentLifecycleCallbacks(
             object : FragmentManager.FragmentLifecycleCallbacks() {
                 override fun onFragmentResumed(fm: FragmentManager, f: Fragment) {
