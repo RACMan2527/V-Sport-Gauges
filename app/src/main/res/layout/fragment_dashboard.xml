@@ -173,13 +173,25 @@
                 app:layout_constraintStart_toEndOf="@id/dashboardClock"
                 app:layout_constraintTop_toTopOf="@id/dashboardClock" />
 
+            <TextView
+                android:id="@+id/connectionIndicatorSeparator"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="&#160;•&#160;"
+                android:textColor="@android:color/white"
+                android:textSize="25sp"
+                android:visibility="@{aplEnabled || brokenLink ? View.VISIBLE : View.GONE}"
+                android:importantForAccessibility="no"
+                app:layout_constraintStart_toEndOf="@id/dashboardDirection"
+                app:layout_constraintTop_toTopOf="@id/dashboardDirection" />
+
             <FrameLayout
                 android:id="@+id/connectionIndicatorSlot"
                 android:layout_width="24dp"
                 android:layout_height="24dp"
-                android:layout_marginStart="14dp"
                 android:translationY="3dp"
-                app:layout_constraintStart_toEndOf="@id/dashboardDirection"
+                android:visibility="@{aplEnabled || brokenLink ? View.VISIBLE : View.GONE}"
+                app:layout_constraintStart_toEndOf="@id/connectionIndicatorSeparator"
                 app:layout_constraintTop_toTopOf="@id/dashboardDirection"
                 app:layout_constraintBottom_toBottomOf="@id/dashboardDirection">
 
