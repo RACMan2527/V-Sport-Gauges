@@ -25,6 +25,28 @@ class BackgroundFuelService : Service() {
     private var lastState: String? = null
     private var attemptedAt = 0L
     private val apl by lazy { AplController(this, torque) }
+    private val engineWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val engineBusy = java.util.concurrent.atomic.AtomicBoolean(false)
+    private var lastEnginePoll = -2000L
+    @Volatile private var engineConnectionGeneration = 0L
+    private fun monitorEngine(connected: Boolean, now: Long) {
+        EngineState.connection(connected)
+        if (!connected) { engineConnectionGeneration++; return }
+        if (FuelMonitor.active() || now - lastEnginePoll < 2000L || !engineBusy.compareAndSet(false, true)) return
+        lastEnginePoll = now
+        val generation = engineConnectionGeneration
+        engineWorker.execute {
+            try {
+                val ts = torque.torqueService
+                if (ts != null && ts.isConnectedToECU) {
+                    val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
+                    val token = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
+                    if (generation == engineConnectionGeneration && ts.isConnectedToECU)
+                        EngineState.observe(rpm, token, SystemClock.elapsedRealtime(), System.currentTimeMillis())
+                }
+            } catch (_: Exception) { } finally { engineBusy.set(false) }
+        }
+    }
     private var fuelOpened = false
     private var fuelReadyCheckedAt = -30_000L
     private fun activateFuelIfReady(now: Long) {
@@ -46,8 +68,8 @@ class BackgroundFuelService : Service() {
                 else -> "ECU_DISCONNECTED"
             }
             activateFuelIfReady(now)
-            EngineState.connection(state == "ECU_CONNECTED")
-            apl.update(state == "ECU_CONNECTED", fuelOpened)
+            monitorEngine(state == "ECU_CONNECTED", now)
+            apl.update(state == "ECU_CONNECTED")
             if (fuelOpened && state == "ECU_CONNECTED" && PerformancePollingOwnership.shouldPollDashboardOne()) performance.start()
             else performance.stop()
             BatteryStats.sample(this@BackgroundFuelService, monitoring = true,
@@ -108,6 +130,8 @@ class BackgroundFuelService : Service() {
         BatteryStats.interrupted(this)
         handler.removeCallbacks(check)
         handler.removeCallbacks(batteryReport)
+        engineConnectionGeneration++
+        engineWorker.shutdownNow()
         EngineState.connection(false)
         apl.close()
         if (fuelOpened) PerformancePollingOwnership.unregisterBackgroundStop()

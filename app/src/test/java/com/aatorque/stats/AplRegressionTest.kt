@@ -126,6 +126,15 @@ class AplRegressionTest {
         } finally { EngineState.connection(false) }
     }
 
+    @Test fun headerStatusHasSinglePriority() {
+        assertEquals(HeaderStatus.Icon.BROKEN_LINK, HeaderStatus.select(true, EngineState.State.OFF, true))
+        assertEquals(HeaderStatus.Icon.ENGINE_OFF, HeaderStatus.select(false, EngineState.State.OFF, true))
+        assertEquals(HeaderStatus.Icon.ENGINE_OFF, HeaderStatus.select(false, EngineState.State.OFF, false))
+        assertEquals(HeaderStatus.Icon.ENGINE_UNKNOWN, HeaderStatus.select(false, EngineState.State.UNKNOWN, true))
+        assertEquals(HeaderStatus.Icon.APL, HeaderStatus.select(false, EngineState.State.RUNNING, true))
+        assertEquals(HeaderStatus.Icon.NONE, HeaderStatus.select(false, EngineState.State.RUNNING, false))
+    }
+
     @Test fun inventoryRequiresMatchingPedalMetadata() {
         val statuses = AplPidInventory.verify(listOf("49,0"), listOf("Accelerator Pedal D,Pedal,%,100,0"))
         assertEquals("metadata_present", statuses["pedal"])

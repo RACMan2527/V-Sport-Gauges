@@ -5,6 +5,7 @@ import android.content.Context
 /** Exactly one fuel sampler and file writer per app process. */
 object FuelMonitor {
     private var tracker: FuelTracker? = null
+    @Synchronized fun active(): Boolean = tracker != null
 
     @Synchronized fun dailyValue(id: String): Double? = tracker?.dailyValue(id)
     @Synchronized fun trip3Value(id: String): Double? = tracker?.trip3Value(id)

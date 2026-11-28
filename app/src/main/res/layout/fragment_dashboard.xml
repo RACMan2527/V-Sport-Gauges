@@ -80,7 +80,7 @@
             name="minMaxBelow"
             type="Boolean" />
 
-        <variable name="aplEnabled" type="boolean" />
+
     </data>
 
     <androidx.constraintlayout.widget.ConstraintLayout
@@ -180,7 +180,7 @@
                 android:text="&#160;•&#160;"
                 android:textColor="@android:color/white"
                 android:textSize="25sp"
-                android:visibility="@{aplEnabled || brokenLink ? View.VISIBLE : View.GONE}"
+                android:visibility="gone"
                 android:importantForAccessibility="no"
                 app:layout_constraintStart_toEndOf="@id/dashboardDirection"
                 app:layout_constraintTop_toTopOf="@id/dashboardDirection" />
@@ -190,26 +190,16 @@
                 android:layout_width="24dp"
                 android:layout_height="24dp"
                 android:translationY="3dp"
-                android:visibility="@{aplEnabled || brokenLink ? View.VISIBLE : View.GONE}"
+                android:visibility="gone"
                 app:layout_constraintStart_toEndOf="@id/connectionIndicatorSeparator"
                 app:layout_constraintTop_toTopOf="@id/dashboardDirection"
                 app:layout_constraintBottom_toBottomOf="@id/dashboardDirection">
 
                 <ImageView
-                    android:id="@+id/aplIndicator"
+                    android:id="@+id/statusIndicator"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:src="@drawable/apl_indicator"
-                    android:visibility="@{aplEnabled &amp;&amp; !brokenLink ? View.VISIBLE : View.INVISIBLE}"
-                    android:contentDescription="Automatic Performance Logging" />
-
-                <ImageView
-                    android:id="@+id/brokenLinkIndicator"
-                    android:layout_width="match_parent"
-                    android:layout_height="match_parent"
-                    android:contentDescription="@string/broken_link_description"
-                    android:src="@drawable/broken_link"
-                    android:visibility="@{brokenLink ? View.VISIBLE : View.GONE}" />
+                    android:visibility="gone" />
             </FrameLayout>
 
             <TextView

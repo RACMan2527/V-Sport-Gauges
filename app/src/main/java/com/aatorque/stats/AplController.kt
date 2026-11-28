@@ -39,10 +39,7 @@ class AplController(private val context: Context, private val torque: TorqueServ
     private var writerUsed = false
 
     private var lastEngineState: EngineState.State? = null
-    private var lastFallbackAt = -2000L
-    private val rpmWorker = java.util.concurrent.Executors.newSingleThreadExecutor()
-    private val fallbackBusy = java.util.concurrent.atomic.AtomicBoolean(false)
-    fun update(connected: Boolean, fuelAvailable: Boolean) {
+    fun update(connected: Boolean) {
         val enabled = AplStatus.enabled(context)
         if (!enabled || !connected || !PublicDocuments.hasFolderAccess(context)) {
             AplStatus.engineStandby = false
@@ -50,22 +47,7 @@ class AplController(private val context: Context, private val torque: TorqueServ
             stop(if (!enabled) "disabled" else if (!connected) "ecu_disconnected" else "folder_unavailable")
             return
         }
-        val now = android.os.SystemClock.elapsedRealtime()
-        val engine = EngineState.state(now)
-        if (!fuelAvailable && now - lastFallbackAt >= 2000L && fallbackBusy.compareAndSet(false, true)) {
-            lastFallbackAt = now
-            rpmWorker.execute {
-                try {
-                    val ts = torque.torqueService
-                    if (ts != null && ts.isConnectedToECU) {
-                        val rpm = ts.getPIDValuesAsDouble(arrayOf("0c,0")).firstOrNull()
-                        val token = ts.getPIDUpdateTime(arrayOf("0c,0")).firstOrNull() ?: 0L
-                        if (ts.isConnectedToECU) EngineState.observe(rpm, token,
-                            android.os.SystemClock.elapsedRealtime(), System.currentTimeMillis())
-                    }
-                } catch (_: Exception) { } finally { fallbackBusy.set(false) }
-            }
-        }
+        val engine = EngineState.state()
         if (lastEngineState != engine) {
             DiagnosticLog.event("APL_ENGINE_STATE", "old=$lastEngineState new=$engine")
             lastEngineState = engine
@@ -91,7 +73,6 @@ class AplController(private val context: Context, private val torque: TorqueServ
     }
 
     fun close() {
-        rpmWorker.shutdownNow()
         AplStatus.engineStandby = false
         stop("app_stopped")
         if (writerUsed) writer.close()

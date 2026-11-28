@@ -4,12 +4,15 @@ package com.aatorque.stats
 object EngineState {
     enum class State { DISCONNECTED, UNKNOWN, OFF, RUNNING }
     private var connected = false
+    private var known = false
+    @Synchronized fun connectionKnown(): Boolean = known
     private var token = 0L
     private var rpm = 0.0
     private var runningCount = 0
     private var observedAt = 0L
     private var sourceAge = 0L
     @Synchronized fun connection(value: Boolean) {
+        known = true
         if (connected == value) return
         connected = value
         token = 0L

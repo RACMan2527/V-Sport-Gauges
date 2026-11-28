@@ -76,22 +76,54 @@ open class DashboardFragment : AlbumArt() {
     private val aplIndicatorCheck = object : Runnable {
         override fun run() {
             if (!isAdded || !isResumed || !::binding.isInitialized) return
-            val enabled = AplStatus.enabled(requireContext())
+            renderHeaderStatus()
+            aplIndicatorHandler.postDelayed(this, 200L)
+        }
+    }
+    private var displayedHeaderIcon: HeaderStatus.Icon? = null
+    private fun renderHeaderStatus() {
+        val engine = EngineState.state()
+        val broken = (currentConnectionStatus == ConnectStatus.CONNECTING_TORQUE && torqueStartupTimedOut) ||
+            (currentConnectionStatus == ConnectStatus.CONNECTED &&
+                (communicationFaultActive || (EngineState.connectionKnown() && engine == EngineState.State.DISCONNECTED)))
+        val icon = HeaderStatus.select(broken, engine, AplStatus.enabled(requireContext()))
+        val image = binding.statusIndicator
+        val visible = if (icon == HeaderStatus.Icon.NONE) View.GONE else View.VISIBLE
+        binding.connectionIndicatorSlot.visibility = visible
+        binding.connectionIndicatorSeparator.visibility = visible
+        image.visibility = visible
+        if (displayedHeaderIcon != icon) {
+            displayedHeaderIcon = icon
+            when (icon) {
+                HeaderStatus.Icon.BROKEN_LINK -> image.setImageResource(R.drawable.broken_link)
+                HeaderStatus.Icon.ENGINE_OFF, HeaderStatus.Icon.ENGINE_UNKNOWN -> image.setImageResource(R.drawable.engine_status)
+                HeaderStatus.Icon.APL -> image.setImageResource(R.drawable.apl_indicator)
+                HeaderStatus.Icon.NONE -> image.setImageDrawable(null)
+            }
+            image.contentDescription = when (icon) {
+                HeaderStatus.Icon.BROKEN_LINK -> getString(R.string.broken_link_description)
+                HeaderStatus.Icon.ENGINE_OFF -> "Engine off (operating status, not a fault)"
+                HeaderStatus.Icon.ENGINE_UNKNOWN -> "Engine state unknown"
+                else -> null
+            }
+        }
+        image.alpha = if (icon == HeaderStatus.Icon.ENGINE_UNKNOWN) {
+            val phase = android.os.SystemClock.elapsedRealtime() % 1600L / 1600.0
+            (0.65 + 0.35 * kotlin.math.cos(phase * 2.0 * Math.PI)).toFloat()
+        } else 1f
+        if (icon == HeaderStatus.Icon.APL) {
             val state = AplStatus.state()
-            if (binding.aplEnabled != enabled) binding.aplEnabled = enabled
-            val color = when (state) {
+            image.setColorFilter(when (state) {
                 AplRecorder.State.WAITING -> Color.GRAY
                 AplRecorder.State.INITIALIZING -> Color.YELLOW
                 AplRecorder.State.ARMED -> Color.rgb(141, 188, 232)
                 AplRecorder.State.RECORDING -> Color.RED
                 AplRecorder.State.SAVED -> Color.GREEN
-            }
-            // Tint the entire telemetry waveform to indicate the current APL state.
-            binding.aplIndicator.setColorFilter(color)
-            binding.aplIndicator.contentDescription = "Automatic Performance Logging: " + state.name
-            aplIndicatorHandler.postDelayed(this, 200L)
-        }
+            })
+            image.contentDescription = "Automatic Performance Logging: " + state.name
+        } else image.clearColorFilter()
     }
+
     private val tankSummaryCheck = object : Runnable {
         override fun run() {
             if (isResumed && tankSummaryOverlay == null && quickOverlay == null) {
@@ -530,6 +562,7 @@ open class DashboardFragment : AlbumArt() {
     ): View? {
         Timber.i("onCreateView")
         binding = FragmentDashboardBinding.inflate(inflater, container, false)
+        displayedHeaderIcon = null
         binding.connectingEcu = false
         binding.brokenLink = false
         torqueStartupTimedOut = false
@@ -1099,7 +1132,7 @@ open class DashboardFragment : AlbumArt() {
         PerformancePollingOwnership.foregroundOpened()
         Timber.d("onResume")
         super.onResume()
-        if (AplStatus.enabled(requireContext()) && PublicDocuments.hasFolderAccess(requireContext())) AplStatus.requestService(requireContext())
+        AplStatus.requestService(requireContext())
         aplIndicatorHandler.removeCallbacks(aplIndicatorCheck)
         aplIndicatorHandler.post(aplIndicatorCheck)
         tankSummaryHandler.removeCallbacks(tankSummaryCheck)
