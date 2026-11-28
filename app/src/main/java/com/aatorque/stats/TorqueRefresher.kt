@@ -232,6 +232,8 @@ class TorqueRefresher {
                 }
                 val checked = PidValidator.inspect(ts, pid, raw,
                     consumer = if (modifierEnabled) "modifier-${System.identityHashCode(torqueData)}" else "gauges")
+                if (pid == AplPidInventory.RPM && checked.quality != PidValidator.Quality.SUSPECT)
+                    EngineState.observe(raw, checked.updateTime, android.os.SystemClock.elapsedRealtime(), System.currentTimeMillis())
                 requestQuality = checked
                 PidSampleCache.publish(aplGeneration, pid, raw, checked.updateTime, checked.quality)
                 raw to checked
@@ -316,7 +318,7 @@ class TorqueRefresher {
      * RPM is checked only at the beginning and end of the window.
      */
     private fun validateMinimumIfNeeded(service: TorqueService, gauge: TorqueData, candidate: Double) {
-        if (!pollingEnabled || gauge.modifierWindowIncomplete) return
+        if (!pollingEnabled || gauge.modifierWindowIncomplete || EngineState.state() != EngineState.State.RUNNING) return
         synchronized(pendingMinimums) {
             // Existing windows consume only readings from this gauge's normal PID polling.
             val existing = pendingMinimums[gauge]

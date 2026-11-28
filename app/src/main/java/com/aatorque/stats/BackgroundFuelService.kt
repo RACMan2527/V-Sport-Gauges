@@ -46,7 +46,8 @@ class BackgroundFuelService : Service() {
                 else -> "ECU_DISCONNECTED"
             }
             activateFuelIfReady(now)
-            apl.update(state == "ECU_CONNECTED")
+            EngineState.connection(state == "ECU_CONNECTED")
+            apl.update(state == "ECU_CONNECTED", fuelOpened)
             if (fuelOpened && state == "ECU_CONNECTED" && PerformancePollingOwnership.shouldPollDashboardOne()) performance.start()
             else performance.stop()
             BatteryStats.sample(this@BackgroundFuelService, monitoring = true,
@@ -107,6 +108,7 @@ class BackgroundFuelService : Service() {
         BatteryStats.interrupted(this)
         handler.removeCallbacks(check)
         handler.removeCallbacks(batteryReport)
+        EngineState.connection(false)
         apl.close()
         if (fuelOpened) PerformancePollingOwnership.unregisterBackgroundStop()
         performance.stop()

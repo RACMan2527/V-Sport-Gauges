@@ -231,11 +231,11 @@ open class DashboardFragment : AlbumArt() {
         val samples = PidSampleCache.generation()?.let { PidSampleCache.snapshot(it) }.orEmpty()
         val fresh = samples.values.count { it.quality != PidValidator.Quality.SUSPECT &&
             it.value?.isFinite() == true && (it.ageMs(now) ?: Long.MAX_VALUE) <= it.freshnessLimitMs }
-        val state = if (AplStatus.enabled(requireContext())) AplStatus.state().name else "OFF"
+        val state = if (!AplStatus.enabled(requireContext())) "OFF" else if (AplStatus.engineStandby) "STANDBY" else AplStatus.state().name
         val hz = stats?.hz?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
         val rate = acq?.requestsPerSec?.let { String.format(java.util.Locale.US, "%.1f", it) } ?: "—"
         val saved = stats?.lastSaved?.let { java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date(it)) } ?: "—"
-        val reason = stats?.reason ?: if (state == "OFF") "Disabled" else "Waiting for ECU / folder / service"
+        val reason = stats?.reason ?: if (state == "OFF") "Disabled" else if (state == "STANDBY") "Engine: ${EngineState.state()}" else "Waiting for ECU / folder / service"
         return "APL: $state  |  Buffer ${stats?.buffer ?: 0}/50  |  Fresh $fresh/10  |  $hz Hz\n" +
             "Readiness: $reason\n" +
             "Mode: ${acq?.mode ?: "—"}  |  Supplemental $rate PID/s  |  Skips ${acq?.skipped ?: 0}\n" +

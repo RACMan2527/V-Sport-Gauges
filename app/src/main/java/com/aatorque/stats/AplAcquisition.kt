@@ -157,6 +157,8 @@ class AplAcquisition(private val torque: TorqueService) {
                     value >= bounds.minimum - 1.0 && value <= bounds.maximum + 1.0) &&
                     (pid != AplPidInventory.RPM || value in 0.0..7000.0) &&
                     (pid !in setOf("49,0", "11,0", "04,0") || value in 0.0..100.0)
+                if (acceptable && pid == AplPidInventory.RPM) EngineState.observe(value, token,
+                    SystemClock.elapsedRealtime(), System.currentTimeMillis())
                 PidSampleCache.publish(session, pid, value, token,
                     if (acceptable) PidValidator.Quality.VALID else PidValidator.Quality.SUSPECT)
             }

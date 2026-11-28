@@ -109,6 +109,23 @@ class AplRegressionTest {
         } finally { PidSampleCache.endSession(session) }
     }
 
+    @Test fun engineStateDoesNotRenewRepeatedRpm() {
+        val epoch = 1_800_000_000_000L
+        EngineState.connection(false)
+        EngineState.connection(true)
+        try {
+            assertEquals(EngineState.State.UNKNOWN, EngineState.state(0))
+            EngineState.observe(0.0, epoch, 0, epoch)
+            assertEquals(EngineState.State.OFF, EngineState.state(0))
+            EngineState.observe(600.0, epoch + 1000, 1000, epoch + 1000)
+            assertEquals(EngineState.State.UNKNOWN, EngineState.state(1000))
+            EngineState.observe(600.0, epoch + 1500, 1500, epoch + 1500)
+            assertEquals(EngineState.State.RUNNING, EngineState.state(1500))
+            EngineState.observe(600.0, epoch + 1500, 7000, epoch + 7000)
+            assertEquals(EngineState.State.UNKNOWN, EngineState.state(7000))
+        } finally { EngineState.connection(false) }
+    }
+
     @Test fun inventoryRequiresMatchingPedalMetadata() {
         val statuses = AplPidInventory.verify(listOf("49,0"), listOf("Accelerator Pedal D,Pedal,%,100,0"))
         assertEquals("metadata_present", statuses["pedal"])

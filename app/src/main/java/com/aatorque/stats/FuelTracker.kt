@@ -689,16 +689,6 @@ class FuelTracker(context: Context, private var service: TorqueService) {
                 "sessionMiles=${distance?.value} sessionMpg=${mpg?.value} directGallons=$directGallons derivedGallons=$derivedGallons deltaGallons=$difference deltaPct=$differencePct directMpg=$directMpg")
         }
 
-        // Level availability gates only refill detection, not any trip totals.
-        val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
-            ?: run {
-                if (now - lastPersistMs > 30_000L) {
-                    save()
-                    lastPersistMs = now
-                }
-                return
-            }
-
         // Only an observed engine-off -> running transition grants the immediate
         // post-start refill path. App/AA reconnects never count as engine starts.
         val aplGeneration = PidSampleCache.generation()
@@ -707,6 +697,8 @@ class FuelTracker(context: Context, private var service: TorqueService) {
         val rpm = read(ts, "0c,0")?.takeIf { it <= 7000.0 }
         if (rpm != null) {
             val rpmQuality = PidValidator.inspect(ts, "0c,0", rpm, 0.0, 7000.0, "fuel_rpm")
+            if (rpmQuality.quality != PidValidator.Quality.SUSPECT)
+                EngineState.observe(rpm, rpmQuality.updateTime, SystemClock.elapsedRealtime(), System.currentTimeMillis())
             PidSampleCache.publish(aplGeneration, AplPidInventory.RPM, rpm, rpmQuality.updateTime, rpmQuality.quality)
             if (rpmQuality.quality == PidValidator.Quality.VALID &&
                 rpmQuality.updateTime != lastRpmToken) {
@@ -722,6 +714,16 @@ class FuelTracker(context: Context, private var service: TorqueService) {
             }
         }
         PidSampleCache.completed(aplGeneration, AplPidInventory.RPM, android.os.SystemClock.elapsedRealtime() - aplRpmStarted)
+        // Level availability gates only refill detection, not any trip totals.
+        val level = read(ts, "2f,0")?.takeIf { it <= 100.0 }
+            ?: run {
+                if (now - lastPersistMs > 30_000L) {
+                    save()
+                    lastPersistMs = now
+                }
+                return
+            }
+
         // Fuel readings must represent distinct ECU updates, not cached API returns.
         val fuelQuality = PidValidator.inspect(ts, "2f,0", level, 0.0, 100.0, "fuel")
         if (fuelQuality.updateTime <= 0L && !warnedNoFuelTimestamp) {
